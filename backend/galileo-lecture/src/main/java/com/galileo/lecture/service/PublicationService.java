@@ -147,6 +147,40 @@ public class PublicationService {
     /**
      * Convertir une entité Publication en DTO
      */
+    /**
+     * Créer une publication à partir d'une soumission validée
+     */
+    @Transactional
+    public Long creerPublicationDepuisSoumission(com.galileo.lecture.dto.PublicationDepuisSoumissionDTO dto) {
+        log.info("Création d'une publication depuis la soumission {}", dto.getSoumissionId());
+
+        // Convertir les listes en chaînes de caractères
+        String coAuteursStr = dto.getCoAuteurs() != null 
+                ? String.join(", ", dto.getCoAuteurs()) 
+                : null;
+        String motsClesStr = dto.getMotsCles() != null 
+                ? String.join(", ", dto.getMotsCles()) 
+                : null;
+
+        Publication publication = Publication.builder()
+                .titre(dto.getTitre())
+                .resume(dto.getResume())
+                .auteurPrincipal(dto.getAuteurPrincipal())
+                .coAuteurs(coAuteursStr)
+                .domaine(dto.getDomaineRecherche())
+                .motsCles(motsClesStr)
+                .urlPdf(dto.getUrlPdf())
+                .publiee(true)
+                .nombreVues(0)
+                .nombreTelechargements(0)
+                .build();
+
+        Publication saved = publicationRepository.save(publication);
+        log.info("Publication {} créée depuis soumission {}", saved.getId(), dto.getSoumissionId());
+
+        return saved.getId();
+    }
+
     private PublicationDTO convertirEnDTO(Publication publication) {
         return PublicationDTO.builder()
                 .id(publication.getId())

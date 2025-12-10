@@ -5,7 +5,7 @@ spring:
   application:
     name: galileo-ecriture
   datasource:
-    url: jdbc:postgresql://db-ecriture:5432/galileo_ecriture
+    url: jdbc:postgresql://localhost:5433/db_galileo_ecriture
     username: galileo
     password: galileo_password
     driver-class-name: org.postgresql.Driver
@@ -21,24 +21,28 @@ spring:
     multipart:
       max-file-size: 50MB
       max-request-size: 50MB
+      enabled: true
 
-# AWS S3 Configuration
-aws:
-  s3:
-    region: ${AWS_REGION:us-east-1}
-    bucket-name: ${AWS_S3_BUCKET:galileo-publications}
-    access-key: ${AWS_ACCESS_KEY:}
-    secret-key: ${AWS_SECRET_KEY:}
+# Cloudflare R2 Configuration (S3-compatible)
+cloudflare:
+  r2:
+    endpoint: https://c298de3d6c8cfa623f8a66bd2add5c36.r2.cloudflarestorage.com
+    account-id: c298de3d6c8cfa623f8a66bd2add5c36
+    bucket: galileo
+    access-key: ${CLOUDFLARE_R2_ACCESS_KEY:}
+    secret-key: ${CLOUDFLARE_R2_SECRET_KEY:}
+    region: auto
 
 # SendGrid Configuration
 sendgrid:
   api-key: ${SENDGRID_API_KEY:}
   from-email: ${SENDGRID_FROM_EMAIL:noreply@galileo.com}
+  admin-email: ${ADMIN_EMAIL:admin@galileo.com}
 
 # Service Lecture URL (pour Feign)
 services:
   lecture:
-    url: http://service-lecture:8081
+    url: http://localhost:8081
 
 # Actuator
 management:

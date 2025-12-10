@@ -148,4 +148,17 @@ public class PublicationController {
             "validite", "30 minutes"
         ));
     }
+
+    /**
+     * POST /publications/depuis-soumission
+     * Créer une publication depuis une soumission validée (appel interne depuis Service Écriture)
+     */
+    @PostMapping("/depuis-soumission")
+    public ResponseEntity<Long> creerPublicationDepuisSoumission(
+            @RequestBody com.galileo.lecture.dto.PublicationDepuisSoumissionDTO dto) {
+        
+        log.info("Création d'une publication depuis soumission {}", dto.getSoumissionId());
+        Long publicationId = publicationService.creerPublicationDepuisSoumission(dto);
+        return ResponseEntity.ok(publicationId);
+    }
 }
