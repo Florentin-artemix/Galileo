@@ -1,0 +1,72 @@
+version: '3.8'
+
+services:
+  # Base de données pour le service de lecture (public)
+  db-lecture:
+    image: postgres:16-alpine
+    container_name: galileo-db-lecture
+    environment:
+      POSTGRES_DB: db_galileo_lecture
+      POSTGRES_USER: galileo_user
+      POSTGRES_PASSWORD: galileo_pass_2025
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-lecture-data:/var/lib/postgresql/data
+    networks:
+      - galileo-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U galileo_user -d db_galileo_lecture"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Base de données pour le service d'écriture (workflow admin)
+  db-ecriture:
+    image: postgres:16-alpine
+    container_name: galileo-db-ecriture
+    environment:
+      POSTGRES_DB: db_galileo_ecriture
+      POSTGRES_USER: galileo_user
+      POSTGRES_PASSWORD: galileo_pass_2025
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres-ecriture-data:/var/lib/postgresql/data
+    networks:
+      - galileo-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U galileo_user -d db_galileo_ecriture"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Elasticsearch pour la recherche avancée
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+    container_name: galileo-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    volumes:
+      - elasticsearch-data:/usr/share/elasticsearch/data
+    networks:
+      - galileo-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+volumes:
+  postgres-lecture-data:
+  postgres-ecriture-data:
+  elasticsearch-data:
+
+networks:
+  galileo-network:
+    driver: bridge

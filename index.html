@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>GALILEO - Gisement d’ambitions et de leaders innovants</title>
+    <meta name="description" content="Cadre d’excellence de la Faculté Polytechnique (Université Mapon). Recherche appliquée, mentorat et formation professionnelle pour former des ingénieurs et chercheurs prêts à impacter la RDC.">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700;800&display=swap" rel="stylesheet">
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            colors: {
+              // Light Theme
+              'light-bg': '#FFFFFF',
+              'light-card': '#F8F9FA',
+              'light-text': '#212529',
+              'light-text-secondary': '#495057',
+              'light-accent': '#00838F', // Higher contrast
+              'light-accent-hover': '#006069', // Darker hover
+              'light-border': '#E9ECEF',
+
+              // Dark Theme (mapped from original)
+              'navy': '#0B1E38',
+              'navy-dark': '#081425',
+              'teal': '#00BFA6',
+              'off-white': '#F5F6FA',
+              'dark-border': 'rgba(0, 191, 166, 0.2)',
+            },
+            fontFamily: {
+              'poppins': ['Poppins', 'sans-serif'],
+              'inter': ['Inter', 'sans-serif'],
+            },
+            animation: {
+              'glow': 'glow 4s ease-in-out infinite',
+              'slide-in-up': 'slide-in-up 0.7s ease-out forwards',
+            },
+            keyframes: {
+              glow: {
+                '0%, 100%': { opacity: '0.1' },
+                '50%': { opacity: '0.3' },
+              },
+              'slide-in-up': {
+                '0%': { transform: 'translateY(20px)', opacity: '0' },
+                '100%': { transform: 'translateY(0)', opacity: '1' },
+              }
+            }
+          }
+        }
+      }
+    </script>
+    <style>
+      html {
+        scroll-behavior: smooth;
+      }
+      body {
+        background-color: #FFFFFF;
+        color: #212529;
+      }
+      html.dark body {
+        background-color: #0B1E38;
+        color: #F5F6FA;
+      }
+    </style>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      "name": "GALILEO - Revue Scientifique Étudiante",
+      "url": "https://aistudio.google.com",
+      "logo": "https://aistudio.google.com/vite.svg",
+      "contactPoint": {
+        "@type": "ContactPoint",
+        "email": "revuegalileo@gmail.com",
+        "contactType": "customer support"
+      }
+    }
+    </script>
+  <script type="importmap">
+{
+  "imports": {
+    "react-router-dom": "https://aistudiocdn.com/react-router-dom@^7.9.6",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "react-dropzone": "https://aistudiocdn.com/react-dropzone@^14.3.8",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.29.1"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
+  </body>
+</html>

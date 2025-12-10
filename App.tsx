@@ -1,0 +1,83 @@
+
+import React, { useEffect } from 'react';
+import { HashRouter, Routes, Route, useLocation } from 'react-router-dom';
+import { LanguageProvider } from './contexts/LanguageContext';
+import { PublicationsProvider } from './contexts/PublicationsContext';
+import { ThemeProvider, useTheme } from './contexts/ThemeContext';
+import Header from './components/Header';
+import Footer from './components/Footer';
+import HomePage from './pages/HomePage';
+import AboutPage from './pages/AboutPage';
+import TeamPage from './pages/TeamPage';
+import PublicationsPage from './pages/PublicationsPage';
+import SinglePublicationPage from './pages/SinglePublicationPage';
+import BlogPage from './pages/BlogPage';
+import SingleBlogPostPage from './pages/SingleBlogPostPage';
+import EventsPage from './pages/EventsPage';
+import SubmissionPage from './pages/SubmissionPage';
+import ContactPage from './pages/ContactPage';
+import ResourcesPage from './pages/ResourcesPage';
+
+const ScrollToTop: React.FC = () => {
+  const { pathname } = useLocation();
+
+  React.useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
+
+  return null;
+};
+
+const ThemeEffect: React.FC = () => {
+  const { theme } = useTheme();
+  useEffect(() => {
+    const root = window.document.documentElement;
+    root.classList.remove(theme === 'dark' ? 'light' : 'dark');
+    root.classList.add(theme);
+  }, [theme]);
+  return null;
+};
+
+const AppContent: React.FC = () => {
+  return (
+    <HashRouter>
+      <ScrollToTop />
+      <ThemeEffect />
+      <div className="bg-light-bg dark:bg-navy font-inter text-light-text dark:text-off-white min-h-screen flex flex-col transition-colors duration-300">
+        <Header />
+        <main className="flex-grow">
+          <Routes>
+            <Route path="/" element={<HomePage />} />
+            <Route path="/about" element={<AboutPage />} />
+            <Route path="/team" element={<TeamPage />} />
+            <Route path="/publications" element={<PublicationsPage />} />
+            <Route path="/publication/:id" element={<SinglePublicationPage />} />
+            <Route path="/blog" element={<BlogPage />} />
+            <Route path="/blog/:slug" element={<SingleBlogPostPage />} />
+            <Route path="/events" element={<EventsPage />} />
+            <Route path="/submit" element={<SubmissionPage />} />
+            <Route path="/contact" element={<ContactPage />} />
+            <Route path="/resources" element={<ResourcesPage />} />
+          </Routes>
+        </main>
+        <Footer />
+      </div>
+    </HashRouter>
+  );
+};
+
+
+const App: React.FC = () => {
+  return (
+    <ThemeProvider>
+      <LanguageProvider>
+        <PublicationsProvider>
+          <AppContent />
+        </PublicationsProvider>
+      </LanguageProvider>
+    </ThemeProvider>
+  );
+};
+
+
+export default App;
