@@ -1,12 +1,16 @@
 package com.galileo.lecture.service;
 
 import com.galileo.lecture.dto.PublicationDTO;
+import com.galileo.lecture.dto.RecherchePublicationDTO;
 import com.galileo.lecture.entity.Publication;
 import com.galileo.lecture.repository.PublicationRepository;
+import com.galileo.lecture.specification.PublicationSpecification;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -105,6 +109,39 @@ public class PublicationService {
         Publication saved = publicationRepository.save(publication);
         log.info("Nouvelle publication créée avec l'ID: {}", saved.getId());
         return convertirEnDTO(saved);
+    }
+
+    /**
+     * Recherche avancée avec filtres multiples
+     */
+    public Page<PublicationDTO> rechercheAvancee(RecherchePublicationDTO criteres) {
+        Specification<Publication> spec = PublicationSpecification.estPubliee();
+        
+        // Appliquer les filtres
+        if (criteres.getQuery() != null && !criteres.getQuery().isEmpty()) {
+            spec = spec.and(PublicationSpecification.rechercheGlobale(criteres.getQuery()));
+        }
+        if (criteres.getDomaine() != null && !criteres.getDomaine().isEmpty()) {
+            spec = spec.and(PublicationSpecification.parDomaine(criteres.getDomaine()));
+        }
+        if (criteres.getAuteur() != null && !criteres.getAuteur().isEmpty()) {
+            spec = spec.and(PublicationSpecification.parAuteur(criteres.getAuteur()));
+        }
+        if (criteres.getMotsCles() != null && !criteres.getMotsCles().isEmpty()) {
+            spec = spec.and(PublicationSpecification.parMotsCles(criteres.getMotsCles()));
+        }
+        if (criteres.getTitre() != null && !criteres.getTitre().isEmpty()) {
+            spec = spec.and(PublicationSpecification.parTitre(criteres.getTitre()));
+        }
+        if (criteres.getMinVues() != null) {
+            spec = spec.and(PublicationSpecification.minimumVues(criteres.getMinVues()));
+        }
+        
+        // Pagination et tri
+        Sort sort = Sort.by(Sort.Direction.fromString(criteres.getDirection()), criteres.getSortBy());
+        Pageable pageable = PageRequest.of(criteres.getPage(), criteres.getSize(), sort);
+        
+        return publicationRepository.findAll(spec, pageable).map(this::convertirEnDTO);
     }
 
     /**

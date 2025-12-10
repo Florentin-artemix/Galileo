@@ -22,10 +22,12 @@ spring:
 # Les URLs seront stockées directement dans PostgreSQL
 cloudflare:
   r2:
-    endpoint: ${CLOUDFLARE_R2_ENDPOINT:}
+    endpoint: https://c298de3d6c8cfa623f8a66bd2add5c36.r2.cloudflarestorage.com
+    account-id: c298de3d6c8cfa623f8a66bd2add5c36
     access-key: ${CLOUDFLARE_R2_ACCESS_KEY:}
     secret-key: ${CLOUDFLARE_R2_SECRET_KEY:}
-    bucket-name: ${CLOUDFLARE_R2_BUCKET:galileo-publications}
+    bucket-name: galileo
+    public-url: ${CLOUDFLARE_R2_PUBLIC_URL:https://pub-galileo.r2.dev}
 
 # Actuator
 management:

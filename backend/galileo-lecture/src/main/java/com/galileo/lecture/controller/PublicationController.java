@@ -24,6 +24,7 @@ import java.util.List;
 public class PublicationController {
 
     private final PublicationService publicationService;
+    private final com.galileo.lecture.service.CloudflareR2Service cloudflareR2Service;
 
     /**
      * GET /publications
@@ -109,5 +110,42 @@ public class PublicationController {
         log.info("Enregistrement du téléchargement pour la publication ID: {}", id);
         publicationService.enregistrerTelechargement(id);
         return ResponseEntity.ok().build();
+    }
+
+    /**
+     * POST /publications/recherche
+     * Recherche avancée avec filtres multiples
+     */
+    @PostMapping("/recherche")
+    public ResponseEntity<Page<PublicationDTO>> rechercheAvancee(
+            @RequestBody com.galileo.lecture.dto.RecherchePublicationDTO criteres
+    ) {
+        log.info("Recherche avancée: {}", criteres);
+        Page<PublicationDTO> publications = publicationService.rechercheAvancee(criteres);
+        return ResponseEntity.ok(publications);
+    }
+
+    /**
+     * GET /publications/{id}/telecharger
+     * Générer une URL signée temporaire pour télécharger le PDF
+     */
+    @GetMapping("/{id}/telecharger")
+    public ResponseEntity<java.util.Map<String, String>> genererUrlTelechargement(@PathVariable Long id) {
+        log.info("Génération d'URL de téléchargement pour la publication ID: {}", id);
+        
+        // Récupérer la publication
+        PublicationDTO publication = publicationService.obtenirPublicationParId(id);
+        
+        // Extraire la clé du fichier depuis l'URL stockée (ex: publications/2024/file.pdf)
+        String urlPdf = publication.getUrlPdf();
+        String key = urlPdf.substring(urlPdf.lastIndexOf("/galileo/") + 9); // Extraire la clé après /galileo/
+        
+        // Générer URL signée valable 30 minutes
+        String urlSignee = cloudflareR2Service.genererUrlSignee(key, 30);
+        
+        return ResponseEntity.ok(java.util.Map.of(
+            "url", urlSignee,
+            "validite", "30 minutes"
+        ));
     }
 }
