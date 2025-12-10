@@ -1,0 +1,93 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: galileo-gateway
+  
+  cloud:
+    gateway:
+      routes:
+        # Routes publiques (pas d'authentification requise)
+        
+        # Service Lecture - Publications publiques
+        - id: lecture-publications-public
+          uri: http://localhost:8081
+          predicates:
+            - Path=/api/publications/**
+            - Method=GET
+          filters:
+            - StripPrefix=1
+        
+        # Service Lecture - Blog public
+        - id: lecture-blog-public
+          uri: http://localhost:8081
+          predicates:
+            - Path=/api/blog/**
+            - Method=GET
+          filters:
+            - StripPrefix=1
+        
+        # Service Lecture - Événements publics
+        - id: lecture-events-public
+          uri: http://localhost:8081
+          predicates:
+            - Path=/api/events/**
+            - Method=GET
+          filters:
+            - StripPrefix=1
+        
+        # Routes protégées (authentification Firebase requise)
+        
+        # Service Écriture - Soumissions étudiants
+        - id: ecriture-soumissions
+          uri: http://localhost:8082
+          predicates:
+            - Path=/api/soumissions/**
+          filters:
+            - StripPrefix=1
+            - name: FirebaseAuthenticationFilter
+        
+        # Service Écriture - Administration
+        - id: ecriture-admin
+          uri: http://localhost:8082
+          predicates:
+            - Path=/api/admin/**
+          filters:
+            - StripPrefix=1
+            - name: FirebaseAuthenticationFilter
+        
+        # Actuator endpoints
+        - id: actuator
+          uri: http://localhost:8080
+          predicates:
+            - Path=/actuator/**
+      
+      # Configuration globale
+      default-filters:
+        - DedupeResponseHeader=Access-Control-Allow-Credentials Access-Control-Allow-Origin
+      
+      globalcors:
+        add-to-simple-url-handler-mapping: true
+
+# Firebase configuration
+firebase:
+  credentials:
+    path: ${FIREBASE_CREDENTIALS_PATH:config/firebase-credentials.json}
+
+# Actuator endpoints
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
+
+# Logging
+logging:
+  level:
+    root: INFO
+    com.galileo.gateway: DEBUG
+    org.springframework.cloud.gateway: DEBUG

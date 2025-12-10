@@ -5,9 +5,9 @@ spring:
   application:
     name: galileo-lecture
   datasource:
-    url: jdbc:postgresql://db-lecture:5432/galileo_lecture
-    username: galileo
-    password: galileo_password
+    url: jdbc:postgresql://localhost:5432/db_galileo_lecture
+    username: galileo_user
+    password: galileo_pass_2025
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
@@ -18,13 +18,14 @@ spring:
         dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: true
 
-# AWS S3 Configuration
-aws:
-  s3:
-    region: ${AWS_REGION:us-east-1}
-    bucket-name: ${AWS_S3_BUCKET:galileo-publications}
-    access-key: ${AWS_ACCESS_KEY:}
-    secret-key: ${AWS_SECRET_KEY:}
+# Cloudflare R2 Configuration (compatible S3)
+# Les URLs seront stockées directement dans PostgreSQL
+cloudflare:
+  r2:
+    endpoint: ${CLOUDFLARE_R2_ENDPOINT:}
+    access-key: ${CLOUDFLARE_R2_ACCESS_KEY:}
+    secret-key: ${CLOUDFLARE_R2_SECRET_KEY:}
+    bucket-name: ${CLOUDFLARE_R2_BUCKET:galileo-publications}
 
 # Actuator
 management:
