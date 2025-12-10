@@ -456,9 +456,184 @@ cd /workspaces/Galileo/backend
 
 ---
 
+## 🔍 API de Recherche Elasticsearch (Port 8081)
+
+### Recherche de publications
+
+#### Recherche full-text
+```http
+GET /api/search/publications?q=machine+learning&page=0&size=10
+```
+
+**Réponse:**
+```json
+{
+  "content": [
+    {
+      "id": "1",
+      "publicationId": 1,
+      "titre": "Introduction au Machine Learning",
+      "resume": "...",
+      "auteurPrincipal": "Dr. Martin",
+      "domaine": "IA",
+      "motsCles": ["ML", "IA"],
+      "datePublication": "2024-01-15T10:00:00",
+      "nombreVues": 150,
+      "nombreTelechargements": 45
+    }
+  ],
+  "totalElements": 42,
+  "totalPages": 5,
+  "size": 10,
+  "number": 0
+}
+```
+
+#### Recherche avancée avec filtres
+```http
+GET /api/search/publications/advanced?q=deep+learning&domaine=IA&auteur=Dr.+Martin&page=0&size=10
+```
+
+#### Recherche par domaine
+```http
+GET /api/search/publications/domain/IA?page=0&size=10
+```
+
+#### Recherche par auteur
+```http
+GET /api/search/publications/author/Dr.+Martin?page=0&size=10
+```
+
+#### Autocomplete (suggestions)
+```http
+GET /api/search/publications/suggest?prefix=machi
+```
+
+**Réponse:**
+```json
+[
+  "Machine Learning Basics",
+  "Machine Vision Applications",
+  "Machines et Société"
+]
+```
+
+#### Publications similaires
+```http
+GET /api/search/publications/123/similar?limit=5
+```
+
+### Recherche d'articles de blog
+
+#### Recherche full-text
+```http
+GET /api/search/blog?q=intelligence+artificielle&page=0&size=10
+```
+
+#### Recherche par catégorie
+```http
+GET /api/search/blog/category/Innovation?page=0&size=10
+```
+
+#### Autocomplete
+```http
+GET /api/search/blog/suggest?prefix=intel
+```
+
+### Agrégations et statistiques
+
+#### Statistiques par domaine
+```http
+GET /api/search/aggregations/domains
+```
+
+**Réponse:**
+```json
+{
+  "IA": 42,
+  "Physique": 38,
+  "Mathématiques": 25,
+  "Biologie": 18
+}
+```
+
+#### Top auteurs
+```http
+GET /api/search/aggregations/authors?limit=10
+```
+
+**Réponse:**
+```json
+{
+  "Dr. Martin": 15,
+  "Prof. Dupont": 12,
+  "Dr. Bernard": 10
+}
+```
+
+#### Statistiques des catégories de blog
+```http
+GET /api/search/aggregations/blog-categories
+```
+
+**Réponse:**
+```json
+{
+  "Innovation": 23,
+  "Recherche": 18,
+  "Événements": 12
+}
+```
+
+### Indexation (ADMIN uniquement)
+
+#### Réindexation complète
+```http
+POST /api/search/reindex
+```
+
+**Réponse:**
+```json
+{
+  "status": "success",
+  "message": "Réindexation complète terminée avec succès"
+}
+```
+
+#### Indexer une publication
+```http
+POST /api/search/index/publication/123
+```
+
+#### Indexer un article de blog
+```http
+POST /api/search/index/blog/456
+```
+
+### Fonctionnalités de recherche
+
+- **Full-text search** : Recherche dans titre, résumé et contenu complet
+- **Scoring avancé** : Titre x3, résumé x2, contenu x1
+- **Analyseur français** : Stemming et stop words
+- **Autocomplete** : Suggestions en temps réel
+- **Agrégations** : Statistiques par domaine, auteur, catégorie
+- **Publications similaires** : Basé sur mots-clés communs
+- **Filtres combinés** : Texte + domaine + auteur
+- **Indexation automatique** : Lors de création/modification
+
+---
+
 ## 🔧 Configuration
 
 ### Variables d'environnement
+
+#### Service Lecture
+```bash
+# Elasticsearch
+ELASTICSEARCH_URIS=http://localhost:9200
+ELASTICSEARCH_CONNECTION_TIMEOUT=5s
+ELASTICSEARCH_SOCKET_TIMEOUT=30s
+```
 
 #### Service Écriture
 ```bash
@@ -485,4 +660,4 @@ GOOGLE_APPLICATION_CREDENTIALS=/path/to/firebase-credentials.json
 Pour toute question ou problème :
 - 📧 Email : support@galileo.com
 - 📝 Issues : https://github.com/Florentin-artemix/Galileo/issues
-- 📚 Documentation : `PHASE_3_COMPLETE.md`
+- 📚 Documentation : `PHASE_4_COMPLETE.md`, `PHASE_5_COMPLETE.md`

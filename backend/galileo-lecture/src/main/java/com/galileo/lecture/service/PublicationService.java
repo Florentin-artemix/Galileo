@@ -27,6 +27,7 @@ import java.util.stream.Collectors;
 public class PublicationService {
 
     private final PublicationRepository publicationRepository;
+    private final IndexationService indexationService;
 
     /**
      * Récupérer toutes les publications publiées avec pagination
@@ -108,6 +109,10 @@ public class PublicationService {
     public PublicationDTO creerPublication(Publication publication) {
         Publication saved = publicationRepository.save(publication);
         log.info("Nouvelle publication créée avec l'ID: {}", saved.getId());
+        
+        // Indexer automatiquement dans Elasticsearch
+        indexationService.indexPublication(saved.getId());
+        
         return convertirEnDTO(saved);
     }
 
@@ -177,6 +182,9 @@ public class PublicationService {
 
         Publication saved = publicationRepository.save(publication);
         log.info("Publication {} créée depuis soumission {}", saved.getId(), dto.getSoumissionId());
+
+        // Indexer automatiquement dans Elasticsearch
+        indexationService.indexPublication(saved.getId());
 
         return saved.getId();
     }

@@ -17,6 +17,7 @@ import java.util.stream.Collectors;
 public class ArticleBlogService {
 
     private final ArticleBlogRepository articleBlogRepository;
+    private final IndexationService indexationService;
 
     public List<ArticleBlogDTO> obtenirTousLesArticles() {
         return articleBlogRepository.findByPublieTrue()
@@ -32,6 +33,10 @@ public class ArticleBlogService {
                 .orElseThrow(() -> new RuntimeException("Article non trouvé"));
         
         articleBlogRepository.incrementerVues(id);
+        
+        // Réindexer pour mettre à jour le compteur de vues
+        indexationService.indexBlogArticle(id);
+        
         return convertirEnDTO(article);
     }
 
