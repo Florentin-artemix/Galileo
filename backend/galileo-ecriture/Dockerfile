@@ -14,11 +14,23 @@ RUN mvn clean package -DskipTests
 FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
 
+# Créer un utilisateur non-root pour la sécurité
+RUN addgroup -S spring && adduser -S spring -G spring
+USER spring:spring
+
 # Copier le jar depuis l'étape de build
 COPY --from=build /app/target/*.jar app.jar
 
 # Exposer le port
 EXPOSE 8082
 
+# Variables d'environnement par défaut
+ENV JAVA_OPTS="-Xms512m -Xmx1024m" \
+    SPRING_PROFILES_ACTIVE="prod"
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
+  CMD wget --no-verbose --tries=1 --spider http://localhost:8082/api/soumissions/health || exit 1
+
 # Lancer l'application
-ENTRYPOINT ["java", "-jar", "app.jar"]
+ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar app.jar"]
