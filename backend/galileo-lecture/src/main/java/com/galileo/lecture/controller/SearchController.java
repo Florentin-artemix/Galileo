@@ -70,24 +70,6 @@ public class SearchController {
     }
 
     /**
-     * Recherche avancée avec filtres
-     * GET /api/search/publications/advanced?q=deep+learning&domaine=IA&auteur=Dr.+Martin&page=0&size=10
-     */
-    @GetMapping("/publications/advanced")
-    public ResponseEntity<Page<PublicationDocument>> advancedSearch(
-            @RequestParam(required = false) String q,
-            @RequestParam(required = false) String domaine,
-            @RequestParam(required = false) String auteur,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size) {
-
-        Pageable pageable = PageRequest.of(page, size);
-        Page<PublicationDocument> results = searchService.advancedSearchPublications(q, domaine, auteur, pageable);
-
-        return ResponseEntity.ok(results);
-    }
-
-    /**
      * Recherche de publications par domaine
      * GET /api/search/publications/domain/IA?page=0&size=10
      */
@@ -161,36 +143,6 @@ public class SearchController {
 
         List<String> suggestions = searchService.autocompletBlog(prefix);
         return ResponseEntity.ok(suggestions);
-    }
-
-    /**
-     * Agrégations: Statistiques par domaine
-     * GET /api/search/aggregations/domains
-     */
-    @GetMapping("/aggregations/domains")
-    public ResponseEntity<Map<String, Long>> getDomainStats() {
-        Map<String, Long> stats = searchService.getPublicationCountByDomain();
-        return ResponseEntity.ok(stats);
-    }
-
-    /**
-     * Agrégations: Top auteurs
-     * GET /api/search/aggregations/authors?limit=10
-     */
-    @GetMapping("/aggregations/authors")
-    public ResponseEntity<Map<String, Long>> getTopAuthors(@RequestParam(defaultValue = "10") int limit) {
-        Map<String, Long> topAuthors = searchService.getTopAuthors(limit);
-        return ResponseEntity.ok(topAuthors);
-    }
-
-    /**
-     * Agrégations: Statistiques des catégories de blog
-     * GET /api/search/aggregations/blog-categories
-     */
-    @GetMapping("/aggregations/blog-categories")
-    public ResponseEntity<Map<String, Long>> getBlogCategoryStats() {
-        Map<String, Long> stats = searchService.getBlogCategoryStats();
-        return ResponseEntity.ok(stats);
     }
 
     /**

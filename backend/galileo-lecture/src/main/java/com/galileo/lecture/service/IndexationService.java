@@ -159,22 +159,33 @@ public class IndexationService {
         doc.setTitre(publication.getTitre());
         doc.setResume(publication.getResume());
         doc.setAuteurPrincipal(publication.getAuteurPrincipal());
-        doc.setCoAuteurs(publication.getCoAuteurs());
+        
+        // Conversion String -> List<String> pour coAuteurs
+        if (publication.getCoAuteurs() != null && !publication.getCoAuteurs().isEmpty()) {
+            doc.setCoAuteurs(List.of(publication.getCoAuteurs().split(",\\s*")));
+        }
+        
         doc.setDomaine(publication.getDomaine());
-        doc.setMotsCles(publication.getMotsCles());
+        
+        // Conversion String -> List<String> pour motsCles
+        if (publication.getMotsCles() != null && !publication.getMotsCles().isEmpty()) {
+            doc.setMotsCles(List.of(publication.getMotsCles().split(",\\s*")));
+        }
         doc.setDatePublication(publication.getDatePublication());
         doc.setNombreVues(publication.getNombreVues());
         doc.setNombreTelechargements(publication.getNombreTelechargements());
-        doc.setPublie(publication.isPublie());
+        doc.setPubliee(publication.getPubliee());
 
         // Contenu complet pour recherche globale
         StringBuilder contenu = new StringBuilder();
         contenu.append(publication.getTitre()).append(" ");
         contenu.append(publication.getResume()).append(" ");
-        contenu.append(String.join(" ", publication.getMotsCles())).append(" ");
+        if (publication.getMotsCles() != null) {
+            contenu.append(publication.getMotsCles()).append(" ");
+        }
         contenu.append(publication.getAuteurPrincipal()).append(" ");
         if (publication.getCoAuteurs() != null && !publication.getCoAuteurs().isEmpty()) {
-            contenu.append(String.join(" ", publication.getCoAuteurs()));
+            contenu.append(publication.getCoAuteurs());
         }
         doc.setContenuComplet(contenu.toString());
 
@@ -192,17 +203,24 @@ public class IndexationService {
         doc.setTitre(article.getTitre());
         doc.setContenu(article.getContenu());
         doc.setAuteur(article.getAuteur());
-        doc.setCategories(article.getCategories());
+        
+        // Conversion String -> List<String> pour categories
+        if (article.getCategorie() != null && !article.getCategorie().isEmpty()) {
+            doc.setCategories(List.of(article.getCategorie().split(",\\s*")));
+        }
+        
         doc.setDatePublication(article.getDatePublication());
         doc.setTempsLecture(article.getTempsLecture());
         doc.setNombreVues(article.getNombreVues());
-        doc.setPublie(article.isPublie());
+        doc.setPublie(article.getPublie());
 
         // Contenu complet pour recherche globale
         StringBuilder contenu = new StringBuilder();
         contenu.append(article.getTitre()).append(" ");
         contenu.append(article.getContenu()).append(" ");
-        contenu.append(String.join(" ", article.getCategories()));
+        if (article.getCategorie() != null) {
+            contenu.append(article.getCategorie());
+        }
         doc.setContenuComplet(contenu.toString());
 
         return doc;

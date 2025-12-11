@@ -17,6 +17,12 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: true
+  
+  # Elasticsearch configuration
+  elasticsearch:
+    uris: http://localhost:9200
+    connection-timeout: 5s
+    socket-timeout: 30s
 
 # Cloudflare R2 Configuration (compatible S3)
 # Les URLs seront stockées directement dans PostgreSQL

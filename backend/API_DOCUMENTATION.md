@@ -623,6 +623,128 @@ POST /api/search/index/blog/456
 
 ---
 
+## 🔍 Recherche Elasticsearch (Phase 5)
+
+### Recherche de Publications
+
+#### Recherche Full-Text
+```http
+GET /api/search/publications?q=machine+learning&page=0&size=10
+```
+**Paramètres:**
+- `q` : Terme de recherche (requis)
+- `page` : Numéro de page (défaut: 0)
+- `size` : Taille de la page (défaut: 10)
+
+**Réponse:** `200 OK`
+```json
+{
+  "content": [
+    {
+      "id": "1",
+      "publicationId": 1,
+      "titre": "Introduction au Machine Learning",
+      "resume": "Un guide complet...",
+      "auteurPrincipal": "Dr. Martin",
+      "domaine": "Intelligence Artificielle",
+      "motsCles": ["ML", "IA", "Deep Learning"],
+      "datePublication": "2024-01-15T10:00:00",
+      "nombreVues": 1250,
+      "nombreTelechargements": 340,
+      "publiee": true
+    }
+  ],
+  "totalElements": 42,
+  "totalPages": 5,
+  "number": 0,
+  "size": 10
+}
+```
+
+#### Recherche par Domaine
+```http
+GET /api/search/publications/domain/Physique?page=0&size=10
+```
+
+#### Recherche par Auteur
+```http
+GET /api/search/publications/author/Einstein?page=0&size=10
+```
+
+#### Autocomplete Publications
+```http
+GET /api/search/publications/autocomplete?prefix=quan
+```
+**Réponse:** `200 OK`
+```json
+[
+  "Quantum Computing Fundamentals",
+  "Quantum Entanglement Explained",
+  "Quantum Field Theory"
+]
+```
+
+#### Publications Similaires
+```http
+GET /api/search/publications/123/similar?limit=5
+```
+**Réponse:** Liste de 5 publications similaires basées sur les mots-clés communs
+
+### Recherche de Blog
+
+#### Recherche Full-Text
+```http
+GET /api/search/blog?q=intelligence+artificielle&page=0&size=10
+```
+
+#### Recherche par Catégorie
+```http
+GET /api/search/blog/category/Actualités?page=0&size=10
+```
+
+#### Autocomplete Blog
+```http
+GET /api/search/blog/autocomplete?prefix=intel
+```
+
+### Indexation (Admin uniquement)
+
+⚠️ **Ces endpoints nécessitent une authentification admin**
+
+#### Indexer toutes les publications
+```http
+POST /api/indexation/publications
+```
+
+#### Indexer tous les articles de blog
+```http
+POST /api/indexation/blog
+```
+
+#### Indexer une publication spécifique
+```http
+POST /api/indexation/publications/123
+```
+
+#### Indexer un article de blog spécifique
+```http
+POST /api/indexation/blog/456
+```
+
+#### Réindexation complète
+```http
+POST /api/indexation/reindex
+```
+**Action:** Supprime les index, les recrée, et réindexe toutes les données
+
+#### Supprimer de l'index
+```http
+DELETE /api/indexation/publications/123
+DELETE /api/indexation/blog/456
+```
+
+---
+
 ## 🔧 Configuration
 
 ### Variables d'environnement
@@ -660,4 +782,4 @@ GOOGLE_APPLICATION_CREDENTIALS=/path/to/firebase-credentials.json
 Pour toute question ou problème :
 - 📧 Email : support@galileo.com
 - 📝 Issues : https://github.com/Florentin-artemix/Galileo/issues
-- 📚 Documentation : `PHASE_4_COMPLETE.md`, `PHASE_5_COMPLETE.md`
+- 📚 Documentation : `PHASE_4_COMPLETE.md`, `PHASE_5_ELASTICSEARCH.md`
