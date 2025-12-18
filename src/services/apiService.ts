@@ -25,6 +25,8 @@ apiClient.interceptors.request.use(
       if (user) {
         config.headers['X-User-Id'] = user.uid;
         config.headers['X-User-Email'] = user.email || '';
+        const role = await authService.getCurrentUserRole();
+        config.headers['X-User-Role'] = role;
       }
     }
     return config;
@@ -43,7 +45,7 @@ apiClient.interceptors.response.use(
     if (error.response?.status === 401) {
       // Token expiré ou invalide, déconnecter l'utilisateur
       await authService.logout();
-      window.location.href = '/login';
+      window.location.href = '/auth';
     }
     return Promise.reject(error);
   }

@@ -32,7 +32,7 @@ const CloseIcon = () => (
 const Header: React.FC = () => {
   const { language, toggleLanguage, translations } = useLanguage();
   const { theme, toggleTheme } = useTheme();
-  const { isAuthenticated, user, logout } = useAuth();
+  const { isAuthenticated, user, role, logout } = useAuth();
   const navigate = useNavigate();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
@@ -51,6 +51,13 @@ const Header: React.FC = () => {
     { to: '/team', text: translations.nav.team },
     { to: '/contact', text: translations.nav.contact },
   ];
+
+  const roleLink =
+    role === 'ADMIN' || role === 'STAFF'
+      ? { to: '/dashboard/admin', text: 'Dashboard' }
+      : role === 'STUDENT'
+        ? { to: '/dashboard/student', text: 'Mon espace' }
+        : null;
 
   const activeLinkClass = 'text-teal dark:text-teal font-semibold';
   const inactiveLinkClass = 'text-gray-600 dark:text-gray-300 hover:text-teal dark:hover:text-teal transition-colors duration-200';
@@ -93,12 +100,22 @@ const Header: React.FC = () => {
             <div className="hidden md:flex items-center gap-2">
               {isAuthenticated ? (
                 <>
-                  <NavLink
-                    to="/submit"
-                    className="px-4 py-2 bg-teal text-white dark:text-[#0a192f] font-semibold rounded-lg hover:bg-teal/90 transition-colors"
-                  >
-                    {translations.nav.submit}
-                  </NavLink>
+                  {roleLink && (
+                    <NavLink
+                      to={roleLink.to}
+                      className="px-4 py-2 border border-teal text-teal rounded-lg hover:bg-teal/10 transition-colors"
+                    >
+                      {roleLink.text}
+                    </NavLink>
+                  )}
+                  {(role === 'STUDENT' || role === 'STAFF' || role === 'ADMIN') && (
+                    <NavLink
+                      to="/submit"
+                      className="px-4 py-2 bg-teal text-white dark:text-[#0a192f] font-semibold rounded-lg hover:bg-teal/90 transition-colors"
+                    >
+                      {translations.nav.submit}
+                    </NavLink>
+                  )}
                   <span className="text-sm text-gray-600 dark:text-gray-400 max-w-[150px] truncate">
                     {user?.email}
                   </span>
@@ -116,12 +133,6 @@ const Header: React.FC = () => {
                     className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:text-teal transition-colors"
                   >
                     {translations.auth_page?.login_button || 'Connexion'}
-                  </NavLink>
-                  <NavLink
-                    to="/submit"
-                    className="px-4 py-2 bg-teal text-white dark:text-[#0a192f] font-semibold rounded-lg hover:bg-teal/90 transition-colors"
-                  >
-                    {translations.nav.submit}
                   </NavLink>
                 </>
               )}
@@ -179,6 +190,22 @@ const Header: React.FC = () => {
                   {link.text}
                 </NavLink>
               ))}
+              {roleLink && (
+                <NavLink
+                  key={roleLink.to}
+                  to={roleLink.to}
+                  onClick={() => setIsMenuOpen(false)}
+                  className={({ isActive }) =>
+                    `px-4 py-2 rounded-lg text-sm ${
+                      isActive
+                        ? 'bg-teal/10 text-teal font-semibold'
+                        : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+                    }`
+                  }
+                >
+                  {roleLink.text}
+                </NavLink>
+              )}
             </nav>
 
             {/* Boutons Auth mobile */}
@@ -188,13 +215,24 @@ const Header: React.FC = () => {
                   <div className="text-sm text-gray-600 dark:text-gray-400 text-center">
                     {user?.email}
                   </div>
-                  <NavLink
-                    to="/submit"
-                    onClick={() => setIsMenuOpen(false)}
-                    className="block w-full px-4 py-2 text-center bg-teal text-white dark:text-[#0a192f] font-semibold rounded-lg"
-                  >
-                    {translations.nav.submit}
-                  </NavLink>
+                  {roleLink && (
+                    <NavLink
+                      to={roleLink.to}
+                      onClick={() => setIsMenuOpen(false)}
+                      className="block w-full px-4 py-2 text-center border border-teal text-teal rounded-lg"
+                    >
+                      {roleLink.text}
+                    </NavLink>
+                  )}
+                  {(role === 'STUDENT' || role === 'STAFF' || role === 'ADMIN') && (
+                    <NavLink
+                      to="/submit"
+                      onClick={() => setIsMenuOpen(false)}
+                      className="block w-full px-4 py-2 text-center bg-teal text-white dark:text-[#0a192f] font-semibold rounded-lg"
+                    >
+                      {translations.nav.submit}
+                    </NavLink>
+                  )}
                   <button
                     onClick={handleLogout}
                     className="block w-full px-4 py-2 text-center text-red-500 border border-red-500 rounded-lg"
@@ -210,13 +248,6 @@ const Header: React.FC = () => {
                     className="block w-full px-4 py-2 text-center border border-teal text-teal rounded-lg"
                   >
                     {translations.auth_page?.login_button || 'Connexion'}
-                  </NavLink>
-                  <NavLink
-                    to="/submit"
-                    onClick={() => setIsMenuOpen(false)}
-                    className="block w-full px-4 py-2 text-center bg-teal text-white dark:text-[#0a192f] font-semibold rounded-lg"
-                  >
-                    {translations.nav.submit}
                   </NavLink>
                 </>
               )}

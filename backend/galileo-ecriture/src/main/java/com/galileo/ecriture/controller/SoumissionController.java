@@ -2,6 +2,8 @@ package com.galileo.ecriture.controller;
 
 import com.galileo.ecriture.dto.SoumissionCreationDTO;
 import com.galileo.ecriture.dto.SoumissionResponseDTO;
+import com.galileo.ecriture.security.Role;
+import com.galileo.ecriture.security.RoleGuard;
 import com.galileo.ecriture.service.SoumissionService;
 
 import org.slf4j.Logger;
@@ -23,9 +25,11 @@ public class SoumissionController {
     private static final Logger logger = LoggerFactory.getLogger(SoumissionController.class);
 
     private final SoumissionService soumissionService;
+    private final RoleGuard roleGuard;
 
-    public SoumissionController(SoumissionService soumissionService) {
+    public SoumissionController(SoumissionService soumissionService, RoleGuard roleGuard) {
         this.soumissionService = soumissionService;
+        this.roleGuard = roleGuard;
     }
 
     /**
@@ -44,7 +48,11 @@ public class SoumissionController {
             @RequestParam("domaineRecherche") String domaineRecherche,
             @RequestParam(value = "notes", required = false) String notes,
             @RequestHeader(value = "X-User-Id", required = false, defaultValue = "anonymous") String userId,
-            @RequestHeader(value = "X-User-Email", required = false, defaultValue = "") String userEmail) {
+            @RequestHeader(value = "X-User-Email", required = false, defaultValue = "") String userEmail,
+            @RequestHeader(value = "X-User-Role", required = false, defaultValue = "") String roleHeader) {
+
+        Role role = roleGuard.resolveRole(roleHeader);
+        roleGuard.require(role, Role.ADMIN, Role.STAFF, Role.STUDENT);
 
         // Utiliser emailAuteur si X-User-Email n'est pas fourni
         if (userEmail.isEmpty()) {
@@ -91,7 +99,11 @@ public class SoumissionController {
      */
     @GetMapping
     public ResponseEntity<List<SoumissionResponseDTO>> listerMesSoumissions(
-            @RequestHeader("X-User-Id") String userId) {
+            @RequestHeader("X-User-Id") String userId,
+            @RequestHeader(value = "X-User-Role", required = false, defaultValue = "") String roleHeader) {
+
+        Role role = roleGuard.resolveRole(roleHeader);
+        roleGuard.require(role, Role.ADMIN, Role.STAFF, Role.STUDENT);
         
         List<SoumissionResponseDTO> soumissions = soumissionService.listerSoumissionsUtilisateur(userId);
         return ResponseEntity.ok(soumissions);
@@ -103,7 +115,11 @@ public class SoumissionController {
     @GetMapping("/{id}")
     public ResponseEntity<?> obtenirSoumission(
             @PathVariable Long id,
-            @RequestHeader("X-User-Id") String userId) {
+            @RequestHeader("X-User-Id") String userId,
+            @RequestHeader(value = "X-User-Role", required = false, defaultValue = "") String roleHeader) {
+
+        Role role = roleGuard.resolveRole(roleHeader);
+        roleGuard.require(role, Role.ADMIN, Role.STAFF, Role.STUDENT);
         
         try {
             SoumissionResponseDTO soumission = soumissionService.obtenirSoumission(id, userId);
@@ -123,7 +139,11 @@ public class SoumissionController {
     @DeleteMapping("/{id}")
     public ResponseEntity<?> retirerSoumission(
             @PathVariable Long id,
-            @RequestHeader("X-User-Id") String userId) {
+            @RequestHeader("X-User-Id") String userId,
+            @RequestHeader(value = "X-User-Role", required = false, defaultValue = "") String roleHeader) {
+
+        Role role = roleGuard.resolveRole(roleHeader);
+        roleGuard.require(role, Role.ADMIN, Role.STAFF, Role.STUDENT);
         
         try {
             soumissionService.retirerSoumission(id, userId);

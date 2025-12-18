@@ -47,6 +47,7 @@ export const en = {
     error_invalid_credentials: 'Invalid email or password',
     error_weak_password: 'Password is too weak',
     error_generic: 'An error occurred. Please try again.',
+    pending_approval: 'After registration, an administrator will validate your account to assign you a role.',
   },
   hero: {
     title: 'Galileo — A Hub of Ambition and Innovative Leaders',

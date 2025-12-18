@@ -49,12 +49,23 @@ public class FirebaseAuthenticationFilter extends AbstractGatewayFilterFactory<F
                 String uid = decodedToken.getUid();
                 String email = decodedToken.getEmail();
                 
-                log.info("Request authenticated for user: {} ({})", email, uid);
+                // Récupérer le rôle depuis les custom claims Firebase
+                Object roleClaim = decodedToken.getClaims().get("role");
+                String role = "VIEWER"; // Défaut
+                if (roleClaim != null) {
+                    String raw = roleClaim.toString().toUpperCase();
+                    if (raw.equals("ADMIN") || raw.equals("STAFF") || raw.equals("STUDENT")) {
+                        role = raw;
+                    }
+                }
+                
+                log.info("Request authenticated for user: {} ({}) with role {}", email, uid, role);
                 
                 // Ajouter les informations de l'utilisateur dans les headers pour les microservices
                 ServerHttpRequest modifiedRequest = request.mutate()
                     .header("X-User-Id", uid)
                     .header("X-User-Email", email)
+                    .header("X-User-Role", role)
                     .build();
                 
                 return chain.filter(exchange.mutate().request(modifiedRequest).build());

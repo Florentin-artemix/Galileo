@@ -123,19 +123,6 @@ const ContactPage: React.FC = () => {
                             </form>
                         )}
                     </div>
-
-                    {/* Info supplémentaire - lien vers inscription */}
-                    <div 
-                        className="mt-8 text-center animate-slide-in-up"
-                        style={{ animationDelay: '400ms', animationFillMode: 'backwards' }}
-                    >
-                        <p className="text-light-text-secondary dark:text-gray-400">
-                            {t.join_subtitle}{' '}
-                            <a href="/auth" className="text-light-accent dark:text-teal hover:underline font-semibold">
-                                {t.join_us}
-                            </a>
-                        </p>
-                    </div>
                 </div>
             </div>
         </div>

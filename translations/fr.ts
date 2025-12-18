@@ -47,6 +47,7 @@ export const fr = {
     error_invalid_credentials: 'Email ou mot de passe incorrect',
     error_weak_password: 'Le mot de passe est trop faible',
     error_generic: 'Une erreur est survenue. Veuillez réessayer.',
+    pending_approval: 'Après inscription, un administrateur validera votre compte pour vous attribuer un rôle.',
   },
   hero: {
     title: 'Galileo — Gisement d’ambitions et de leaders innovants',

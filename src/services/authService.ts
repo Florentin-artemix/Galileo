@@ -7,6 +7,11 @@ import {
 } from 'firebase/auth';
 import { auth } from '../config/firebase';
 
+export type UserRole = 'ADMIN' | 'STAFF' | 'STUDENT' | 'VIEWER';
+
+let cachedRole: UserRole = 'VIEWER';
+let cachedUid: string | null = null;
+
 /**
  * Service d'authentification Firebase
  */
@@ -57,5 +62,48 @@ export const authService = {
    */
   getCurrentUser(): User | null {
     return auth.currentUser;
+  },
+
+  /**
+   * Rôle courant issu des custom claims Firebase (fallback VIEWER)
+   */
+  async getCurrentUserRole(): Promise<UserRole> {
+    const user = auth.currentUser;
+    if (!user) {
+      cachedRole = 'VIEWER';
+      cachedUid = null;
+      return cachedRole;
+    }
+
+    // Cache simple par UID
+    if (cachedUid === user.uid && cachedRole) {
+      return cachedRole;
+    }
+
+    try {
+      const tokenResult = await user.getIdTokenResult();
+      const roleClaim = (tokenResult.claims as Record<string, any>).role;
+      const normalized = typeof roleClaim === 'string' ? roleClaim.toUpperCase() : '';
+      switch (normalized) {
+        case 'ADMIN':
+          cachedRole = 'ADMIN';
+          break;
+        case 'STAFF':
+        case 'PERSONNEL':
+          cachedRole = 'STAFF';
+          break;
+        case 'STUDENT':
+        case 'ETUDIANT':
+          cachedRole = 'STUDENT';
+          break;
+        default:
+          cachedRole = 'VIEWER';
+      }
+      cachedUid = user.uid;
+    } catch (e) {
+      cachedRole = 'VIEWER';
+      cachedUid = user.uid;
+    }
+    return cachedRole;
   }
 };

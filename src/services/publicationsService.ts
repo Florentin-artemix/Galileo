@@ -175,6 +175,21 @@ export const soumissionsService = {
   async getSoumissionById(id: number): Promise<any> {
     const response = await apiClient.get(`/soumissions/${id}`);
     return response.data;
+  },
+
+  /**
+   * Récupérer les soumissions en attente (ADMIN/STAFF)
+   */
+  async getSoumissionsEnAttente(): Promise<any[]> {
+    const response = await apiClient.get('/admin/soumissions/en-attente');
+    return response.data;
+  },
+
+  /**
+   * Mettre à jour le statut d'une soumission (ADMIN/STAFF)
+   */
+  async changerStatut(id: number, statut: 'EN_ATTENTE' | 'ACCEPTEE' | 'REJETEE'): Promise<void> {
+    await apiClient.put(`/admin/soumissions/${id}/statut`, { statut });
   }
 };
 

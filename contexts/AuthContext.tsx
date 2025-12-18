@@ -1,12 +1,14 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { User } from 'firebase/auth';
-import { authService } from '../src/services/authService';
+import { authService, UserRole } from '../src/services/authService';
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
   isAuthenticated: boolean;
   idToken: string | null;
+  role: UserRole;
+  hasRole: (required: UserRole | UserRole[]) => boolean;
   logout: () => Promise<void>;
   refreshToken: () => Promise<string | null>;
 }
@@ -29,6 +31,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [idToken, setIdToken] = useState<string | null>(null);
+  const [role, setRole] = useState<UserRole>('VIEWER');
 
   // 🔗 POINT D'INTÉGRATION 3: Observer l'état d'authentification Firebase
   useEffect(() => {
@@ -39,8 +42,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         // Récupérer le token JWT pour les appels API
         const token = await authService.getIdToken();
         setIdToken(token);
+        const currentRole = await authService.getCurrentUserRole();
+        setRole(currentRole);
       } else {
         setIdToken(null);
+        setRole('VIEWER');
       }
       
       setLoading(false);
@@ -60,6 +66,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     return null;
   };
 
+  const hasRole = (required: UserRole | UserRole[]) => {
+    const list = Array.isArray(required) ? required : [required];
+    return list.includes(role);
+  };
+
   const logout = async () => {
     await authService.logout();
     setUser(null);
@@ -71,6 +82,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     loading,
     isAuthenticated: !!user,
     idToken,
+    role,
+    hasRole,
     logout,
     refreshToken,
   };

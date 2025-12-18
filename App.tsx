@@ -19,6 +19,9 @@ import SubmissionPage from './pages/SubmissionPage';
 import ContactPage from './pages/ContactPage';
 import ResourcesPage from './pages/ResourcesPage';
 import AuthPage from './pages/AuthPage';
+import AdminDashboard from './pages/AdminDashboard';
+import StudentDashboard from './pages/StudentDashboard';
+import RequireRole from './components/RequireRole';
 
 const ScrollToTop: React.FC = () => {
   const { pathname } = useLocation();
@@ -58,7 +61,30 @@ const AppContent: React.FC = () => {
             <Route path="/blog/:slug" element={<SingleBlogPostPage />} />
             <Route path="/events" element={<EventsPage />} />
             <Route path="/auth" element={<AuthPage />} />
-            <Route path="/submit" element={<SubmissionPage />} />
+            <Route
+              path="/submit"
+              element={
+                <RequireRole allowed={['STUDENT', 'ADMIN', 'STAFF']}>
+                  <SubmissionPage />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="/dashboard/admin"
+              element={
+                <RequireRole allowed={['ADMIN', 'STAFF']}>
+                  <AdminDashboard />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="/dashboard/student"
+              element={
+                <RequireRole allowed={['STUDENT', 'ADMIN', 'STAFF']}>
+                  <StudentDashboard />
+                </RequireRole>
+              }
+            />
             <Route path="/contact" element={<ContactPage />} />
             <Route path="/resources" element={<ResourcesPage />} />
           </Routes>

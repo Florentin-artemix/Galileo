@@ -3,6 +3,8 @@ package com.galileo.ecriture.controller;
 import com.galileo.ecriture.dto.SoumissionResponseDTO;
 import com.galileo.ecriture.dto.ValidationDTO;
 import com.galileo.ecriture.entity.Soumission.StatutSoumission;
+import com.galileo.ecriture.security.Role;
+import com.galileo.ecriture.security.RoleGuard;
 import com.galileo.ecriture.service.AdminService;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
@@ -25,16 +27,22 @@ public class AdminController {
     private static final Logger logger = LoggerFactory.getLogger(AdminController.class);
 
     private final AdminService adminService;
+    private final RoleGuard roleGuard;
 
-    public AdminController(AdminService adminService) {
+    public AdminController(AdminService adminService, RoleGuard roleGuard) {
         this.adminService = adminService;
+        this.roleGuard = roleGuard;
     }
 
     /**
      * GET /api/admin/soumissions/en-attente - Lister les soumissions en attente
      */
     @GetMapping("/en-attente")
-    public ResponseEntity<List<SoumissionResponseDTO>> listerSoumissionsEnAttente() {
+    public ResponseEntity<List<SoumissionResponseDTO>> listerSoumissionsEnAttente(
+            @RequestHeader(value = "X-User-Role", required = false, defaultValue = "") String roleHeader) {
+
+        Role role = roleGuard.resolveRole(roleHeader);
+        roleGuard.require(role, Role.ADMIN, Role.STAFF);
         List<SoumissionResponseDTO> soumissions = adminService.listerSoumissionsEnAttente();
         logger.info("Récupération de {} soumissions en attente", soumissions.size());
         return ResponseEntity.ok(soumissions);
@@ -45,11 +53,15 @@ public class AdminController {
      */
     @GetMapping
     public ResponseEntity<List<SoumissionResponseDTO>> listerSoumissionsParStatut(
-            @RequestParam(required = false) String statut) {
+            @RequestParam(required = false) String statut,
+            @RequestHeader(value = "X-User-Role", required = false, defaultValue = "") String roleHeader) {
+
+        Role role = roleGuard.resolveRole(roleHeader);
+        roleGuard.require(role, Role.ADMIN, Role.STAFF);
         
         if (statut == null) {
-            // Retourner toutes les soumissions en attente par défaut
-            return listerSoumissionsEnAttente();
+            List<SoumissionResponseDTO> soumissions = adminService.listerSoumissionsEnAttente();
+            return ResponseEntity.ok(soumissions);
         }
 
         try {
@@ -67,7 +79,11 @@ public class AdminController {
      * GET /api/admin/soumissions/statistiques - Obtenir les statistiques
      */
     @GetMapping("/statistiques")
-    public ResponseEntity<Map<String, Long>> obtenirStatistiques() {
+    public ResponseEntity<Map<String, Long>> obtenirStatistiques(
+            @RequestHeader(value = "X-User-Role", required = false, defaultValue = "") String roleHeader) {
+
+        Role role = roleGuard.resolveRole(roleHeader);
+        roleGuard.require(role, Role.ADMIN, Role.STAFF);
         Map<String, Long> stats = adminService.obtenirStatistiques();
         return ResponseEntity.ok(stats);
     }
@@ -79,7 +95,11 @@ public class AdminController {
     public ResponseEntity<?> validerSoumission(
             @PathVariable Long id,
             @Valid @RequestBody ValidationDTO validationDTO,
-            @RequestHeader("X-User-Email") String adminEmail) {
+            @RequestHeader("X-User-Email") String adminEmail,
+            @RequestHeader(value = "X-User-Role", required = false, defaultValue = "") String roleHeader) {
+
+        Role role = roleGuard.resolveRole(roleHeader);
+        roleGuard.require(role, Role.ADMIN, Role.STAFF);
         
         try {
             SoumissionResponseDTO response = adminService.validerSoumission(
@@ -104,7 +124,11 @@ public class AdminController {
     public ResponseEntity<?> rejeterSoumission(
             @PathVariable Long id,
             @Valid @RequestBody ValidationDTO validationDTO,
-            @RequestHeader("X-User-Email") String adminEmail) {
+            @RequestHeader("X-User-Email") String adminEmail,
+            @RequestHeader(value = "X-User-Role", required = false, defaultValue = "") String roleHeader) {
+
+        Role role = roleGuard.resolveRole(roleHeader);
+        roleGuard.require(role, Role.ADMIN, Role.STAFF);
         
         try {
             SoumissionResponseDTO response = adminService.rejeterSoumission(
@@ -129,7 +153,11 @@ public class AdminController {
     public ResponseEntity<?> demanderRevisions(
             @PathVariable Long id,
             @Valid @RequestBody ValidationDTO validationDTO,
-            @RequestHeader("X-User-Email") String adminEmail) {
+            @RequestHeader("X-User-Email") String adminEmail,
+            @RequestHeader(value = "X-User-Role", required = false, defaultValue = "") String roleHeader) {
+
+        Role role = roleGuard.resolveRole(roleHeader);
+        roleGuard.require(role, Role.ADMIN, Role.STAFF);
         
         try {
             SoumissionResponseDTO response = adminService.demanderRevisions(

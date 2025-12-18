@@ -136,11 +136,13 @@ const AuthPage: React.FC = () => {
       if (isLogin) {
         // 🔗 POINT D'INTÉGRATION 1: Login avec Firebase
         await authService.login(email, password);
-        navigate('/submit'); // Redirect vers page de soumission après connexion
+        navigate('/'); // Redirect vers page d'accueil après connexion
       } else {
         // 🔗 POINT D'INTÉGRATION 2: Inscription avec Firebase
+        // Les nouveaux utilisateurs commencent avec le rôle VIEWER
+        // L'admin doit leur attribuer un rôle (STUDENT, STAFF, ADMIN)
         await authService.signup(email, password, name);
-        navigate('/submit'); // Redirect vers page de soumission après inscription
+        navigate('/'); // Redirect vers page d'accueil - l'admin doit attribuer un rôle
       }
     } catch (err: any) {
       console.error('Authentication error:', err);
@@ -191,6 +193,14 @@ const AuthPage: React.FC = () => {
             >
               {isLogin ? t.login_subtitle : t.signup_subtitle}
             </p>
+            {!isLogin && (
+              <p 
+                className="mt-2 text-sm text-amber-600 dark:text-amber-400 animate-slide-in-up"
+                style={{ animationDelay: '250ms', animationFillMode: 'backwards' }}
+              >
+                {t.pending_approval}
+              </p>
+            )}
           </header>
 
           <div 
