@@ -21,6 +21,7 @@ import ResourcesPage from './pages/ResourcesPage';
 import AuthPage from './pages/AuthPage';
 import AdminDashboard from './pages/AdminDashboard';
 import StudentDashboard from './pages/StudentDashboard';
+import TestRolesPage from './pages/TestRolesPage';
 import RequireRole from './components/RequireRole';
 
 const ScrollToTop: React.FC = () => {
@@ -87,6 +88,8 @@ const AppContent: React.FC = () => {
             />
             <Route path="/contact" element={<ContactPage />} />
             <Route path="/resources" element={<ResourcesPage />} />
+            {/* Page de test - à supprimer en production */}
+            <Route path="/test-roles" element={<TestRolesPage />} />
           </Routes>
         </main>
         <Footer />

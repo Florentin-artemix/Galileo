@@ -21,7 +21,7 @@ public enum Role {
         return switch (value) {
             case "ADMIN" -> ADMIN;
             case "STAFF", "PERSONNEL", "EMPLOYEE" -> STAFF;
-            case "STUDENT", "ETUDIANT", "ETUDIANT", "STAGIAIRE" -> STUDENT;
+            case "STUDENT", "ETUDIANT", "STAGIAIRE" -> STUDENT;
             case "VIEWER", "READONLY", "LECTEUR" -> VIEWER;
             default -> VIEWER;
         };

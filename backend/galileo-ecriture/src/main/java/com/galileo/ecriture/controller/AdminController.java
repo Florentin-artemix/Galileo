@@ -199,11 +199,14 @@ public class AdminController {
             SoumissionResponseDTO response;
 
             switch (nouveauStatut) {
-                case ACCEPTEE:
+                case VALIDEE:
                     response = adminService.validerSoumission(id, "", adminEmail);
                     break;
                 case REJETEE:
                     response = adminService.rejeterSoumission(id, "", adminEmail);
+                    break;
+                case EN_REVISION:
+                    response = adminService.demanderRevisions(id, "", adminEmail);
                     break;
                 case EN_ATTENTE:
                 default:
