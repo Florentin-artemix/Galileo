@@ -7,13 +7,21 @@ import com.galileo.ecriture.entity.Soumission.StatutSoumission;
 import com.galileo.ecriture.repository.SoumissionRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -25,13 +33,21 @@ public class SoumissionService {
     private final SoumissionRepository soumissionRepository;
     private final CloudflareR2Service cloudflareR2Service;
     private final EmailService emailService;
+    private final RestTemplate restTemplate;
+    
+    @Value("${galileo.service-lecture.url:http://galileo-service-lecture:8081}")
+    private String serviceLectureUrl;
+    
+    @Value("${galileo.auto-publish:true}")
+    private boolean autoPublish;
 
     public SoumissionService(SoumissionRepository soumissionRepository,
-                            CloudflareR2Service cloudflareR2Service,
+                            @Autowired(required = false) CloudflareR2Service cloudflareR2Service,
                             EmailService emailService) {
         this.soumissionRepository = soumissionRepository;
         this.cloudflareR2Service = cloudflareR2Service;
         this.emailService = emailService;
+        this.restTemplate = new RestTemplate();
     }
 
     /**
@@ -44,8 +60,17 @@ public class SoumissionService {
         // Validation du fichier PDF
         validerFichierPdf(fichierPdf);
 
-        // Upload du fichier vers R2
-        String r2Key = cloudflareR2Service.uploadFile(fichierPdf, "soumissions/pdf/");
+        String r2Key = null;
+        String urlSignee = null;
+        
+        // Upload du fichier vers R2 (si disponible)
+        if (cloudflareR2Service != null) {
+            r2Key = cloudflareR2Service.uploadFile(fichierPdf, "soumissions/pdf/");
+            // Générer URL signée (valide 7 jours - maximum autorisé par S3/R2)
+            urlSignee = cloudflareR2Service.genererUrlSignee(r2Key, 10080); // 7 jours en minutes
+        } else {
+            logger.warn("CloudflareR2Service non disponible - fichier PDF non uploadé");
+        }
         
         // Créer l'entité Soumission
         Soumission soumission = new Soumission();
@@ -62,9 +87,6 @@ public class SoumissionService {
         soumission.setR2KeyPdf(r2Key);
         soumission.setUserId(userId);
         soumission.setUserEmail(userEmail);
-
-        // Générer URL signée (valide 30 jours pour les admins)
-        String urlSignee = cloudflareR2Service.genererUrlSignee(r2Key, 43200); // 30 jours
         soumission.setUrlPdf(urlSignee);
 
         // Sauvegarder
@@ -73,6 +95,9 @@ public class SoumissionService {
 
         // Envoyer notification à l'auteur
         emailService.envoyerConfirmationSoumission(saved);
+        
+        // Auto-publier vers service-lecture
+        publierVersServiceLecture(saved, urlSignee);
 
         return convertirEnDTO(saved);
     }
@@ -97,7 +122,7 @@ public class SoumissionService {
                 .orElseThrow(() -> new RuntimeException("Soumission non trouvée"));
 
         // Vérifier que l'utilisateur est propriétaire
-        if (!soumission.getUserId().equals(userId)) {
+        if (userId == null || !userId.equals(soumission.getUserId())) {
             throw new RuntimeException("Accès non autorisé à cette soumission");
         }
 
@@ -177,5 +202,51 @@ public class SoumissionService {
         dto.setDateValidation(soumission.getDateValidation());
         dto.setPublicationId(soumission.getPublicationId());
         return dto;
+    }
+    
+    /**
+     * Auto-publier une soumission vers le service-lecture
+     */
+    private void publierVersServiceLecture(Soumission soumission, String urlPdf) {
+        if (!autoPublish) {
+            logger.info("Auto-publication désactivée");
+            return;
+        }
+        
+        try {
+            logger.info("Auto-publication vers service-lecture pour soumission: {}", soumission.getId());
+            
+            // Préparer les données pour la publication (correspondant à PublicationDepuisSoumissionDTO)
+            Map<String, Object> publicationData = new HashMap<>();
+            publicationData.put("titre", soumission.getTitre());
+            publicationData.put("resume", soumission.getResume() != null ? soumission.getResume() : "");
+            publicationData.put("auteurPrincipal", soumission.getAuteurPrincipal());
+            publicationData.put("emailAuteur", soumission.getEmailAuteur());
+            publicationData.put("coAuteurs", soumission.getCoAuteurs());
+            publicationData.put("motsCles", soumission.getMotsCles());
+            publicationData.put("domaineRecherche", soumission.getDomaineRecherche());
+            publicationData.put("urlPdf", urlPdf != null ? urlPdf : "");
+            publicationData.put("r2KeyPdf", soumission.getR2KeyPdf());
+            publicationData.put("soumissionId", soumission.getId());
+            
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            HttpEntity<Map<String, Object>> request = new HttpEntity<>(publicationData, headers);
+            
+            // Appeler le service-lecture pour créer la publication
+            String url = serviceLectureUrl + "/publications/depuis-soumission";
+            Long publicationId = restTemplate.postForObject(url, request, Long.class);
+            
+            if (publicationId != null) {
+                logger.info("Publication créée avec ID: {} pour soumission: {}", publicationId, soumission.getId());
+                // Mettre à jour le statut de la soumission
+                soumission.setStatut(StatutSoumission.VALIDEE);
+                soumission.setPublicationId(publicationId);
+                soumissionRepository.save(soumission);
+            }
+        } catch (Exception e) {
+            logger.error("Erreur lors de l'auto-publication vers service-lecture: {}", e.getMessage());
+            // Ne pas faire échouer la soumission si la publication échoue
+        }
     }
 }

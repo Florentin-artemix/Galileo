@@ -18,7 +18,7 @@ import java.util.Map;
  * Contrôleur REST pour la recherche Elasticsearch
  */
 @RestController
-@RequestMapping("/api/search")
+@RequestMapping("/search")
 public class SearchController {
 
     private final SearchService searchService;

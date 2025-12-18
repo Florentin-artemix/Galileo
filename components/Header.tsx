@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useTheme } from '../contexts/ThemeContext';
+import { useAuth } from '../contexts/AuthContext';
+import SearchBar from './SearchBar';
 
 const SunIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -19,7 +21,16 @@ const MoonIcon = () => (
 const Header: React.FC = () => {
   const { language, toggleLanguage, translations } = useLanguage();
   const { theme, toggleTheme } = useTheme();
+  const { isAuthenticated, user, logout } = useAuth();
+  const navigate = useNavigate();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+  // 🔗 POINT D'INTÉGRATION 7: Gestion de la déconnexion
+  const handleLogout = async () => {
+    await logout();
+    navigate('/');
+    setIsMenuOpen(false);
+  };
 
   const navLinks = [
     { to: '/', text: translations.nav.home },
@@ -54,6 +65,12 @@ const Header: React.FC = () => {
               </NavLink>
             ))}
           </div>
+          
+          {/* Barre de recherche */}
+          <div className="hidden md:block flex-1 max-w-xs mx-4">
+            <SearchBar />
+          </div>
+          
           <div className="hidden md:flex items-center space-x-4">
             <button
               onClick={toggleTheme}
@@ -69,12 +86,44 @@ const Header: React.FC = () => {
             >
               {language === 'fr' ? 'EN' : 'FR'}
             </button>
-            <NavLink
-              to="/submit"
-              className="bg-light-accent text-white font-bold py-2 px-4 rounded-full hover:bg-light-accent-hover transition-all duration-300 transform hover:scale-105"
-            >
-              {translations.nav.submit}
-            </NavLink>
+            
+            {/* 🔗 POINT D'INTÉGRATION 8: Affichage conditionnel des boutons selon l'état d'authentification */}
+            {isAuthenticated ? (
+              <>
+                <NavLink
+                  to="/submit"
+                  className="bg-light-accent dark:bg-teal text-white dark:text-navy font-bold py-2 px-4 rounded-full hover:bg-light-accent-hover dark:hover:bg-opacity-80 transition-all duration-300 transform hover:scale-105"
+                >
+                  {translations.nav.submit}
+                </NavLink>
+                <div className="flex items-center space-x-3">
+                  <span className="text-sm text-light-text-secondary dark:text-gray-300">
+                    {user?.email}
+                  </span>
+                  <button
+                    onClick={handleLogout}
+                    className="border-2 border-light-accent dark:border-teal text-light-accent dark:text-teal font-bold py-2 px-4 rounded-full hover:bg-light-accent dark:hover:bg-teal hover:text-white dark:hover:text-navy transition-all duration-300"
+                  >
+                    {translations.auth_page?.logout_button || 'Déconnexion'}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <NavLink
+                  to="/auth"
+                  className="border-2 border-light-accent dark:border-teal text-light-accent dark:text-teal font-bold py-2 px-4 rounded-full hover:bg-light-accent dark:hover:bg-teal hover:text-white dark:hover:text-navy transition-all duration-300"
+                >
+                  {translations.auth_page?.login_button || 'Connexion'}
+                </NavLink>
+                <NavLink
+                  to="/submit"
+                  className="bg-light-accent dark:bg-teal text-white dark:text-navy font-bold py-2 px-4 rounded-full hover:bg-light-accent-hover dark:hover:bg-opacity-80 transition-all duration-300 transform hover:scale-105"
+                >
+                  {translations.nav.submit}
+                </NavLink>
+              </>
+            )}
           </div>
           <div className="md:hidden flex items-center">
             <button
@@ -96,6 +145,11 @@ const Header: React.FC = () => {
       {isMenuOpen && (
         <div className="md:hidden bg-light-bg dark:bg-navy">
           <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3 flex flex-col items-center">
+            {/* Barre de recherche mobile */}
+            <div className="w-full px-3 py-2">
+              <SearchBar />
+            </div>
+            
             {navLinks.map((link) => (
               <NavLink
                 key={link.to}
@@ -106,14 +160,47 @@ const Header: React.FC = () => {
                 {link.text}
               </NavLink>
             ))}
-            <NavLink
-              to="/submit"
-              onClick={() => setIsMenuOpen(false)}
-              className="block bg-light-accent text-white font-bold py-2 px-4 rounded-full mt-4"
-            >
-              {translations.nav.submit}
-            </NavLink>
-             <div className="flex items-center gap-4 mt-4">
+            
+            {/* Mobile: Boutons selon état d'authentification */}
+            {isAuthenticated ? (
+              <>
+                <div className="text-sm text-light-text-secondary dark:text-gray-300 mt-2">
+                  {user?.email}
+                </div>
+                <NavLink
+                  to="/submit"
+                  onClick={() => setIsMenuOpen(false)}
+                  className="block bg-light-accent dark:bg-teal text-white dark:text-navy font-bold py-2 px-4 rounded-full mt-4"
+                >
+                  {translations.nav.submit}
+                </NavLink>
+                <button
+                  onClick={handleLogout}
+                  className="block border-2 border-light-accent dark:border-teal text-light-accent dark:text-teal font-bold py-2 px-4 rounded-full mt-2"
+                >
+                  {translations.auth_page?.logout_button || 'Déconnexion'}
+                </button>
+              </>
+            ) : (
+              <>
+                <NavLink
+                  to="/auth"
+                  onClick={() => setIsMenuOpen(false)}
+                  className="block border-2 border-light-accent dark:border-teal text-light-accent dark:text-teal font-bold py-2 px-4 rounded-full mt-4"
+                >
+                  {translations.auth_page?.login_button || 'Connexion'}
+                </NavLink>
+                <NavLink
+                  to="/submit"
+                  onClick={() => setIsMenuOpen(false)}
+                  className="block bg-light-accent dark:bg-teal text-white dark:text-navy font-bold py-2 px-4 rounded-full mt-2"
+                >
+                  {translations.nav.submit}
+                </NavLink>
+              </>
+            )}
+            
+            <div className="flex items-center gap-4 mt-4">
               <button
                 onClick={toggleTheme}
                 className="p-2 rounded-full text-light-text-secondary dark:text-gray-300"

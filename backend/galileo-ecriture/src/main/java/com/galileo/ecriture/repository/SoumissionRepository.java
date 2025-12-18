@@ -26,6 +26,6 @@ public interface SoumissionRepository extends JpaRepository<Soumission, Long> {
     // Rechercher une soumission d'un utilisateur
     Optional<Soumission> findByIdAndUserId(Long id, String userId);
 
-    // Rechercher par domaine et statut
-    List<Soumission> findByDomaineAndStatut(String domaine, StatutSoumission statut);
+    // Rechercher par domaine de recherche et statut
+    List<Soumission> findByDomaineRechercheAndStatut(String domaineRecherche, StatutSoumission statut);
 }

@@ -19,7 +19,7 @@ import java.util.Map;
  * TODO: Ajouter vérification du rôle ADMIN dans un filtre ou via Firebase custom claims
  */
 @RestController
-@RequestMapping("/api/admin/soumissions")
+@RequestMapping("/admin/soumissions")
 public class AdminController {
 
     private static final Logger logger = LoggerFactory.getLogger(AdminController.class);

@@ -3,7 +3,7 @@ package com.galileo.ecriture.controller;
 import com.galileo.ecriture.dto.SoumissionCreationDTO;
 import com.galileo.ecriture.dto.SoumissionResponseDTO;
 import com.galileo.ecriture.service.SoumissionService;
-import jakarta.validation.Valid;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -17,7 +17,7 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/soumissions")
+@RequestMapping("/soumissions")
 public class SoumissionController {
 
     private static final Logger logger = LoggerFactory.getLogger(SoumissionController.class);
@@ -30,7 +30,7 @@ public class SoumissionController {
 
     /**
      * POST /api/soumissions - Créer une nouvelle soumission avec upload de fichier
-     * Headers requis: X-User-Id, X-User-Email (injectés par le Gateway)
+     * Headers optionnels: X-User-Id, X-User-Email (injectés par le Gateway si authentifié)
      */
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> creerSoumission(
@@ -43,8 +43,13 @@ public class SoumissionController {
             @RequestParam("motsCles") List<String> motsCles,
             @RequestParam("domaineRecherche") String domaineRecherche,
             @RequestParam(value = "notes", required = false) String notes,
-            @RequestHeader("X-User-Id") String userId,
-            @RequestHeader("X-User-Email") String userEmail) {
+            @RequestHeader(value = "X-User-Id", required = false, defaultValue = "anonymous") String userId,
+            @RequestHeader(value = "X-User-Email", required = false, defaultValue = "") String userEmail) {
+
+        // Utiliser emailAuteur si X-User-Email n'est pas fourni
+        if (userEmail.isEmpty()) {
+            userEmail = emailAuteur;
+        }
 
         try {
             // Construire le DTO

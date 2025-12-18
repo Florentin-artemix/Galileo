@@ -46,3 +46,4 @@ target/
 *.p12
 .env
 .env.local
+.env.production

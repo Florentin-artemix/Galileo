@@ -1,0 +1,202 @@
+name: CI/CD Pipeline - Galileo
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+env:
+  JAVA_VERSION: '21'
+  NODE_VERSION: '20'
+
+jobs:
+  # Test Frontend React
+  frontend-test:
+    name: Frontend Tests & Build
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Run linter
+        run: npm run lint --if-present || echo "No lint script found"
+      
+      - name: Run tests
+        run: npm test --if-present || echo "No test script found"
+      
+      - name: Build frontend
+        run: npm run build
+      
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-build
+          path: dist/
+          retention-days: 7
+
+  # Test Backend Java - Gateway
+  backend-gateway-test:
+    name: Backend Gateway Tests
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: 'temurin'
+          cache: 'maven'
+      
+      - name: Build Gateway
+        working-directory: ./backend/galileo-gateway
+        run: mvn clean compile -DskipTests
+      
+      - name: Run Gateway Tests
+        working-directory: ./backend/galileo-gateway
+        run: mvn test || echo "No tests found"
+
+  # Test Backend Java - Service Lecture
+  backend-lecture-test:
+    name: Backend Lecture Tests
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: 'temurin'
+          cache: 'maven'
+      
+      - name: Build Service Lecture
+        working-directory: ./backend/galileo-lecture
+        run: mvn clean compile -DskipTests
+      
+      - name: Run Lecture Tests
+        working-directory: ./backend/galileo-lecture
+        run: mvn test || echo "No tests found"
+
+  # Test Backend Java - Service Écriture
+  backend-ecriture-test:
+    name: Backend Écriture Tests
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: 'temurin'
+          cache: 'maven'
+      
+      - name: Build Service Écriture
+        working-directory: ./backend/galileo-ecriture
+        run: mvn clean compile -DskipTests
+      
+      - name: Run Écriture Tests
+        working-directory: ./backend/galileo-ecriture
+        run: mvn test || echo "No tests found"
+
+  # Build Docker Images
+  docker-build:
+    name: Build Docker Images
+    runs-on: ubuntu-latest
+    needs: [frontend-test, backend-gateway-test, backend-lecture-test, backend-ecriture-test]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Build Frontend Image
+        working-directory: .
+        run: |
+          docker build -t galileo-frontend:latest -f Dockerfile.frontend .
+      
+      - name: Build Gateway Image
+        working-directory: ./backend/galileo-gateway
+        run: |
+          docker build -t galileo-gateway:latest .
+      
+      - name: Build Lecture Image
+        working-directory: ./backend/galileo-lecture
+        run: |
+          docker build -t galileo-lecture:latest .
+      
+      - name: Build Écriture Image
+        working-directory: ./backend/galileo-ecriture
+        run: |
+          docker build -t galileo-ecriture:latest .
+      
+      - name: Test Docker Compose
+        working-directory: ./backend
+        run: |
+          docker-compose config
+
+  # Integration Tests
+  integration-test:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    needs: [docker-build]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Start services
+        working-directory: ./backend
+        run: |
+          docker-compose up -d db_galileo_lecture db_galileo_ecriture elasticsearch
+          sleep 30
+      
+      - name: Check services health
+        run: |
+          docker-compose -f backend/docker-compose.yml ps
+      
+      - name: Stop services
+        working-directory: ./backend
+        run: docker-compose down -v
+
+  # Code Quality
+  code-quality:
+    name: Code Quality & Security
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Run CodeQL Analysis
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript, java
+      
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v3
+      
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3

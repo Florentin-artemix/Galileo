@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.*;
  * Endpoints protégés pour les opérations d'indexation
  */
 @RestController
-@RequestMapping("/api/indexation")
+@RequestMapping("/indexation")
 public class IndexationController {
 
     private static final Logger logger = LoggerFactory.getLogger(IndexationController.class);

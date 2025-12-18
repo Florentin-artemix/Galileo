@@ -4,6 +4,7 @@ import { HashRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { LanguageProvider } from './contexts/LanguageContext';
 import { PublicationsProvider } from './contexts/PublicationsContext';
 import { ThemeProvider, useTheme } from './contexts/ThemeContext';
+import { AuthProvider } from './contexts/AuthContext';
 import Header from './components/Header';
 import Footer from './components/Footer';
 import HomePage from './pages/HomePage';
@@ -17,6 +18,7 @@ import EventsPage from './pages/EventsPage';
 import SubmissionPage from './pages/SubmissionPage';
 import ContactPage from './pages/ContactPage';
 import ResourcesPage from './pages/ResourcesPage';
+import AuthPage from './pages/AuthPage';
 
 const ScrollToTop: React.FC = () => {
   const { pathname } = useLocation();
@@ -55,6 +57,7 @@ const AppContent: React.FC = () => {
             <Route path="/blog" element={<BlogPage />} />
             <Route path="/blog/:slug" element={<SingleBlogPostPage />} />
             <Route path="/events" element={<EventsPage />} />
+            <Route path="/auth" element={<AuthPage />} />
             <Route path="/submit" element={<SubmissionPage />} />
             <Route path="/contact" element={<ContactPage />} />
             <Route path="/resources" element={<ResourcesPage />} />
@@ -71,9 +74,11 @@ const App: React.FC = () => {
   return (
     <ThemeProvider>
       <LanguageProvider>
-        <PublicationsProvider>
-          <AppContent />
-        </PublicationsProvider>
+        <AuthProvider>
+          <PublicationsProvider>
+            <AppContent />
+          </PublicationsProvider>
+        </AuthProvider>
       </LanguageProvider>
     </ThemeProvider>
   );

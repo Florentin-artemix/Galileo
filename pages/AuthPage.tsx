@@ -1,0 +1,249 @@
+import React, { useState, FC, FormEvent } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useLanguage } from '../contexts/LanguageContext';
+import { authService } from '../src/services/authService';
+
+// Floating Label Input Component
+interface FloatingLabelInputProps extends React.InputHTMLAttributes<HTMLInputElement> {
+  label: string;
+  id: string;
+  error?: string;
+}
+
+const FloatingLabelInput: FC<FloatingLabelInputProps> = ({ label, id, error, ...props }) => {
+  return (
+    <div className="relative">
+      <input
+        id={id}
+        className={`block px-3 py-4 w-full text-base text-light-text dark:text-off-white bg-transparent rounded-lg border-2 ${
+          error ? 'border-red-500' : 'border-light-border dark:border-dark-border'
+        } appearance-none focus:outline-none focus:ring-0 focus:border-light-accent dark:focus:border-teal peer`}
+        placeholder=" "
+        {...props}
+      />
+      <label
+        htmlFor={id}
+        className={`absolute text-base ${
+          error ? 'text-red-500' : 'text-light-text-secondary dark:text-gray-400'
+        } duration-300 transform -translate-y-4 scale-75 top-4 z-10 origin-[0] start-2.5 peer-focus:text-light-accent dark:peer-focus:text-teal peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-75 peer-focus:-translate-y-4`}
+      >
+        {label}
+      </label>
+      {error && <p className="text-red-500 text-sm mt-1">{error}</p>}
+    </div>
+  );
+};
+
+const AnimatedBackground = () => (
+  <div className="absolute top-0 left-0 w-full h-full -z-10 overflow-hidden">
+    <div className="absolute -top-40 -left-40 w-96 h-96 bg-light-accent/10 dark:bg-teal/10 rounded-full animate-glow"></div>
+    <div className="absolute -bottom-40 -right-40 w-96 h-96 bg-light-accent/10 dark:bg-teal/10 rounded-full animate-glow" style={{ animationDelay: '2s' }}></div>
+  </div>
+);
+
+const AuthPage: React.FC = () => {
+  const { translations } = useLanguage();
+  const t = translations.auth_page;
+  const navigate = useNavigate();
+
+  const [isLogin, setIsLogin] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  
+  // Form fields
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [name, setName] = useState('');
+
+  const validateForm = (): boolean => {
+    setError('');
+    
+    if (!email || !password) {
+      setError(t.error_fields_required);
+      return false;
+    }
+
+    if (!isLogin) {
+      if (!name) {
+        setError(t.error_name_required);
+        return false;
+      }
+      if (password !== confirmPassword) {
+        setError(t.error_password_mismatch);
+        return false;
+      }
+      if (password.length < 6) {
+        setError(t.error_password_length);
+        return false;
+      }
+    }
+
+    return true;
+  };
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    
+    if (!validateForm()) return;
+
+    setLoading(true);
+    setError('');
+
+    try {
+      if (isLogin) {
+        // 🔗 POINT D'INTÉGRATION 1: Login avec Firebase
+        await authService.login(email, password);
+        navigate('/submit'); // Redirect vers page de soumission après connexion
+      } else {
+        // 🔗 POINT D'INTÉGRATION 2: Inscription avec Firebase
+        await authService.signup(email, password, name);
+        navigate('/submit'); // Redirect vers page de soumission après inscription
+      }
+    } catch (err: any) {
+      console.error('Authentication error:', err);
+      
+      // Gestion des erreurs Firebase
+      if (err.code === 'auth/email-already-in-use') {
+        setError(t.error_email_exists);
+      } else if (err.code === 'auth/invalid-email') {
+        setError(t.error_invalid_email);
+      } else if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password') {
+        setError(t.error_invalid_credentials);
+      } else if (err.code === 'auth/weak-password') {
+        setError(t.error_weak_password);
+      } else {
+        setError(t.error_generic);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const toggleMode = () => {
+    setIsLogin(!isLogin);
+    setError('');
+    setEmail('');
+    setPassword('');
+    setConfirmPassword('');
+    setName('');
+  };
+
+  return (
+    <div className="relative min-h-screen overflow-hidden">
+      <AnimatedBackground />
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-24">
+        <div className="max-w-md mx-auto">
+          <header className="text-center mb-8">
+            <h1 
+              className="text-4xl md:text-5xl font-poppins font-bold text-light-text dark:text-off-white mb-4 animate-slide-in-up"
+              style={{ animationDelay: '100ms', animationFillMode: 'backwards' }}
+            >
+              {isLogin ? t.login_title : t.signup_title}
+            </h1>
+            <p 
+              className="text-lg text-light-text-secondary dark:text-gray-300 animate-slide-in-up"
+              style={{ animationDelay: '200ms', animationFillMode: 'backwards' }}
+            >
+              {isLogin ? t.login_subtitle : t.signup_subtitle}
+            </p>
+          </header>
+
+          <div 
+            className="bg-light-bg/60 dark:bg-navy/50 border border-light-border dark:border-dark-border rounded-2xl p-8 backdrop-blur-xl shadow-2xl dark:shadow-teal/10 animate-slide-in-up"
+            style={{ animationDelay: '300ms', animationFillMode: 'backwards' }}
+          >
+            <form onSubmit={handleSubmit} className="space-y-6">
+              {/* Nom complet (seulement pour inscription) */}
+              {!isLogin && (
+                <FloatingLabelInput
+                  id="name"
+                  label={t.name_label}
+                  name="name"
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  required
+                />
+              )}
+
+              {/* Email */}
+              <FloatingLabelInput
+                id="email"
+                label={t.email_label}
+                name="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
+
+              {/* Mot de passe */}
+              <FloatingLabelInput
+                id="password"
+                label={t.password_label}
+                name="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
+
+              {/* Confirmation mot de passe (seulement pour inscription) */}
+              {!isLogin && (
+                <FloatingLabelInput
+                  id="confirmPassword"
+                  label={t.confirm_password_label}
+                  name="confirmPassword"
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
+                />
+              )}
+
+              {/* Message d'erreur */}
+              {error && (
+                <div className="bg-red-100 dark:bg-red-900/30 border border-red-400 dark:border-red-700 text-red-700 dark:text-red-400 px-4 py-3 rounded-lg">
+                  {error}
+                </div>
+              )}
+
+              {/* Bouton de soumission */}
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full bg-light-accent dark:bg-teal text-white dark:text-navy font-bold py-3 px-6 rounded-full text-lg hover:bg-light-accent-hover dark:hover:bg-opacity-80 transition-all duration-300 transform hover:scale-105 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+              >
+                {loading ? (
+                  <span className="flex items-center justify-center">
+                    <svg className="animate-spin h-5 w-5 mr-3" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    {t.loading}
+                  </span>
+                ) : (
+                  isLogin ? t.login_button : t.signup_button
+                )}
+              </button>
+
+              {/* Toggle entre connexion et inscription */}
+              <div className="text-center">
+                <button
+                  type="button"
+                  onClick={toggleMode}
+                  className="text-light-accent dark:text-teal hover:underline"
+                >
+                  {isLogin ? t.switch_to_signup : t.switch_to_login}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default AuthPage;

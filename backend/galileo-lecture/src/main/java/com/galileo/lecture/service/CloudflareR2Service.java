@@ -3,6 +3,7 @@ package com.galileo.lecture.service;
 import com.galileo.lecture.config.CloudflareR2Properties;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.stereotype.Service;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
@@ -19,6 +20,7 @@ import java.time.Duration;
 @Slf4j
 @Service
 @RequiredArgsConstructor
+@ConditionalOnBean(S3Client.class)
 public class CloudflareR2Service {
 
     private final S3Client s3Client;

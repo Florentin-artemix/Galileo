@@ -1,0 +1,25 @@
+spring:
+  # Configuration pour les uploads volumineux
+  codec:
+    max-in-memory-size: 50MB
+  
+  cloud:
+    gateway:
+      routes:
+        - id: service-lecture
+          uri: http://galileo-service-lecture:8081
+          predicates:
+            - Path=/api/publications/**,/api/articles/**,/api/evenements/**,/api/search/**
+          filters:
+            - StripPrefix=1
+        - id: service-ecriture
+          uri: http://galileo-service-ecriture:8082
+          predicates:
+            - Path=/api/soumissions/**,/api/admin/**
+          filters:
+            - StripPrefix=1
+
+firebase:
+  enabled: true
+  credentials:
+    path: config/firebase-credentials.json

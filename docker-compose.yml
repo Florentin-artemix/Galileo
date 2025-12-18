@@ -1,0 +1,196 @@
+services:
+  # ==========================================
+  # FRONTEND - React Application
+  # ==========================================
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: galileo-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - gateway
+    networks:
+      - galileo-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ==========================================
+  # BACKEND - API Gateway
+  # ==========================================
+  gateway:
+    build:
+      context: ./backend/galileo-gateway
+      dockerfile: Dockerfile
+    container_name: galileo-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - LECTURE_SERVICE_URL=http://service-lecture:8081
+      - ECRITURE_SERVICE_URL=http://service-ecriture:8082
+    depends_on:
+      - service-lecture
+      - service-ecriture
+    volumes:
+      - ./backend/galileo-gateway/config:/app/config:ro
+    networks:
+      - galileo-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # ==========================================
+  # BACKEND - Service Lecture
+  # ==========================================
+  service-lecture:
+    build:
+      context: ./backend/galileo-lecture
+      dockerfile: Dockerfile
+    container_name: galileo-service-lecture
+    ports:
+      - "8081:8081"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://db-lecture:5432/db_galileo_lecture
+      - SPRING_DATASOURCE_USERNAME=galileo_user
+      - SPRING_DATASOURCE_PASSWORD=galileo_pass_2025
+      - SPRING_ELASTICSEARCH_URIS=http://elasticsearch:9200
+    depends_on:
+      db-lecture:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+    networks:
+      - galileo-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8081/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # ==========================================
+  # BACKEND - Service Écriture
+  # ==========================================
+  service-ecriture:
+    build:
+      context: ./backend/galileo-ecriture
+      dockerfile: Dockerfile
+    container_name: galileo-service-ecriture
+    ports:
+      - "8082:8082"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://db-ecriture:5432/db_galileo_ecriture
+      - SPRING_DATASOURCE_USERNAME=galileo_user
+      - SPRING_DATASOURCE_PASSWORD=galileo_pass_2025
+      - FEIGN_CLIENT_LECTURE_URL=http://service-lecture:8081
+    depends_on:
+      db-ecriture:
+        condition: service_healthy
+    networks:
+      - galileo-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8082/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # ==========================================
+  # DATABASE - Service Lecture
+  # ==========================================
+  db-lecture:
+    image: postgres:16-alpine
+    container_name: galileo-db-lecture
+    environment:
+      POSTGRES_DB: db_galileo_lecture
+      POSTGRES_USER: galileo_user
+      POSTGRES_PASSWORD: galileo_pass_2025
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-lecture-data:/var/lib/postgresql/data
+    networks:
+      - galileo-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U galileo_user -d db_galileo_lecture"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ==========================================
+  # DATABASE - Service Écriture
+  # ==========================================
+  db-ecriture:
+    image: postgres:16-alpine
+    container_name: galileo-db-ecriture
+    environment:
+      POSTGRES_DB: db_galileo_ecriture
+      POSTGRES_USER: galileo_user
+      POSTGRES_PASSWORD: galileo_pass_2025
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres-ecriture-data:/var/lib/postgresql/data
+    networks:
+      - galileo-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U galileo_user -d db_galileo_ecriture"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ==========================================
+  # ELASTICSEARCH - Recherche Avancée
+  # ==========================================
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+    container_name: galileo-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    volumes:
+      - elasticsearch-data:/usr/share/elasticsearch/data
+    networks:
+      - galileo-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+# ==========================================
+# VOLUMES
+# ==========================================
+volumes:
+  postgres-lecture-data:
+    name: galileo-postgres-lecture
+  postgres-ecriture-data:
+    name: galileo-postgres-ecriture
+  elasticsearch-data:
+    name: galileo-elasticsearch
+
+# ==========================================
+# NETWORKS
+# ==========================================
+networks:
+  galileo-network:
+    name: galileo-network
+    driver: bridge

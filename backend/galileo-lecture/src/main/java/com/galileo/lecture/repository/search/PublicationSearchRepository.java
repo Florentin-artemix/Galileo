@@ -51,7 +51,7 @@ public interface PublicationSearchRepository extends ElasticsearchRepository<Pub
     /**
      * Recherche de publications publiées uniquement
      */
-    Page<PublicationDocument> findByPublieTrue(Pageable pageable);
+    Page<PublicationDocument> findByPublieeTrue(Pageable pageable);
 
     /**
      * Recherche par auteur dans auteurPrincipal ou coAuteurs

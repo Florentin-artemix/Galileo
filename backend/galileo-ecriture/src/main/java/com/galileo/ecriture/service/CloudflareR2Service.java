@@ -3,6 +3,7 @@ package com.galileo.ecriture.service;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import software.amazon.awssdk.core.sync.RequestBody;
@@ -17,6 +18,7 @@ import java.time.Duration;
 import java.util.UUID;
 
 @Service
+@ConditionalOnBean(S3Client.class)
 public class CloudflareR2Service {
 
     private static final Logger logger = LoggerFactory.getLogger(CloudflareR2Service.class);

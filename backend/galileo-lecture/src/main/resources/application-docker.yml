@@ -1,0 +1,17 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://galileo-db-lecture:5432/db_galileo_lecture
+    username: galileo_user
+    password: galileo_pass_2025
+  elasticsearch:
+    uris: http://galileo-elasticsearch:9200
+
+cloudflare:
+  r2:
+    enabled: true
+    endpoint: https://c298de3d6c8cfa623f8a66bd2add5c36.r2.cloudflarestorage.com
+    account-id: c298de3d6c8cfa623f8a66bd2add5c36
+    access-key: 97b0e86da0f3f912fcac017482603f50
+    secret-key: 6660202e56742ae72d046fd1f3fee7b3679cf4bb399aae888509d9cf7aa27254
+    bucket-name: galileo
+    region: auto

@@ -171,7 +171,10 @@ public class IndexationService {
         if (publication.getMotsCles() != null && !publication.getMotsCles().isEmpty()) {
             doc.setMotsCles(List.of(publication.getMotsCles().split(",\\s*")));
         }
-        doc.setDatePublication(publication.getDatePublication());
+        // Conversion LocalDateTime -> LocalDate pour Elasticsearch
+        if (publication.getDatePublication() != null) {
+            doc.setDatePublication(publication.getDatePublication().toLocalDate());
+        }
         doc.setNombreVues(publication.getNombreVues());
         doc.setNombreTelechargements(publication.getNombreTelechargements());
         doc.setPubliee(publication.getPubliee());

@@ -1,17 +1,22 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
+import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '../contexts/LanguageContext';
 import { usePublications } from '../contexts/PublicationsContext';
+import { useAuth } from '../contexts/AuthContext';
 import type { ArticleFormData, Publication } from '../types';
 import { GoogleGenAI, Modality } from "@google/genai";
 import { NavLink } from 'react-router-dom';
 import SubmissionGuidelines from '../components/SubmissionGuidelines';
+import { soumissionsService } from '../src/services/publicationsService';
 
 const MAX_SIZE = 12 * 1024 * 1024; // 12MB
 
 const SubmissionPage: React.FC = () => {
     const { translations } = useLanguage();
-    const { addPublication } = usePublications();
+    const { refreshPublications } = usePublications();
+    const { isAuthenticated, loading: authLoading, user } = useAuth();
+    const navigate = useNavigate();
 
     const [step, setStep] = useState(1);
     const [file, setFile] = useState<File | null>(null);
@@ -24,6 +29,13 @@ const SubmissionPage: React.FC = () => {
     });
     const [generatedImageUrl, setGeneratedImageUrl] = useState('');
     const [publishedArticle, setPublishedArticle] = useState<Publication | null>(null);
+
+    // 🔗 POINT D'INTÉGRATION 5: Protection de la page - Redirection si non connecté
+    useEffect(() => {
+        if (!authLoading && !isAuthenticated) {
+            navigate('/auth');
+        }
+    }, [isAuthenticated, authLoading, navigate]);
 
     const onDrop = useCallback((acceptedFiles: File[], fileRejections: any[]) => {
         setFileError(null);
@@ -47,6 +59,22 @@ const SubmissionPage: React.FC = () => {
         multiple: false,
     });
 
+    // Afficher un loader pendant la vérification de l'authentification
+    // IMPORTANT: Ce return doit être APRÈS tous les hooks
+    if (authLoading) {
+        return (
+            <div className="min-h-screen flex items-center justify-center">
+                <div className="text-center">
+                    <svg className="animate-spin h-12 w-12 mx-auto text-light-accent dark:text-teal" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <p className="mt-4 text-light-text dark:text-off-white">{translations.submission_page.checking_auth || 'Vérification de l\'authentification...'}</p>
+                </div>
+            </div>
+        );
+    }
+
     const handleNext = async () => {
         if (step === 1 && file) {
             setIsLoading(true);
@@ -57,17 +85,30 @@ const SubmissionPage: React.FC = () => {
                 // Prefill title from filename
                 setFormData(prev => ({ ...prev, title: file.name.replace(/\.pdf$/i, '') }));
                 
-                // Generate image with AI
-                const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
-                const response = await ai.models.generateContent({
-                  model: 'gemini-2.5-flash-image',
-                  contents: { parts: [{ text: `Génère une illustration éditoriale (style photoréaliste + touche scientifique) pour un article de recherche en ingénierie intitulé: "${file.name.replace('.pdf', '')}". Palette dominante: #0B1E38, #F5F6FA, accent #00BFA6. Format 1200x800, fond propre.` }] },
-                  config: { responseModalities: [Modality.IMAGE] },
-                });
-                for (const part of response.candidates[0].content.parts) {
-                    if (part.inlineData) {
-                        setGeneratedImageUrl(`data:image/png;base64,${part.inlineData.data}`);
+                // Vérifier si la clé API Gemini est disponible
+                const geminiApiKey = process.env.API_KEY || process.env.GEMINI_API_KEY;
+                
+                if (geminiApiKey && geminiApiKey !== 'undefined' && geminiApiKey.length > 10) {
+                    // Generate image with AI si la clé est disponible
+                    try {
+                        const ai = new GoogleGenAI({ apiKey: geminiApiKey });
+                        const response = await ai.models.generateContent({
+                          model: 'gemini-2.5-flash-image',
+                          contents: { parts: [{ text: `Génère une illustration éditoriale (style photoréaliste + touche scientifique) pour un article de recherche en ingénierie intitulé: "${file.name.replace('.pdf', '')}". Palette dominante: #0B1E38, #F5F6FA, accent #00BFA6. Format 1200x800, fond propre.` }] },
+                          config: { responseModalities: [Modality.IMAGE] },
+                        });
+                        for (const part of response.candidates[0].content.parts) {
+                            if (part.inlineData) {
+                                setGeneratedImageUrl(`data:image/png;base64,${part.inlineData.data}`);
+                            }
+                        }
+                    } catch (aiError) {
+                        console.warn("AI image generation failed, using fallback:", aiError);
+                        setGeneratedImageUrl(`https://picsum.photos/seed/${encodeURIComponent(file.name)}/600/400`);
                     }
+                } else {
+                    // Utiliser une image de placeholder si pas de clé API
+                    setGeneratedImageUrl(`https://picsum.photos/seed/${encodeURIComponent(file.name)}/600/400`);
                 }
                 setStep(2);
             } catch(e) {
@@ -86,27 +127,54 @@ const SubmissionPage: React.FC = () => {
         setFormData(prev => ({...prev, [name]: value}));
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsLoading(true);
 
-        const newPublication: Omit<Publication, 'id'> = {
-            title: { fr: formData.title, en: formData.title },
-            authors: formData.authors.split(',').map(a => a.trim()),
-            date: new Date().toISOString(),
-            domain: { fr: formData.domain, en: formData.domain },
-            summary: { fr: formData.summary, en: formData.summary },
-            pdfUrl: URL.createObjectURL(file!),
-            imageUrl: generatedImageUrl || 'https://picsum.photos/seed/default/600/400',
-            tags: formData.keywords.split(',').map(k => k.trim()),
-        };
+        try {
+            // Préparer les données pour le backend
+            const soumissionData = {
+                titre: formData.title,
+                resume: formData.summary,
+                auteurPrincipal: formData.authors.split(',')[0]?.trim() || formData.submitterName,
+                emailAuteur: formData.contactEmail,
+                coAuteurs: formData.authors.split(',').slice(1).map(a => a.trim()).filter(a => a),
+                motsCles: formData.keywords.split(',').map(k => k.trim()).filter(k => k),
+                domaineRecherche: formData.domain,
+                notes: formData.affiliations || undefined
+            };
 
-        setTimeout(() => {
-            const published = addPublication(newPublication);
-            setPublishedArticle(published);
+            // Envoyer au backend avec le fichier PDF
+            const response = await soumissionsService.soumettre(soumissionData, file!);
+            
+            console.log('Soumission réussie:', response);
+
+            // Créer l'objet publication pour l'affichage local
+            const newPublication: Publication = {
+                id: response.id,
+                title: { fr: formData.title, en: formData.title },
+                authors: formData.authors.split(',').map(a => a.trim()),
+                date: new Date().toISOString(),
+                domain: { fr: formData.domain, en: formData.domain },
+                summary: { fr: formData.summary, en: formData.summary },
+                pdfUrl: response.urlPdf || '',
+                imageUrl: generatedImageUrl || 'https://picsum.photos/seed/default/600/400',
+                tags: formData.keywords.split(',').map(k => k.trim()),
+            };
+
+            setPublishedArticle(newPublication);
+            
+            // Rafraîchir la liste des publications
+            refreshPublications();
+            
             setIsLoading(false);
             setStep(3);
-        }, 1500);
+            
+        } catch (error: any) {
+            console.error('Erreur lors de la soumission:', error);
+            setIsLoading(false);
+            alert(`Erreur lors de la soumission: ${error.response?.data?.message || error.message}`);
+        }
     };
 
     const resetForm = () => {

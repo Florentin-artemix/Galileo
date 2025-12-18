@@ -1,12 +1,13 @@
 package com.galileo.lecture.document;
 
 import org.springframework.data.annotation.Id;
+import org.springframework.data.elasticsearch.annotations.DateFormat;
 import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldType;
 import org.springframework.data.elasticsearch.annotations.Setting;
 
-import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.util.List;
 
 /**
@@ -41,8 +42,8 @@ public class PublicationDocument {
     @Field(type = FieldType.Keyword)
     private List<String> motsCles;
 
-    @Field(type = FieldType.Date)
-    private LocalDateTime datePublication;
+    @Field(type = FieldType.Date, format = DateFormat.date, pattern = "yyyy-MM-dd || yyyy-MM-dd'T'HH:mm:ss || yyyy-MM-dd'T'HH:mm:ss.SSS || epoch_millis")
+    private LocalDate datePublication;
 
     @Field(type = FieldType.Integer)
     private Integer nombreVues;
@@ -125,11 +126,11 @@ public class PublicationDocument {
         this.motsCles = motsCles;
     }
 
-    public LocalDateTime getDatePublication() {
+    public LocalDate getDatePublication() {
         return datePublication;
     }
 
-    public void setDatePublication(LocalDateTime datePublication) {
+    public void setDatePublication(LocalDate datePublication) {
         this.datePublication = datePublication;
     }
 

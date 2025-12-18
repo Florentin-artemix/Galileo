@@ -5,14 +5,16 @@ spring:
   application:
     name: galileo-gateway
   
+  # Configuration pour les uploads de fichiers volumineux
+  codec:
+    max-in-memory-size: 50MB
+  
   cloud:
     gateway:
       routes:
-        # Routes publiques (pas d'authentification requise)
-        
         # Service Lecture - Publications publiques
         - id: lecture-publications-public
-          uri: http://localhost:8081
+          uri: ${LECTURE_SERVICE_URL:http://localhost:8081}
           predicates:
             - Path=/api/publications/**
             - Method=GET
@@ -21,7 +23,7 @@ spring:
         
         # Service Lecture - Blog public
         - id: lecture-blog-public
-          uri: http://localhost:8081
+          uri: ${LECTURE_SERVICE_URL:http://localhost:8081}
           predicates:
             - Path=/api/blog/**
             - Method=GET
@@ -30,18 +32,33 @@ spring:
         
         # Service Lecture - Événements publics
         - id: lecture-events-public
-          uri: http://localhost:8081
+          uri: ${LECTURE_SERVICE_URL:http://localhost:8081}
           predicates:
             - Path=/api/events/**
             - Method=GET
           filters:
             - StripPrefix=1
         
-        # Routes protégées (authentification Firebase requise)
+        # Service Lecture - Recherche publique
+        - id: lecture-search-public
+          uri: ${LECTURE_SERVICE_URL:http://localhost:8081}
+          predicates:
+            - Path=/api/search/**
+            - Method=GET
+          filters:
+            - StripPrefix=1
+        
+        # Service Lecture - Indexation
+        - id: lecture-indexation
+          uri: ${LECTURE_SERVICE_URL:http://localhost:8081}
+          predicates:
+            - Path=/api/indexation/**
+          filters:
+            - StripPrefix=1
         
         # Service Écriture - Soumissions étudiants
         - id: ecriture-soumissions
-          uri: http://localhost:8082
+          uri: ${ECRITURE_SERVICE_URL:http://localhost:8082}
           predicates:
             - Path=/api/soumissions/**
           filters:
@@ -50,7 +67,7 @@ spring:
         
         # Service Écriture - Administration
         - id: ecriture-admin
-          uri: http://localhost:8082
+          uri: ${ECRITURE_SERVICE_URL:http://localhost:8082}
           predicates:
             - Path=/api/admin/**
           filters:

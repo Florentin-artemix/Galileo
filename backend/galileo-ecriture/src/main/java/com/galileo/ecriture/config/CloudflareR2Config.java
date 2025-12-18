@@ -1,6 +1,8 @@
 package com.galileo.ecriture.config;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
@@ -11,7 +13,9 @@ import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 
 import java.net.URI;
 
+@Slf4j
 @Configuration
+@ConditionalOnProperty(name = "cloudflare.r2.enabled", havingValue = "true", matchIfMissing = false)
 public class CloudflareR2Config {
 
     @Value("${cloudflare.r2.endpoint}")
@@ -26,25 +30,38 @@ public class CloudflareR2Config {
     @Value("${cloudflare.r2.region}")
     private String region;
 
+    @Value("${cloudflare.r2.bucket-name}")
+    private String bucketName;
+
     @Bean
     public S3Client s3Client() {
+        log.info("🚀 Initialisation Cloudflare R2 S3Client - Endpoint: {}, Bucket: {}", endpoint, bucketName);
+        
         AwsBasicCredentials credentials = AwsBasicCredentials.create(accessKey, secretKey);
 
-        return S3Client.builder()
+        S3Client client = S3Client.builder()
                 .endpointOverride(URI.create(endpoint))
                 .credentialsProvider(StaticCredentialsProvider.create(credentials))
                 .region(Region.of(region))
                 .build();
+        
+        log.info("✅ Cloudflare R2 S3Client initialisé avec succès");
+        return client;
     }
 
     @Bean
     public S3Presigner s3Presigner() {
+        log.info("🚀 Initialisation Cloudflare R2 S3Presigner");
+        
         AwsBasicCredentials credentials = AwsBasicCredentials.create(accessKey, secretKey);
 
-        return S3Presigner.builder()
+        S3Presigner presigner = S3Presigner.builder()
                 .endpointOverride(URI.create(endpoint))
                 .credentialsProvider(StaticCredentialsProvider.create(credentials))
                 .region(Region.of(region))
                 .build();
+        
+        log.info("✅ Cloudflare R2 S3Presigner initialisé avec succès");
+        return presigner;
     }
 }

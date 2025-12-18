@@ -2,8 +2,8 @@ package com.galileo.lecture.controller;
 
 import com.galileo.lecture.dto.PublicationDTO;
 import com.galileo.lecture.service.PublicationService;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -12,6 +12,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Contrôleur REST pour les publications publiques
@@ -20,11 +21,19 @@ import java.util.List;
 @Slf4j
 @RestController
 @RequestMapping("/publications")
-@RequiredArgsConstructor
 public class PublicationController {
 
     private final PublicationService publicationService;
     private final com.galileo.lecture.service.CloudflareR2Service cloudflareR2Service;
+
+    @Autowired
+    public PublicationController(
+            PublicationService publicationService,
+            @Autowired(required = false) com.galileo.lecture.service.CloudflareR2Service cloudflareR2Service
+    ) {
+        this.publicationService = publicationService;
+        this.cloudflareR2Service = cloudflareR2Service;
+    }
 
     /**
      * GET /publications
@@ -132,6 +141,14 @@ public class PublicationController {
     @GetMapping("/{id}/telecharger")
     public ResponseEntity<java.util.Map<String, String>> genererUrlTelechargement(@PathVariable Long id) {
         log.info("Génération d'URL de téléchargement pour la publication ID: {}", id);
+        
+        if (cloudflareR2Service == null) {
+            log.warn("CloudflareR2Service n'est pas disponible - configuration R2 désactivée");
+            return ResponseEntity.status(503).body(java.util.Map.of(
+                "error", "Service de téléchargement non disponible",
+                "message", "La configuration Cloudflare R2 n'est pas activée"
+            ));
+        }
         
         // Récupérer la publication
         PublicationDTO publication = publicationService.obtenirPublicationParId(id);
