@@ -17,6 +17,17 @@ const MoonIcon = () => (
   </svg>
 );
 
+const MenuIcon = () => (
+  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+  </svg>
+);
+
+const CloseIcon = () => (
+  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+  </svg>
+);
 
 const Header: React.FC = () => {
   const { language, toggleLanguage, translations } = useLanguage();
@@ -25,7 +36,6 @@ const Header: React.FC = () => {
   const navigate = useNavigate();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
-  // 🔗 POINT D'INTÉGRATION 7: Gestion de la déconnexion
   const handleLogout = async () => {
     await logout();
     navigate('/');
@@ -42,179 +52,174 @@ const Header: React.FC = () => {
     { to: '/contact', text: translations.nav.contact },
   ];
 
-  const activeLinkClass = 'text-light-accent dark:text-teal font-semibold';
-  const inactiveLinkClass = 'text-light-text-secondary dark:text-gray-300 hover:text-light-accent dark:hover:text-teal transition-colors duration-300';
+  const activeLinkClass = 'text-teal dark:text-teal font-semibold';
+  const inactiveLinkClass = 'text-gray-600 dark:text-gray-300 hover:text-teal dark:hover:text-teal transition-colors duration-200';
 
   return (
-    <header className="bg-white/80 dark:bg-navy/80 backdrop-blur-sm sticky top-0 z-50 border-b border-light-border dark:border-dark-border">
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-20">
-          <div className="flex-shrink-0">
-            <NavLink to="/" className="text-2xl font-poppins font-bold text-light-text dark:text-off-white">
-              GALILEO
-            </NavLink>
+    <header className="bg-white dark:bg-[#0a192f] sticky top-0 z-50 border-b border-gray-200 dark:border-gray-700 shadow-sm">
+      {/* Ligne principale avec logo et actions */}
+      <div className="container mx-auto px-4">
+        <div className="flex items-center justify-between h-16">
+          {/* Logo */}
+          <NavLink to="/" className="text-2xl font-bold text-gray-900 dark:text-white flex-shrink-0">
+            GALILEO
+          </NavLink>
+
+          {/* Barre de recherche centrale - Desktop */}
+          <div className="hidden lg:flex flex-1 max-w-xl mx-8">
+            <SearchBar className="w-full" />
           </div>
-          <div className="hidden md:flex md:items-center md:space-x-6">
-            {navLinks.map((link) => (
-              <NavLink
-                key={link.to + link.text}
-                to={link.to}
-                className={({ isActive }) => (isActive ? activeLinkClass : inactiveLinkClass)}
-              >
-                {link.text}
-              </NavLink>
-            ))}
-          </div>
-          
-          {/* Barre de recherche */}
-          <div className="hidden md:block flex-1 max-w-xs mx-4">
-            <SearchBar />
-          </div>
-          
-          <div className="hidden md:flex items-center space-x-4">
+
+          {/* Actions de droite */}
+          <div className="flex items-center gap-2">
+            {/* Thème */}
             <button
               onClick={toggleTheme}
-              className="p-2 rounded-full text-light-text-secondary dark:text-gray-300 hover:bg-light-card dark:hover:bg-navy-dark transition-colors duration-300"
+              className="p-2 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
               aria-label="Toggle theme"
             >
               {theme === 'dark' ? <SunIcon /> : <MoonIcon />}
             </button>
+
+            {/* Langue */}
             <button
               onClick={toggleLanguage}
-              className="px-3 py-1 border border-light-accent dark:border-teal rounded-full text-sm text-light-accent dark:text-teal hover:bg-light-accent dark:hover:bg-teal hover:text-white dark:hover:text-navy transition-colors duration-300"
-              aria-label="Toggle language"
+              className="px-3 py-1.5 text-sm font-medium border border-teal text-teal rounded-lg hover:bg-teal hover:text-white dark:hover:text-[#0a192f] transition-colors"
             >
               {language === 'fr' ? 'EN' : 'FR'}
             </button>
-            
-            {/* 🔗 POINT D'INTÉGRATION 8: Affichage conditionnel des boutons selon l'état d'authentification */}
-            {isAuthenticated ? (
-              <>
-                <NavLink
-                  to="/submit"
-                  className="bg-light-accent dark:bg-teal text-white dark:text-navy font-bold py-2 px-4 rounded-full hover:bg-light-accent-hover dark:hover:bg-opacity-80 transition-all duration-300 transform hover:scale-105"
-                >
-                  {translations.nav.submit}
-                </NavLink>
-                <div className="flex items-center space-x-3">
-                  <span className="text-sm text-light-text-secondary dark:text-gray-300">
+
+            {/* Boutons Auth - Desktop */}
+            <div className="hidden md:flex items-center gap-2">
+              {isAuthenticated ? (
+                <>
+                  <NavLink
+                    to="/submit"
+                    className="px-4 py-2 bg-teal text-white dark:text-[#0a192f] font-semibold rounded-lg hover:bg-teal/90 transition-colors"
+                  >
+                    {translations.nav.submit}
+                  </NavLink>
+                  <span className="text-sm text-gray-600 dark:text-gray-400 max-w-[150px] truncate">
                     {user?.email}
                   </span>
                   <button
                     onClick={handleLogout}
-                    className="border-2 border-light-accent dark:border-teal text-light-accent dark:text-teal font-bold py-2 px-4 rounded-full hover:bg-light-accent dark:hover:bg-teal hover:text-white dark:hover:text-navy transition-all duration-300"
+                    className="px-3 py-1.5 text-sm text-red-500 hover:text-red-600 transition-colors"
                   >
                     {translations.auth_page?.logout_button || 'Déconnexion'}
                   </button>
-                </div>
-              </>
-            ) : (
-              <>
-                <NavLink
-                  to="/auth"
-                  className="border-2 border-light-accent dark:border-teal text-light-accent dark:text-teal font-bold py-2 px-4 rounded-full hover:bg-light-accent dark:hover:bg-teal hover:text-white dark:hover:text-navy transition-all duration-300"
-                >
-                  {translations.auth_page?.login_button || 'Connexion'}
-                </NavLink>
-                <NavLink
-                  to="/submit"
-                  className="bg-light-accent dark:bg-teal text-white dark:text-navy font-bold py-2 px-4 rounded-full hover:bg-light-accent-hover dark:hover:bg-opacity-80 transition-all duration-300 transform hover:scale-105"
-                >
-                  {translations.nav.submit}
-                </NavLink>
-              </>
-            )}
-          </div>
-          <div className="md:hidden flex items-center">
+                </>
+              ) : (
+                <>
+                  <NavLink
+                    to="/auth"
+                    className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:text-teal transition-colors"
+                  >
+                    {translations.auth_page?.login_button || 'Connexion'}
+                  </NavLink>
+                  <NavLink
+                    to="/submit"
+                    className="px-4 py-2 bg-teal text-white dark:text-[#0a192f] font-semibold rounded-lg hover:bg-teal/90 transition-colors"
+                  >
+                    {translations.nav.submit}
+                  </NavLink>
+                </>
+              )}
+            </div>
+
+            {/* Menu mobile */}
             <button
               onClick={() => setIsMenuOpen(!isMenuOpen)}
-              className="inline-flex items-center justify-center p-2 rounded-md text-light-text-secondary dark:text-gray-300 hover:text-light-accent dark:hover:text-teal focus:outline-none"
-              aria-label="Open menu"
+              className="md:hidden p-2 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
+              aria-label="Toggle menu"
             >
-              <svg className="h-6 w-6" stroke="currentColor" fill="none" viewBox="0 0 24 24">
-                {isMenuOpen ? (
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                ) : (
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
-                )}
-              </svg>
+              {isMenuOpen ? <CloseIcon /> : <MenuIcon />}
             </button>
           </div>
         </div>
+
+        {/* Navigation - Desktop */}
+        <nav className="hidden md:flex items-center gap-6 py-2 border-t border-gray-100 dark:border-gray-800">
+          {navLinks.map((link) => (
+            <NavLink
+              key={link.to}
+              to={link.to}
+              className={({ isActive }) => 
+                `text-sm ${isActive ? activeLinkClass : inactiveLinkClass}`
+              }
+            >
+              {link.text}
+            </NavLink>
+          ))}
+        </nav>
       </div>
+
+      {/* Menu mobile déroulant */}
       {isMenuOpen && (
-        <div className="md:hidden bg-light-bg dark:bg-navy">
-          <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3 flex flex-col items-center">
+        <div className="md:hidden bg-white dark:bg-[#0a192f] border-t border-gray-200 dark:border-gray-700">
+          <div className="container mx-auto px-4 py-4 space-y-4">
             {/* Barre de recherche mobile */}
-            <div className="w-full px-3 py-2">
-              <SearchBar />
-            </div>
-            
-            {navLinks.map((link) => (
-              <NavLink
-                key={link.to}
-                to={link.to}
-                onClick={() => setIsMenuOpen(false)}
-                className={({ isActive }) => `block px-3 py-2 rounded-md text-base font-medium ${isActive ? 'text-light-accent dark:text-teal bg-light-accent/10 dark:bg-teal/10' : 'text-light-text-secondary dark:text-gray-300'}`}
-              >
-                {link.text}
-              </NavLink>
-            ))}
-            
-            {/* Mobile: Boutons selon état d'authentification */}
-            {isAuthenticated ? (
-              <>
-                <div className="text-sm text-light-text-secondary dark:text-gray-300 mt-2">
-                  {user?.email}
-                </div>
+            <SearchBar className="w-full" />
+
+            {/* Navigation mobile */}
+            <nav className="flex flex-col gap-2">
+              {navLinks.map((link) => (
                 <NavLink
-                  to="/submit"
+                  key={link.to}
+                  to={link.to}
                   onClick={() => setIsMenuOpen(false)}
-                  className="block bg-light-accent dark:bg-teal text-white dark:text-navy font-bold py-2 px-4 rounded-full mt-4"
+                  className={({ isActive }) =>
+                    `px-4 py-2 rounded-lg text-sm ${
+                      isActive
+                        ? 'bg-teal/10 text-teal font-semibold'
+                        : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+                    }`
+                  }
                 >
-                  {translations.nav.submit}
+                  {link.text}
                 </NavLink>
-                <button
-                  onClick={handleLogout}
-                  className="block border-2 border-light-accent dark:border-teal text-light-accent dark:text-teal font-bold py-2 px-4 rounded-full mt-2"
-                >
-                  {translations.auth_page?.logout_button || 'Déconnexion'}
-                </button>
-              </>
-            ) : (
-              <>
-                <NavLink
-                  to="/auth"
-                  onClick={() => setIsMenuOpen(false)}
-                  className="block border-2 border-light-accent dark:border-teal text-light-accent dark:text-teal font-bold py-2 px-4 rounded-full mt-4"
-                >
-                  {translations.auth_page?.login_button || 'Connexion'}
-                </NavLink>
-                <NavLink
-                  to="/submit"
-                  onClick={() => setIsMenuOpen(false)}
-                  className="block bg-light-accent dark:bg-teal text-white dark:text-navy font-bold py-2 px-4 rounded-full mt-2"
-                >
-                  {translations.nav.submit}
-                </NavLink>
-              </>
-            )}
-            
-            <div className="flex items-center gap-4 mt-4">
-              <button
-                onClick={toggleTheme}
-                className="p-2 rounded-full text-light-text-secondary dark:text-gray-300"
-                aria-label="Toggle theme"
-              >
-                {theme === 'dark' ? <SunIcon /> : <MoonIcon />}
-              </button>
-              <button
-                onClick={() => { toggleLanguage(); setIsMenuOpen(false); }}
-                className="px-3 py-1 border border-light-accent dark:border-teal text-light-accent dark:text-teal rounded-full text-sm"
-                aria-label="Toggle language"
-              >
-                {language === 'fr' ? 'EN' : 'FR'}
-              </button>
+              ))}
+            </nav>
+
+            {/* Boutons Auth mobile */}
+            <div className="pt-4 border-t border-gray-200 dark:border-gray-700 space-y-2">
+              {isAuthenticated ? (
+                <>
+                  <div className="text-sm text-gray-600 dark:text-gray-400 text-center">
+                    {user?.email}
+                  </div>
+                  <NavLink
+                    to="/submit"
+                    onClick={() => setIsMenuOpen(false)}
+                    className="block w-full px-4 py-2 text-center bg-teal text-white dark:text-[#0a192f] font-semibold rounded-lg"
+                  >
+                    {translations.nav.submit}
+                  </NavLink>
+                  <button
+                    onClick={handleLogout}
+                    className="block w-full px-4 py-2 text-center text-red-500 border border-red-500 rounded-lg"
+                  >
+                    {translations.auth_page?.logout_button || 'Déconnexion'}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <NavLink
+                    to="/auth"
+                    onClick={() => setIsMenuOpen(false)}
+                    className="block w-full px-4 py-2 text-center border border-teal text-teal rounded-lg"
+                  >
+                    {translations.auth_page?.login_button || 'Connexion'}
+                  </NavLink>
+                  <NavLink
+                    to="/submit"
+                    onClick={() => setIsMenuOpen(false)}
+                    className="block w-full px-4 py-2 text-center bg-teal text-white dark:text-[#0a192f] font-semibold rounded-lg"
+                  >
+                    {translations.nav.submit}
+                  </NavLink>
+                </>
+              )}
             </div>
           </div>
         </div>

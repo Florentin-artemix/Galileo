@@ -128,10 +128,11 @@ const SearchBar: React.FC<SearchBarProps> = ({ className = '', placeholder, onRe
           onKeyDown={handleKeyDown}
           onFocus={() => query.length >= 2 && results.length > 0 && setIsOpen(true)}
           placeholder={placeholder || translations.search?.placeholder || 'Rechercher...'}
-          className="w-full px-4 py-2.5 pl-10 pr-10 rounded-xl border border-gray-200 dark:border-gray-600 
-                     bg-gray-50 dark:bg-navy-light text-gray-900 dark:text-white
+          className="w-full px-4 py-2.5 pl-10 pr-10 rounded-xl border border-gray-300 dark:border-gray-600 
+                     bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100
                      focus:outline-none focus:ring-2 focus:ring-teal focus:border-transparent
-                     placeholder-gray-400 dark:placeholder-gray-400 transition-all duration-200"
+                     placeholder-gray-500 dark:placeholder-gray-400 transition-all duration-200"
+          style={{ colorScheme: 'light dark' }}
         />
         
         {/* Icône de recherche */}
@@ -174,7 +175,7 @@ const SearchBar: React.FC<SearchBarProps> = ({ className = '', placeholder, onRe
 
       {/* Dropdown des résultats */}
       {isOpen && (
-        <div className="absolute z-50 w-full mt-2 bg-white dark:bg-navy-light rounded-xl shadow-xl border border-gray-100 dark:border-gray-700 overflow-hidden max-h-96 overflow-y-auto">
+        <div className="absolute z-50 w-full mt-2 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden max-h-96 overflow-y-auto">
           {error ? (
             <div className="p-4 text-center text-red-500 dark:text-red-400">
               <svg className="w-8 h-8 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -195,7 +196,7 @@ const SearchBar: React.FC<SearchBarProps> = ({ className = '', placeholder, onRe
                 <li key={result.id}>
                   <button
                     onClick={() => handleResultClick(result)}
-                    className="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-navy/50 transition-colors duration-150"
+                    className="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-150"
                   >
                     <div className="flex items-start gap-3">
                       {/* Icône de document */}
@@ -207,7 +208,7 @@ const SearchBar: React.FC<SearchBarProps> = ({ className = '', placeholder, onRe
                       
                       <div className="flex-1 min-w-0">
                         {/* Titre */}
-                        <h4 className="text-sm font-medium text-light-text dark:text-off-white truncate">
+                        <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
                           {highlightMatch(result.titre, query)}
                         </h4>
                         
