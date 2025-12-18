@@ -11,6 +11,7 @@ env:
   NODE_VERSION: '20'
   DOCKER_REGISTRY: ghcr.io
   IMAGE_PREFIX: ${{ github.repository_owner }}/galileo
+  REPO_OWNER_LOWERCASE: ${{ github.repository_owner }}
 
 jobs:
   # ============================================
@@ -204,15 +205,20 @@ jobs:
       - name: 🏗️ Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: 🐳 Build & Push Frontend
+      - name: � Set lowercase repository owner
+        id: lowercase
+        run: |
+          echo "owner=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+
+      - name: �🐳 Build & Push Frontend
         uses: docker/build-push-action@v5
         with:
           context: .
           file: ./Dockerfile
           push: true
           tags: |
-            ${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_PREFIX }}-frontend:latest
-            ${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_PREFIX }}-frontend:${{ github.sha }}
+            ${{ env.DOCKER_REGISTRY }}/${{ steps.lowercase.outputs.owner }}/galileo-frontend:latest
+            ${{ env.DOCKER_REGISTRY }}/${{ steps.lowercase.outputs.owner }}/galileo-frontend:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -222,8 +228,8 @@ jobs:
           context: ./backend/galileo-gateway
           push: true
           tags: |
-            ${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_PREFIX }}-gateway:latest
-            ${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_PREFIX }}-gateway:${{ github.sha }}
+            ${{ env.DOCKER_REGISTRY }}/${{ steps.lowercase.outputs.owner }}/galileo-gateway:latest
+            ${{ env.DOCKER_REGISTRY }}/${{ steps.lowercase.outputs.owner }}/galileo-gateway:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -233,8 +239,8 @@ jobs:
           context: ./backend/galileo-lecture
           push: true
           tags: |
-            ${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_PREFIX }}-lecture:latest
-            ${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_PREFIX }}-lecture:${{ github.sha }}
+            ${{ env.DOCKER_REGISTRY }}/${{ steps.lowercase.outputs.owner }}/galileo-lecture:latest
+            ${{ env.DOCKER_REGISTRY }}/${{ steps.lowercase.outputs.owner }}/galileo-lecture:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -244,8 +250,8 @@ jobs:
           context: ./backend/galileo-ecriture
           push: true
           tags: |
-            ${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_PREFIX }}-ecriture:latest
-            ${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_PREFIX }}-ecriture:${{ github.sha }}
+            ${{ env.DOCKER_REGISTRY }}/${{ steps.lowercase.outputs.owner }}/galileo-ecriture:latest
+            ${{ env.DOCKER_REGISTRY }}/${{ steps.lowercase.outputs.owner }}/galileo-ecriture:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
