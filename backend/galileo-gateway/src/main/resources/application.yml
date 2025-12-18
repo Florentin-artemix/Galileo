@@ -49,6 +49,25 @@ spring:
             - StripPrefix=1
             - name: FirebaseAuthenticationFilter
         
+        # Service Lecture - Équipe publique (GET)
+        - id: lecture-team-public
+          uri: ${LECTURE_SERVICE_URL:http://localhost:8081}
+          predicates:
+            - Path=/api/team/**
+            - Method=GET
+          filters:
+            - StripPrefix=1
+        
+        # Service Lecture - Équipe admin (POST, PUT, DELETE)
+        - id: lecture-team-admin
+          uri: ${LECTURE_SERVICE_URL:http://localhost:8081}
+          predicates:
+            - Path=/api/team/**
+            - Method=POST,PUT,DELETE
+          filters:
+            - StripPrefix=1
+            - name: FirebaseAuthenticationFilter
+        
         # Service Lecture - Recherche publique
         - id: lecture-search-public
           uri: ${LECTURE_SERVICE_URL:http://localhost:8081}

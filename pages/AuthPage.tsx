@@ -1,4 +1,4 @@
-import React, { useState, FC, FormEvent } from 'react';
+import React, { useState, FC, FormEvent, TextareaHTMLAttributes } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '../contexts/LanguageContext';
 import { authService } from '../src/services/authService';
@@ -19,6 +19,38 @@ const FloatingLabelInput: FC<FloatingLabelInputProps> = ({ label, id, error, ...
           error ? 'border-red-500' : 'border-light-border dark:border-dark-border'
         } appearance-none focus:outline-none focus:ring-0 focus:border-light-accent dark:focus:border-teal peer`}
         placeholder=" "
+        {...props}
+      />
+      <label
+        htmlFor={id}
+        className={`absolute text-base ${
+          error ? 'text-red-500' : 'text-light-text-secondary dark:text-gray-400'
+        } duration-300 transform -translate-y-4 scale-75 top-4 z-10 origin-[0] start-2.5 peer-focus:text-light-accent dark:peer-focus:text-teal peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-75 peer-focus:-translate-y-4`}
+      >
+        {label}
+      </label>
+      {error && <p className="text-red-500 text-sm mt-1">{error}</p>}
+    </div>
+  );
+};
+
+// Floating Label Textarea Component
+interface FloatingLabelTextareaProps extends TextareaHTMLAttributes<HTMLTextAreaElement> {
+  label: string;
+  id: string;
+  error?: string;
+}
+
+const FloatingLabelTextarea: FC<FloatingLabelTextareaProps> = ({ label, id, error, ...props }) => {
+  return (
+    <div className="relative">
+      <textarea
+        id={id}
+        className={`block px-3 py-4 w-full text-base text-light-text dark:text-off-white bg-transparent rounded-lg border-2 ${
+          error ? 'border-red-500' : 'border-light-border dark:border-dark-border'
+        } appearance-none focus:outline-none focus:ring-0 focus:border-light-accent dark:focus:border-teal peer`}
+        placeholder=" "
+        rows={4}
         {...props}
       />
       <label
@@ -55,6 +87,8 @@ const AuthPage: React.FC = () => {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [name, setName] = useState('');
+  const [program, setProgram] = useState('');
+  const [motivation, setMotivation] = useState('');
 
   const validateForm = (): boolean => {
     setError('');
@@ -67,6 +101,14 @@ const AuthPage: React.FC = () => {
     if (!isLogin) {
       if (!name) {
         setError(t.error_name_required);
+        return false;
+      }
+      if (!program) {
+        setError(t.error_program_required);
+        return false;
+      }
+      if (!motivation) {
+        setError(t.error_motivation_required);
         return false;
       }
       if (password !== confirmPassword) {
@@ -127,6 +169,8 @@ const AuthPage: React.FC = () => {
     setPassword('');
     setConfirmPassword('');
     setName('');
+    setProgram('');
+    setMotivation('');
   };
 
   return (
@@ -198,6 +242,31 @@ const AuthPage: React.FC = () => {
                   type="password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
+                />
+              )}
+
+              {/* Programme d'études (seulement pour inscription) */}
+              {!isLogin && (
+                <FloatingLabelInput
+                  id="program"
+                  label={t.program_label}
+                  name="program"
+                  type="text"
+                  value={program}
+                  onChange={(e) => setProgram(e.target.value)}
+                  required
+                />
+              )}
+
+              {/* Motivation (seulement pour inscription) */}
+              {!isLogin && (
+                <FloatingLabelTextarea
+                  id="motivation"
+                  label={t.motivation_label}
+                  name="motivation"
+                  value={motivation}
+                  onChange={(e) => setMotivation(e.target.value)}
                   required
                 />
               )}

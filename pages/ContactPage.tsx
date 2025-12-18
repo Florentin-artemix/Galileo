@@ -77,16 +77,10 @@ const ContactPage: React.FC = () => {
     const t = translations.contact_page;
 
     const [contactSubmitted, setContactSubmitted] = useState(false);
-    const [joinSubmitted, setJoinSubmitted] = useState(false);
 
     const handleContactSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         setContactSubmitted(true);
-    };
-
-    const handleJoinSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-        setJoinSubmitted(true);
     };
     
     return (
@@ -108,7 +102,7 @@ const ContactPage: React.FC = () => {
                     </p>
                 </header>
                 
-                <div className="grid lg:grid-cols-2 gap-12 items-start">
+                <div className="max-w-2xl mx-auto">
                     {/* Contact Form */}
                     <div 
                         className="bg-light-bg/60 dark:bg-navy/50 border border-light-border dark:border-dark-border rounded-2xl p-8 backdrop-blur-xl shadow-2xl dark:shadow-teal/10 animate-slide-in-up"
@@ -130,28 +124,17 @@ const ContactPage: React.FC = () => {
                         )}
                     </div>
 
-                    {/* Join Form */}
-                     <div 
-                        className="bg-light-bg/60 dark:bg-navy/50 border border-light-border dark:border-dark-border rounded-2xl p-8 backdrop-blur-xl shadow-2xl dark:shadow-teal/10 animate-slide-in-up"
+                    {/* Info supplémentaire - lien vers inscription */}
+                    <div 
+                        className="mt-8 text-center animate-slide-in-up"
                         style={{ animationDelay: '400ms', animationFillMode: 'backwards' }}
                     >
-                        {joinSubmitted ? (
-                            <SuccessMessage title={t.join_success_title} message={t.join_success} />
-                        ) : (
-                             <form onSubmit={handleJoinSubmit} className="space-y-6">
-                                <div className="text-center">
-                                    <h2 className="text-2xl font-poppins font-bold text-light-text dark:text-off-white">{t.join_us}</h2>
-                                    <p className="text-light-text-secondary dark:text-gray-400 mt-2">{t.join_subtitle}</p>
-                                </div>
-                                <FloatingLabelInput id="join_name" label={t.your_name} name="name" type="text" required />
-                                <FloatingLabelInput id="join_email" label={t.your_email} name="email" type="email" required />
-                                <FloatingLabelInput id="program" label={t.program} name="program" type="text" required />
-                                <FloatingLabelTextarea id="motivation" label={t.motivation} name="motivation" required />
-                                <button type="submit" className="w-full border-2 border-light-accent dark:border-teal text-light-accent dark:text-teal font-bold py-3 px-6 rounded-full text-lg hover:bg-light-accent dark:hover:bg-teal hover:text-white dark:hover:text-navy transition-all duration-300 transform hover:scale-105">
-                                    {t.apply}
-                                </button>
-                            </form>
-                        )}
+                        <p className="text-light-text-secondary dark:text-gray-400">
+                            {t.join_subtitle}{' '}
+                            <a href="/auth" className="text-light-accent dark:text-teal hover:underline font-semibold">
+                                {t.join_us}
+                            </a>
+                        </p>
                     </div>
                 </div>
             </div>

@@ -1,7 +1,7 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
-import { teamMembers } from '../data/team';
+import { getAllTeamMembers } from '../src/services/teamService';
 import type { TeamMember } from '../types';
 import Modal from '../components/Modal';
 
@@ -28,11 +28,46 @@ const TeamMemberCard: React.FC<{ member: TeamMember; onContact: (member: TeamMem
   );
 };
 
+// Skeleton loader component
+const TeamMemberSkeleton: React.FC = () => (
+  <div className="bg-light-card/80 dark:bg-navy/50 border border-light-border dark:border-dark-border rounded-xl p-6 text-center animate-pulse">
+    <div className="w-32 h-32 rounded-full mx-auto mb-4 bg-light-border dark:bg-dark-border"></div>
+    <div className="h-6 bg-light-border dark:bg-dark-border rounded w-3/4 mx-auto mb-2"></div>
+    <div className="h-4 bg-light-border dark:bg-dark-border rounded w-1/2 mx-auto mb-2"></div>
+    <div className="h-4 bg-light-border dark:bg-dark-border rounded w-2/3 mx-auto mb-4"></div>
+    <div className="h-10 bg-light-border dark:bg-dark-border rounded-full w-1/2 mx-auto"></div>
+  </div>
+);
+
 const TeamPage: React.FC = () => {
   const { translations } = useLanguage();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [contactMember, setContactMember] = useState<TeamMember | null>(null);
   const [formSubmitted, setFormSubmitted] = useState(false);
+  
+  // États pour les données API
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Charger les membres depuis l'API
+  useEffect(() => {
+    const fetchTeamMembers = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const members = await getAllTeamMembers();
+        setTeamMembers(members);
+      } catch (err) {
+        console.error('Erreur chargement équipe:', err);
+        setError('Impossible de charger les membres de l\'équipe');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTeamMembers();
+  }, []);
 
   const handleContactClick = (member: TeamMember) => {
     if (member.email) {
@@ -63,11 +98,46 @@ const TeamPage: React.FC = () => {
             </p>
         </div>
 
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-8 mt-12">
-          {teamMembers.map(member => (
-            <TeamMemberCard key={member.id} member={member} onContact={handleContactClick} />
-          ))}
-        </div>
+        {/* État d'erreur */}
+        {error && (
+          <div className="mt-8 text-center">
+            <div className="inline-block bg-red-100 dark:bg-red-900/30 border border-red-400 dark:border-red-700 text-red-700 dark:text-red-400 px-6 py-4 rounded-lg">
+              <p>{error}</p>
+              <button 
+                onClick={() => window.location.reload()}
+                className="mt-2 text-sm underline hover:no-underline"
+              >
+                Réessayer
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* État de chargement */}
+        {loading && !error && (
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-8 mt-12">
+            {[...Array(6)].map((_, i) => (
+              <TeamMemberSkeleton key={i} />
+            ))}
+          </div>
+        )}
+
+        {/* Liste des membres */}
+        {!loading && !error && (
+          <>
+            {teamMembers.length === 0 ? (
+              <div className="mt-12 text-center text-light-text-secondary dark:text-gray-400">
+                <p>Aucun membre de l'équipe pour le moment.</p>
+              </div>
+            ) : (
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-8 mt-12">
+                {teamMembers.map(member => (
+                  <TeamMemberCard key={member.id} member={member} onContact={handleContactClick} />
+                ))}
+              </div>
+            )}
+          </>
+        )}
 
         {contactMember && (
             <Modal 
