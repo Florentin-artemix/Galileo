@@ -4,6 +4,8 @@ import { usersService, UserDTO } from '../src/services/usersService';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { UserRole } from '../src/services/authService';
+import { ROLE_LABELS, ROLE_COLORS, ROLE_DESCRIPTIONS } from '../src/constants/roles';
+import RoleBadge from '../components/RoleBadge';
 
 interface Soumission {
   id: number;
@@ -14,20 +16,6 @@ interface Soumission {
   dateCreation?: string;
   domaineRecherche?: string;
 }
-
-const ROLE_LABELS: Record<UserRole, string> = {
-  ADMIN: 'Administrateur',
-  STAFF: 'Personnel',
-  STUDENT: 'Étudiant',
-  VIEWER: 'Visiteur',
-};
-
-const ROLE_COLORS: Record<UserRole, string> = {
-  ADMIN: 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300',
-  STAFF: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300',
-  STUDENT: 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300',
-  VIEWER: 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300',
-};
 
 const AdminDashboard: React.FC = () => {
   const { user, role } = useAuth();
@@ -70,10 +58,15 @@ const AdminDashboard: React.FC = () => {
 
   const updateStatut = async (id: number, statut: 'ACCEPTEE' | 'REJETEE') => {
     try {
-      await soumissionsService.changerStatut(id, statut);
+      if (statut === 'ACCEPTEE') {
+        await soumissionsService.validerSoumission(id);
+      } else {
+        await soumissionsService.rejeterSoumission(id);
+      }
       setPending((prev) => prev.filter((s) => s.id !== id));
-    } catch (e) {
-      setError("Mise à jour impossible");
+      setError(null);
+    } catch (e: any) {
+      setError(e.response?.data?.message || "Mise à jour impossible");
     }
   };
 
@@ -250,9 +243,7 @@ const AdminDashboard: React.FC = () => {
                       <td className="px-4 py-3 font-medium text-gray-900 dark:text-white">{u.email}</td>
                       <td className="px-4 py-3">{u.displayName || '-'}</td>
                       <td className="px-4 py-3">
-                        <span className={`inline-block px-2 py-1 text-xs rounded ${ROLE_COLORS[u.role]}`}>
-                          {ROLE_LABELS[u.role]}
-                        </span>
+                        <RoleBadge role={u.role} />
                       </td>
                       <td className="px-4 py-3">
                         <select
@@ -261,10 +252,10 @@ const AdminDashboard: React.FC = () => {
                           disabled={updatingUser === u.uid || u.email === user?.email}
                           className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white disabled:opacity-50"
                         >
-                          <option value="VIEWER">Visiteur</option>
-                          <option value="STUDENT">Étudiant</option>
-                          <option value="STAFF">Personnel</option>
-                          <option value="ADMIN">Administrateur</option>
+                          <option value="VIEWER">{ROLE_LABELS.VIEWER}</option>
+                          <option value="STUDENT">{ROLE_LABELS.STUDENT}</option>
+                          <option value="STAFF">{ROLE_LABELS.STAFF}</option>
+                          <option value="ADMIN">{ROLE_LABELS.ADMIN}</option>
                         </select>
                         {updatingUser === u.uid && (
                           <span className="ml-2 text-xs text-gray-500">Mise à jour...</span>

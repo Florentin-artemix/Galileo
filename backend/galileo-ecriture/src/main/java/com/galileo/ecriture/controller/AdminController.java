@@ -174,4 +174,53 @@ public class AdminController {
             ));
         }
     }
+
+    /**
+     * PUT /api/admin/soumissions/{id}/statut - Changer le statut d'une soumission
+     * Endpoint simplifié pour le frontend
+     */
+    @PutMapping("/{id}/statut")
+    public ResponseEntity<?> changerStatut(
+            @PathVariable Long id,
+            @RequestBody Map<String, String> body,
+            @RequestHeader("X-User-Email") String adminEmail,
+            @RequestHeader(value = "X-User-Role", required = false, defaultValue = "") String roleHeader) {
+
+        Role role = roleGuard.resolveRole(roleHeader);
+        roleGuard.require(role, Role.ADMIN, Role.STAFF);
+        
+        String statut = body.get("statut");
+        if (statut == null) {
+            return ResponseEntity.badRequest().body(Map.of("erreur", "Le statut est requis"));
+        }
+
+        try {
+            StatutSoumission nouveauStatut = StatutSoumission.valueOf(statut.toUpperCase());
+            SoumissionResponseDTO response;
+
+            switch (nouveauStatut) {
+                case ACCEPTEE:
+                    response = adminService.validerSoumission(id, "", adminEmail);
+                    break;
+                case REJETEE:
+                    response = adminService.rejeterSoumission(id, "", adminEmail);
+                    break;
+                case EN_ATTENTE:
+                default:
+                    return ResponseEntity.badRequest().body(Map.of("erreur", "Statut invalide: " + statut));
+            }
+
+            logger.info("Statut de la soumission {} changé en {} par {}", id, nouveauStatut, adminEmail);
+            return ResponseEntity.ok(response);
+
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("erreur", "Statut invalide: " + statut));
+        } catch (RuntimeException e) {
+            logger.error("Erreur lors du changement de statut de la soumission {}", id, e);
+            return ResponseEntity.badRequest().body(Map.of(
+                    "erreur", "Erreur de modification",
+                    "message", e.getMessage()
+            ));
+        }
+    }
 }

@@ -178,6 +178,13 @@ export const soumissionsService = {
   },
 
   /**
+   * Retirer/supprimer une soumission
+   */
+  async retirerSoumission(id: number): Promise<void> {
+    await apiClient.delete(`/soumissions/${id}`);
+  },
+
+  /**
    * Récupérer les soumissions en attente (ADMIN/STAFF)
    */
   async getSoumissionsEnAttente(): Promise<any[]> {
@@ -186,7 +193,55 @@ export const soumissionsService = {
   },
 
   /**
+   * Récupérer les soumissions par statut (ADMIN/STAFF)
+   */
+  async getSoumissionsParStatut(statut?: string): Promise<any[]> {
+    const params = statut ? { statut } : {};
+    const response = await apiClient.get('/admin/soumissions', { params });
+    return response.data;
+  },
+
+  /**
+   * Obtenir les statistiques des soumissions (ADMIN/STAFF)
+   */
+  async getStatistiques(): Promise<Record<string, number>> {
+    const response = await apiClient.get('/admin/soumissions/statistiques');
+    return response.data;
+  },
+
+  /**
+   * Valider une soumission (ADMIN/STAFF)
+   */
+  async validerSoumission(id: number, commentaire?: string): Promise<any> {
+    const response = await apiClient.post(`/admin/soumissions/${id}/valider`, {
+      commentaire: commentaire || '',
+    });
+    return response.data;
+  },
+
+  /**
+   * Rejeter une soumission (ADMIN/STAFF)
+   */
+  async rejeterSoumission(id: number, commentaire?: string): Promise<any> {
+    const response = await apiClient.post(`/admin/soumissions/${id}/rejeter`, {
+      commentaire: commentaire || '',
+    });
+    return response.data;
+  },
+
+  /**
+   * Demander des révisions (ADMIN/STAFF)
+   */
+  async demanderRevisions(id: number, commentaire: string): Promise<any> {
+    const response = await apiClient.post(`/admin/soumissions/${id}/demander-revisions`, {
+      commentaire,
+    });
+    return response.data;
+  },
+
+  /**
    * Mettre à jour le statut d'une soumission (ADMIN/STAFF)
+   * Endpoint simplifié
    */
   async changerStatut(id: number, statut: 'EN_ATTENTE' | 'ACCEPTEE' | 'REJETEE'): Promise<void> {
     await apiClient.put(`/admin/soumissions/${id}/statut`, { statut });

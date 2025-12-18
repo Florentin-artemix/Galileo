@@ -22,6 +22,7 @@ const StudentDashboard: React.FC = () => {
   const [soumissions, setSoumissions] = useState<Soumission[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
 
   useEffect(() => {
     const load = async () => {
@@ -36,6 +37,21 @@ const StudentDashboard: React.FC = () => {
     };
     load();
   }, []);
+
+  const handleDelete = async (id: number) => {
+    if (!confirm('Voulez-vous vraiment retirer cette soumission ?')) return;
+    
+    setDeletingId(id);
+    try {
+      await soumissionsService.retirerSoumission(id);
+      setSoumissions((prev) => prev.filter((s) => s.id !== id));
+      setError(null);
+    } catch (e) {
+      setError("Impossible de retirer cette soumission");
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   if (loading) {
     return (
@@ -97,6 +113,15 @@ const StudentDashboard: React.FC = () => {
                   <span className={`inline-block px-2 py-1 text-xs rounded ${statusClass}`}>
                     {s.statut || 'EN_ATTENTE'}
                   </span>
+                  {(s.statut === 'EN_ATTENTE' || !s.statut) && (
+                    <button
+                      onClick={() => handleDelete(s.id)}
+                      disabled={deletingId === s.id}
+                      className="mt-2 w-full px-3 py-2 bg-red-600 hover:bg-red-700 text-white text-sm rounded-lg transition-colors disabled:opacity-50"
+                    >
+                      {deletingId === s.id ? 'Suppression...' : 'Retirer'}
+                    </button>
+                  )}
                 </div>
               );
             })}
