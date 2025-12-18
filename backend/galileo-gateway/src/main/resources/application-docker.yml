@@ -6,18 +6,41 @@ spring:
   cloud:
     gateway:
       routes:
-        - id: service-lecture
+        # Publications, Blog, Événements, Équipe, Recherche (GET public)
+        - id: service-lecture-public
           uri: http://galileo-service-lecture:8081
           predicates:
-            - Path=/api/publications/**,/api/articles/**,/api/evenements/**,/api/search/**
+            - Path=/api/publications/**,/api/articles/**,/api/blog/**,/api/events/**,/api/team/**,/api/search/**
+            - Method=GET
           filters:
             - StripPrefix=1
+        
+        # Événements et Équipe (POST/PUT/DELETE - authentifié)
+        - id: service-lecture-admin
+          uri: http://galileo-service-lecture:8081
+          predicates:
+            - Path=/api/events/**,/api/team/**
+            - Method=POST,PUT,DELETE
+          filters:
+            - StripPrefix=1
+            - name: FirebaseAuthenticationFilter
+        
+        # Indexation (POST)
+        - id: service-lecture-indexation
+          uri: http://galileo-service-lecture:8081
+          predicates:
+            - Path=/api/indexation/**
+          filters:
+            - StripPrefix=1
+        
+        # Service Écriture
         - id: service-ecriture
           uri: http://galileo-service-ecriture:8082
           predicates:
             - Path=/api/soumissions/**,/api/admin/**
           filters:
             - StripPrefix=1
+            - name: FirebaseAuthenticationFilter
 
 firebase:
   enabled: true
