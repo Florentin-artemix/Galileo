@@ -1,11 +1,13 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
-import { events } from '../data/events';
-import type { Event } from '../types';
+import { eventService, EventData } from '../src/services/eventService';
 import Modal from '../components/Modal';
 import Lightbox from '../components/Lightbox';
 
 const HERO_IMAGE_URL = 'https://picsum.photos/seed/events_hero/1600/600';
+
+// Type adapté pour le frontend (compatible avec l'API)
+type Event = EventData;
 
 const EventCard: React.FC<{ 
     event: Event; 
@@ -72,7 +74,7 @@ const EventDetailModal: React.FC<{
                      <p className="text-light-accent dark:text-teal font-bold mb-2">{translations.events_page.event_passed}</p>
                      <p className="text-light-text-secondary dark:text-gray-400 text-sm">{new Date(event.date).toLocaleDateString(language === 'fr' ? 'fr-FR' : 'en-US', { year: 'numeric', month: 'long', day: 'numeric' })} &bull; {event.location}</p>
                      <div className="flex flex-wrap gap-2 mt-2">
-                        {event.tags.map(tag => (
+                        {event.tags?.map(tag => (
                             <span key={tag} className="bg-light-bg dark:bg-navy-dark text-light-accent dark:text-teal text-xs font-medium px-2 py-0.5 rounded-full border border-light-border dark:border-dark-border">{tag}</span>
                         ))}
                     </div>
@@ -80,7 +82,7 @@ const EventDetailModal: React.FC<{
 
                 <p className="text-light-text-secondary dark:text-gray-300">{event.description[language]}</p>
 
-                {event.speakers.length > 0 && (
+                {event.speakers && event.speakers.length > 0 && (
                      <div>
                         <h4 className="text-lg font-poppins font-bold text-light-text dark:text-off-white border-b border-light-border dark:border-dark-border pb-2 mb-3">{translations.events_page.speakers}</h4>
                         <div className="space-y-3">
@@ -97,7 +99,7 @@ const EventDetailModal: React.FC<{
                     </div>
                 )}
                 
-                {event.resources.length > 0 && (
+                {event.resources && event.resources.length > 0 && (
                      <div>
                         <h4 className="text-lg font-poppins font-bold text-light-text dark:text-off-white border-b border-light-border dark:border-dark-border pb-2 mb-3">{translations.events_page.resources}</h4>
                         <ul className="space-y-2">
@@ -116,7 +118,7 @@ const EventDetailModal: React.FC<{
                     </div>
                 )}
 
-                 {event.photos.length > 0 && (
+                 {event.photos && event.photos.length > 0 && (
                      <div>
                         <h4 className="text-lg font-poppins font-bold text-light-text dark:text-off-white border-b border-light-border dark:border-dark-border pb-2 mb-3">{translations.events_page.see_photos}</h4>
                         <div className="grid grid-cols-3 md:grid-cols-4 gap-2">
@@ -138,6 +140,10 @@ const EventDetailModal: React.FC<{
 
 const EventsPage: React.FC = () => {
     const { language, translations } = useLanguage();
+    const [events, setEvents] = useState<Event[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+    
     const [searchTerm, setSearchTerm] = useState('');
     const [typeFilter, setTypeFilter] = useState('All');
     const [domainFilter, setDomainFilter] = useState('All');
@@ -148,28 +154,47 @@ const EventsPage: React.FC = () => {
     const [isGalleryOpen, setGalleryOpen] = useState(false);
     const [galleryImages, setGalleryImages] = useState<string[]>([]);
     const [galleryStartIndex, setGalleryStartIndex] = useState(0);
+
+    // Charger les événements depuis l'API
+    useEffect(() => {
+        const fetchEvents = async () => {
+            try {
+                setLoading(true);
+                setError(null);
+                const data = await eventService.getAllEventsNoPagination();
+                setEvents(data);
+            } catch (err: any) {
+                console.error('Erreur chargement événements:', err);
+                setError(err.message || 'Erreur lors du chargement des événements');
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchEvents();
+    }, []);
     
     const { types, domains, years, filteredEvents } = useMemo(() => {
-        const uniqueTypes = [...new Set(events.map(e => e.type[language]))].sort();
-        const uniqueDomains = [...new Set(events.map(e => e.domain[language]))].sort();
+        const uniqueTypes = [...new Set(events.map(e => e.type?.[language] || ''))].filter(Boolean).sort();
+        const uniqueDomains = [...new Set(events.map(e => e.domain?.[language] || ''))].filter(Boolean).sort();
         const uniqueYears = [...new Set(events.map(e => new Date(e.date).getFullYear().toString()))].sort((a,b) => b.localeCompare(a));
 
         let processedEvents = events.filter(event => {
             const eventYear = new Date(event.date).getFullYear().toString();
-            const matchesType = typeFilter === 'All' || event.type[language] === typeFilter;
-            const matchesDomain = domainFilter === 'All' || event.domain[language] === domainFilter;
+            const matchesType = typeFilter === 'All' || event.type?.[language] === typeFilter;
+            const matchesDomain = domainFilter === 'All' || event.domain?.[language] === domainFilter;
             const matchesYear = yearFilter === 'All' || eventYear === yearFilter;
             const matchesSearch = searchTerm === '' ||
-                                  event.title[language].toLowerCase().includes(searchTerm.toLowerCase()) ||
-                                  event.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase())) ||
-                                  event.speakers.some(s => s.name.toLowerCase().includes(searchTerm.toLowerCase()));
+                                  event.title?.[language]?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                  event.tags?.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                                  event.speakers?.some(s => s.name.toLowerCase().includes(searchTerm.toLowerCase()));
             return matchesType && matchesDomain && matchesYear && matchesSearch;
         });
 
         processedEvents.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
         return { types: uniqueTypes, domains: uniqueDomains, years: uniqueYears, filteredEvents: processedEvents };
-    }, [searchTerm, typeFilter, domainFilter, yearFilter, language]);
+    }, [events, searchTerm, typeFilter, domainFilter, yearFilter, language]);
 
     const handleReset = () => {
         setSearchTerm('');
@@ -204,63 +229,98 @@ const EventsPage: React.FC = () => {
             </section>
             
             <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-16">
-                 <div className="bg-light-bg dark:bg-navy/30 border border-light-border dark:border-dark-border rounded-lg p-4 mb-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
-                    <div className="lg:col-span-2">
-                        <label className="text-xs text-light-text-secondary dark:text-gray-400">{translations.events_page.search_placeholder}</label>
-                        <input type="text" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} placeholder={translations.events_page.search_placeholder} className={inputClasses}/>
-                    </div>
-                    <div>
-                         <label className="text-xs text-light-text-secondary dark:text-gray-400">{translations.events_page.filter_type}</label>
-                         <select value={typeFilter} onChange={e => setTypeFilter(e.target.value)} className={inputClasses}>
-                             <option value="All">{translations.events_page.all_types}</option>
-                             {types.map(t => <option key={t} value={t}>{t}</option>)}
-                         </select>
-                    </div>
-                    <div>
-                         <label className="text-xs text-light-text-secondary dark:text-gray-400">{translations.events_page.filter_domain}</label>
-                         <select value={domainFilter} onChange={e => setDomainFilter(e.target.value)} className={inputClasses}>
-                             <option value="All">{translations.events_page.all_domains}</option>
-                             {domains.map(d => <option key={d} value={d}>{d}</option>)}
-                         </select>
-                    </div>
-                    <button onClick={handleReset} className="w-full bg-light-accent/10 dark:bg-teal/20 text-light-accent dark:text-teal font-semibold py-2 px-3 rounded-md hover:bg-light-accent dark:hover:bg-teal hover:text-white dark:hover:text-navy transition-colors duration-300 h-10">{translations.events_page.reset_filters}</button>
-                </div>
-
-                 <div className="flex justify-between items-center mb-6">
-                     <div className="text-sm text-light-text-secondary dark:text-gray-400">
-                        {filteredEvents.length} événement(s) trouvé(s)
-                    </div>
-                     <div className="flex items-center gap-1 bg-light-card dark:bg-navy/70 border border-light-border dark:border-dark-border rounded-md p-1">
-                         <button onClick={() => setViewMode('grid')} className={`px-3 py-1 rounded text-sm ${viewMode === 'grid' ? 'bg-light-accent dark:bg-teal text-white dark:text-navy' : 'text-light-text-secondary dark:text-gray-400'}`}>{translations.events_page.view_grid}</button>
-                         <button onClick={() => setViewMode('list')} className={`px-3 py-1 rounded text-sm ${viewMode === 'list' ? 'bg-light-accent dark:bg-teal text-white dark:text-navy' : 'text-light-text-secondary dark:text-gray-400'}`}>{translations.events_page.view_list}</button>
-                         <button onClick={() => setViewMode('timeline')} className={`px-3 py-1 rounded text-sm ${viewMode === 'timeline' ? 'bg-light-accent dark:bg-teal text-white dark:text-navy' : 'text-light-text-secondary dark:text-gray-400'}`}>{translations.events_page.view_timeline}</button>
-                    </div>
-                </div>
-
-                {viewMode === 'grid' && (
-                     <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-                        {filteredEvents.map(event => <EventCard key={event.id} event={event} onDetails={handleDetails} />)}
-                    </div>
-                )}
-                 {viewMode === 'list' && (
-                    <div className="space-y-6">
-                        {filteredEvents.map(event => <EventListItem key={event.id} event={event} onDetails={handleDetails} />)}
-                    </div>
-                )}
-                {viewMode === 'timeline' && (
-                     <div className="relative border-l-2 border-light-accent/30 dark:border-teal/30 ml-4 pl-8 space-y-12">
-                         {filteredEvents.map(event => (
-                             <div key={event.id} className="relative">
-                                 <div className="absolute -left-[42px] top-1 w-4 h-4 bg-light-accent dark:bg-teal rounded-full border-4 border-light-bg dark:border-navy"></div>
-                                 <p className="text-light-accent dark:text-teal font-bold">{new Date(event.date).toLocaleDateString(language === 'fr' ? 'fr-FR' : 'en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
-                                 <h3 className="font-poppins text-xl font-bold text-light-text dark:text-off-white">{event.title[language]}</h3>
-                                 <p className="text-sm text-light-text-secondary dark:text-gray-400">{event.location}</p>
-                                 <button onClick={() => handleDetails(event)} className="text-sm text-light-accent dark:text-teal hover:underline mt-2">{translations.events_page.details} &rarr;</button>
-                             </div>
-                         ))}
+                {/* Message de chargement */}
+                {loading && (
+                    <div className="text-center py-12">
+                        <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-light-accent dark:border-teal border-t-transparent"></div>
+                        <p className="mt-4 text-light-text-secondary dark:text-gray-400">Chargement des événements...</p>
                     </div>
                 )}
 
+                {/* Message d'erreur */}
+                {error && !loading && (
+                    <div className="text-center py-12">
+                        <div className="bg-red-100 dark:bg-red-900/30 border border-red-400 dark:border-red-600 text-red-700 dark:text-red-400 px-4 py-3 rounded-lg inline-block">
+                            <p className="font-semibold">Erreur</p>
+                            <p>{error}</p>
+                            <button 
+                                onClick={() => window.location.reload()} 
+                                className="mt-2 text-sm underline hover:no-underline"
+                            >
+                                Réessayer
+                            </button>
+                        </div>
+                    </div>
+                )}
+
+                {/* Contenu principal */}
+                {!loading && !error && (
+                    <>
+                        <div className="bg-light-bg dark:bg-navy/30 border border-light-border dark:border-dark-border rounded-lg p-4 mb-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
+                            <div className="lg:col-span-2">
+                                <label className="text-xs text-light-text-secondary dark:text-gray-400">{translations.events_page.search_placeholder}</label>
+                                <input type="text" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} placeholder={translations.events_page.search_placeholder} className={inputClasses}/>
+                            </div>
+                            <div>
+                                 <label className="text-xs text-light-text-secondary dark:text-gray-400">{translations.events_page.filter_type}</label>
+                                 <select value={typeFilter} onChange={e => setTypeFilter(e.target.value)} className={inputClasses}>
+                                     <option value="All">{translations.events_page.all_types}</option>
+                                     {types.map(t => <option key={t} value={t}>{t}</option>)}
+                                 </select>
+                            </div>
+                            <div>
+                                 <label className="text-xs text-light-text-secondary dark:text-gray-400">{translations.events_page.filter_domain}</label>
+                                 <select value={domainFilter} onChange={e => setDomainFilter(e.target.value)} className={inputClasses}>
+                                     <option value="All">{translations.events_page.all_domains}</option>
+                                     {domains.map(d => <option key={d} value={d}>{d}</option>)}
+                                 </select>
+                            </div>
+                            <button onClick={handleReset} className="w-full bg-light-accent/10 dark:bg-teal/20 text-light-accent dark:text-teal font-semibold py-2 px-3 rounded-md hover:bg-light-accent dark:hover:bg-teal hover:text-white dark:hover:text-navy transition-colors duration-300 h-10">{translations.events_page.reset_filters}</button>
+                        </div>
+
+                        <div className="flex justify-between items-center mb-6">
+                             <div className="text-sm text-light-text-secondary dark:text-gray-400">
+                                {filteredEvents.length} événement(s) trouvé(s)
+                            </div>
+                             <div className="flex items-center gap-1 bg-light-card dark:bg-navy/70 border border-light-border dark:border-dark-border rounded-md p-1">
+                                 <button onClick={() => setViewMode('grid')} className={`px-3 py-1 rounded text-sm ${viewMode === 'grid' ? 'bg-light-accent dark:bg-teal text-white dark:text-navy' : 'text-light-text-secondary dark:text-gray-400'}`}>{translations.events_page.view_grid}</button>
+                                 <button onClick={() => setViewMode('list')} className={`px-3 py-1 rounded text-sm ${viewMode === 'list' ? 'bg-light-accent dark:bg-teal text-white dark:text-navy' : 'text-light-text-secondary dark:text-gray-400'}`}>{translations.events_page.view_list}</button>
+                                 <button onClick={() => setViewMode('timeline')} className={`px-3 py-1 rounded text-sm ${viewMode === 'timeline' ? 'bg-light-accent dark:bg-teal text-white dark:text-navy' : 'text-light-text-secondary dark:text-gray-400'}`}>{translations.events_page.view_timeline}</button>
+                            </div>
+                        </div>
+
+                        {/* Message si aucun événement */}
+                        {filteredEvents.length === 0 && (
+                            <div className="text-center py-12">
+                                <p className="text-light-text-secondary dark:text-gray-400">Aucun événement trouvé.</p>
+                            </div>
+                        )}
+
+                        {viewMode === 'grid' && (
+                             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+                                {filteredEvents.map(event => <EventCard key={event.id} event={event} onDetails={handleDetails} />)}
+                            </div>
+                        )}
+                         {viewMode === 'list' && (
+                            <div className="space-y-6">
+                                {filteredEvents.map(event => <EventListItem key={event.id} event={event} onDetails={handleDetails} />)}
+                            </div>
+                        )}
+                        {viewMode === 'timeline' && (
+                             <div className="relative border-l-2 border-light-accent/30 dark:border-teal/30 ml-4 pl-8 space-y-12">
+                                 {filteredEvents.map(event => (
+                                     <div key={event.id} className="relative">
+                                         <div className="absolute -left-[42px] top-1 w-4 h-4 bg-light-accent dark:bg-teal rounded-full border-4 border-light-bg dark:border-navy"></div>
+                                         <p className="text-light-accent dark:text-teal font-bold">{new Date(event.date).toLocaleDateString(language === 'fr' ? 'fr-FR' : 'en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+                                         <h3 className="font-poppins text-xl font-bold text-light-text dark:text-off-white">{event.title[language]}</h3>
+                                         <p className="text-sm text-light-text-secondary dark:text-gray-400">{event.location}</p>
+                                         <button onClick={() => handleDetails(event)} className="text-sm text-light-accent dark:text-teal hover:underline mt-2">{translations.events_page.details} &rarr;</button>
+                                     </div>
+                                 ))}
+                            </div>
+                        )}
+                    </>
+                )}
             </div>
             
             <EventDetailModal event={selectedEvent} isOpen={isDetailModalOpen} onClose={() => setDetailModalOpen(false)} onOpenGallery={handleOpenGallery}/>
