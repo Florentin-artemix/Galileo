@@ -87,8 +87,8 @@ const SearchBar: React.FC<SearchBarProps> = ({ className = '', placeholder, onRe
     if (onResultClick) {
       onResultClick(result);
     } else {
-      // Navigation par défaut vers la publication
-      navigate(`/publications/${result.publicationId}`);
+      // Navigation par défaut vers la publication (singulier)
+      navigate(`/publication/${result.publicationId}`);
     }
   };
 
