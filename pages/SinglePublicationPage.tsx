@@ -1,20 +1,64 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, NavLink } from 'react-router-dom';
 import { useLanguage } from '../contexts/LanguageContext';
 import { usePublications } from '../contexts/PublicationsContext';
+import { publicationsService } from '../src/services/publicationsService';
+import type { Publication } from '../types';
 import PdfViewer from '../components/PdfViewer';
 
 const SinglePublicationPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const { language, translations } = useLanguage();
   const { publications } = usePublications();
-  const publication = publications.find(p => p.id.toString() === id);
+  const [publication, setPublication] = useState<Publication | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  if (!publication) {
+  useEffect(() => {
+    const loadPublication = async () => {
+      if (!id) return;
+      
+      // Essayer d'abord de trouver dans le contexte (déjà chargé)
+      const cachedPub = publications.find(p => p.id.toString() === id);
+      if (cachedPub) {
+        setPublication(cachedPub);
+        setLoading(false);
+        return;
+      }
+
+      // Sinon, charger depuis l'API
+      try {
+        setLoading(true);
+        const dto = await publicationsService.getPublicationById(parseInt(id));
+        const pub = publicationsService.dtoToPublication(dto);
+        setPublication(pub);
+      } catch (err) {
+        console.error('Erreur lors du chargement de la publication:', err);
+        setError('Publication non trouvée');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadPublication();
+  }, [id, publications]);
+
+  if (loading) {
     return (
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-16 text-center">
-        <h1 className="text-4xl font-poppins font-bold">Publication not found</h1>
-        <NavLink to="/publications" className="text-light-accent dark:text-teal mt-4 inline-block">Return to publications</NavLink>
+        <div className="animate-pulse">
+          <div className="h-8 bg-gray-300 dark:bg-gray-700 rounded w-1/2 mx-auto mb-4"></div>
+          <div className="h-4 bg-gray-300 dark:bg-gray-700 rounded w-1/3 mx-auto"></div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !publication) {
+    return (
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-16 text-center">
+        <h1 className="text-4xl font-poppins font-bold text-light-text dark:text-off-white">Publication non trouvée</h1>
+        <NavLink to="/publications" className="text-light-accent dark:text-teal mt-4 inline-block">Retour aux publications</NavLink>
       </div>
     );
   }

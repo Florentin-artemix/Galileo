@@ -33,6 +33,17 @@ spring:
           filters:
             - StripPrefix=1
         
+        # Auto-inscription publique (sans vérification de rôle)
+        - id: self-register
+          uri: http://ecriture:8082
+          predicates:
+            - Path=/api/admin/users/self-register
+            - Method=POST
+          filters:
+            - StripPrefix=1
+            - name: FirebaseAuthenticationFilter
+          order: 0
+        
         # Service Écriture
         - id: service-ecriture
           uri: http://ecriture:8082

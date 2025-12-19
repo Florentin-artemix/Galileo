@@ -1,6 +1,5 @@
 package com.galileo.ecriture.dto;
 
-import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
 /**
@@ -8,7 +7,6 @@ import jakarta.validation.constraints.Size;
  */
 public class ValidationDTO {
 
-    @NotBlank(message = "Un commentaire est requis pour la validation")
     @Size(max = 1000, message = "Le commentaire ne peut pas dépasser 1000 caractères")
     private String commentaire;
 

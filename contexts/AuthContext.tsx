@@ -73,8 +73,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const logout = async () => {
     await authService.logout();
+    authService.clearStoredRole(); // Effacer le rôle stocké
     setUser(null);
     setIdToken(null);
+    setRole('VIEWER');
   };
 
   const value: AuthContextType = {

@@ -139,52 +139,29 @@ const AuthPage: React.FC = () => {
         await authService.login(email, password);
         
         // Rediriger vers le dashboard approprié selon le rôle
-        const userRole = await authService.getUserRole();
-        if (userRole === 'ADMIN' || userRole === 'STAFF') {
-          navigate('/dashboard/admin');
-        } else if (userRole === 'STUDENT') {
-          navigate('/dashboard/student');
-        } else {
-          navigate('/'); // VIEWER va vers la page d'accueil
-        }
-      } else {
-        // 🔗 POINT D'INTÉGRATION 2: Inscription avec Firebase
-        const userCredential = await authService.signup(email, password);
+        const userRole = await authService.getCurrentUserRole();
         
-        // Attribuer immédiatement le rôle choisi (pour TEST uniquement)
-        // En production, tous les nouveaux utilisateurs devraient être VIEWER par défaut
-        try {
-          const token = await userCredential.getIdToken();
-          const response = await fetch('http://localhost:8080/api/users/role', {
-            method: 'PUT',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`,
-            },
-            body: JSON.stringify({
-              uid: userCredential.uid,
-              role: role
-            })
-          });
-          
-          if (!response.ok) {
-            console.warn('Impossible de définir le rôle immédiatement');
-          }
-          
-          // Attendre un peu pour que le rôle soit propagé
-          await new Promise(resolve => setTimeout(resolve, 500));
-        } catch (roleError) {
-          console.warn('Erreur lors de la définition du rôle:', roleError);
-        }
+        // Forcer un rechargement complet pour que AuthContext récupère le rôle
+        const dashboardUrl = (userRole === 'ADMIN' || userRole === 'STAFF') ? '/#/dashboard/admin' :
+                            userRole === 'STUDENT' ? '/#/dashboard/student' :
+                            '/#/dashboard/viewer';
+        
+        window.location.href = dashboardUrl;
+      } else {
+        // 🔗 POINT D'INTÉGRATION 2: Inscription avec Firebase + rôle
+        // Le rôle est passé à signup() et stocké dans localStorage
+        await authService.signup(email, password, role);
+        
+        console.log('Inscription réussie avec rôle:', role);
         
         // Rediriger vers le dashboard approprié selon le rôle choisi
-        if (role === 'ADMIN' || role === 'STAFF') {
-          navigate('/dashboard/admin');
-        } else if (role === 'STUDENT') {
-          navigate('/dashboard/student');
-        } else {
-          navigate('/'); // VIEWER va vers la page d'accueil
-        }
+        const dashboardUrl = role === 'ADMIN' ? '/#/dashboard/admin' :
+                            role === 'STAFF' ? '/#/dashboard/staff' :
+                            role === 'STUDENT' ? '/#/dashboard/student' :
+                            '/#/dashboard/viewer';
+        
+        // Forcer un rechargement complet pour que AuthContext récupère le rôle
+        window.location.href = dashboardUrl;
       }
     } catch (err: any) {
       console.error('Authentication error:', err);
@@ -342,10 +319,10 @@ const AuthPage: React.FC = () => {
                     <option value="VIEWER">Visiteur - Consultation uniquement</option>
                     <option value="STUDENT">Étudiant - Soumission et suivi de publications</option>
                     <option value="STAFF">Personnel - Modération et gestion du contenu</option>
-                    <option value="ADMIN">Administrateur - Gestion complète (TEST UNIQUEMENT)</option>
+                    <option value="ADMIN">Administrateur - Gestion complète du système</option>
                   </select>
                   <p className="text-xs text-light-text-secondary dark:text-gray-500 mt-1">
-                    {role === 'ADMIN' ? '⚠️ Rôle admin pour test uniquement - sera retiré en production' : 'Votre rôle devra être approuvé par un administrateur'}
+                    Le rôle sélectionné sera attribué directement à votre compte.
                   </p>
                 </div>
               )}

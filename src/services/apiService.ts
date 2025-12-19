@@ -27,6 +27,14 @@ apiClient.interceptors.request.use(
         config.headers['X-User-Email'] = user.email || '';
         const role = await authService.getCurrentUserRole();
         config.headers['X-User-Role'] = role;
+        console.log('[API] Request to:', config.url, '| Role header:', role);
+      }
+    } else {
+      // Même sans token, essayer de récupérer le rôle depuis localStorage
+      const storedRole = localStorage.getItem('galileo_user_role');
+      if (storedRole) {
+        config.headers['X-User-Role'] = storedRole;
+        console.log('[API] Request to:', config.url, '| Role from localStorage:', storedRole);
       }
     }
     return config;

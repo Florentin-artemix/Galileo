@@ -61,6 +61,7 @@ public class UserService {
 
     /**
      * Modifier le rôle d'un utilisateur (via Firebase custom claims)
+     * Révoque les tokens pour forcer la reconnexion avec le nouveau rôle
      */
     public void modifierRole(String uid, Role role) {
         try {
@@ -77,6 +78,25 @@ public class UserService {
         } catch (FirebaseAuthException e) {
             logger.error("Erreur lors de la modification du rôle de {}", uid, e);
             throw new RuntimeException("Impossible de modifier le rôle: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Attribuer le rôle initial lors de l'inscription (sans révoquer les tokens)
+     * Utilisé pour l'auto-inscription après création du compte Firebase
+     */
+    public void attribuerRoleInitial(String uid, Role role) {
+        try {
+            Map<String, Object> claims = new HashMap<>();
+            claims.put("role", role.name());
+            
+            FirebaseAuth.getInstance().setCustomUserClaims(uid, claims);
+            logger.info("Rôle initial {} attribué à l'utilisateur {}", role, uid);
+            // Pas de révocation des tokens - l'utilisateur vient de s'inscrire
+            
+        } catch (FirebaseAuthException e) {
+            logger.error("Erreur lors de l'attribution du rôle initial pour {}", uid, e);
+            throw new RuntimeException("Impossible d'attribuer le rôle initial: " + e.getMessage());
         }
     }
 

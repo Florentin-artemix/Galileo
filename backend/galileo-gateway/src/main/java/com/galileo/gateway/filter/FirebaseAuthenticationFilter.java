@@ -51,12 +51,31 @@ public class FirebaseAuthenticationFilter extends AbstractGatewayFilterFactory<F
                 
                 // Récupérer le rôle depuis les custom claims Firebase
                 Object roleClaim = decodedToken.getClaims().get("role");
-                String role = "VIEWER"; // Défaut
+                String role = null;
+                
                 if (roleClaim != null) {
                     String raw = roleClaim.toString().toUpperCase();
-                    if (raw.equals("ADMIN") || raw.equals("STAFF") || raw.equals("STUDENT")) {
+                    if (raw.equals("ADMIN") || raw.equals("STAFF") || raw.equals("STUDENT") || raw.equals("VIEWER")) {
                         role = raw;
                     }
+                }
+                
+                // Si pas de rôle dans Firebase, utiliser le header X-User-Role du frontend
+                if (role == null) {
+                    String frontendRole = request.getHeaders().getFirst("X-User-Role");
+                    if (frontendRole != null) {
+                        String normalized = frontendRole.toUpperCase();
+                        if (normalized.equals("ADMIN") || normalized.equals("STAFF") || 
+                            normalized.equals("STUDENT") || normalized.equals("VIEWER")) {
+                            role = normalized;
+                            log.info("Using frontend role header for user {}: {}", email, role);
+                        }
+                    }
+                }
+                
+                // Défaut à VIEWER si toujours pas de rôle
+                if (role == null) {
+                    role = "VIEWER";
                 }
                 
                 log.info("Request authenticated for user: {} ({}) with role {}", email, uid, role);

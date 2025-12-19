@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
 import { useLanguage } from '../contexts/LanguageContext';
 import { usePublications } from '../contexts/PublicationsContext';
@@ -74,6 +74,11 @@ const PublicationsPage: React.FC = () => {
     const [isCiteModalOpen, setCiteModalOpen] = useState(false);
     
     const [copiedCite, setCopiedCite] = useState('');
+
+    // Rafraîchir les publications au montage de la page
+    useEffect(() => {
+        refreshPublications();
+    }, []);
 
     // Ce hook doit être appelé avant tout return conditionnel
     const { domains, authors, years, filteredPublications } = useMemo(() => {

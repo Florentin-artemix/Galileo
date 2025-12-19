@@ -31,6 +31,47 @@ public class UserController {
     }
 
     /**
+     * POST /api/admin/users/self-register - Auto-inscription avec rôle choisi
+     * Endpoint pour permettre l'attribution du rôle initial lors de l'inscription
+     * Ne révoque pas les tokens (l'utilisateur vient de s'inscrire)
+     */
+    @PostMapping("/self-register")
+    public ResponseEntity<?> autoInscription(
+            @RequestBody Map<String, String> body,
+            @RequestHeader(value = "X-User-Id", required = false) String userId,
+            @RequestHeader(value = "X-User-Email", required = false) String userEmail) {
+
+        String uid = body.get("uid");
+        String roleStr = body.get("role");
+        String email = body.get("email");
+
+        if (uid == null || uid.isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("erreur", "UID requis"));
+        }
+        if (roleStr == null || roleStr.isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("erreur", "Rôle requis"));
+        }
+
+        try {
+            Role targetRole = Role.valueOf(roleStr.toUpperCase());
+            // Utiliser attribuerRoleInitial pour ne pas révoquer les tokens
+            userService.attribuerRoleInitial(uid, targetRole);
+            logger.info("Auto-inscription: utilisateur {} enregistré avec rôle {}", uid, targetRole);
+            return ResponseEntity.ok(Map.of(
+                "message", "Inscription réussie",
+                "uid", uid,
+                "role", targetRole.name(),
+                "email", email != null ? email : ""
+            ));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("erreur", "Rôle invalide: " + roleStr));
+        } catch (Exception e) {
+            logger.error("Erreur lors de l'auto-inscription de {}", uid, e);
+            return ResponseEntity.internalServerError().body(Map.of("erreur", e.getMessage()));
+        }
+    }
+
+    /**
      * GET /api/admin/users - Lister tous les utilisateurs
      */
     @GetMapping

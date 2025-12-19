@@ -13,3 +13,12 @@ cloudflare:
     secret-key: 6660202e56742ae72d046fd1f3fee7b3679cf4bb399aae888509d9cf7aa27254
     bucket-name: galileo
     region: auto
+
+firebase:
+  enabled: true
+  credentials:
+    path: config/firebase-credentials.json
+
+services:
+  lecture:
+    url: http://lecture:8081

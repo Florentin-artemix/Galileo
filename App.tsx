@@ -20,7 +20,9 @@ import ContactPage from './pages/ContactPage';
 import ResourcesPage from './pages/ResourcesPage';
 import AuthPage from './pages/AuthPage';
 import AdminDashboard from './pages/AdminDashboard';
+import StaffDashboard from './pages/StaffDashboard';
 import StudentDashboard from './pages/StudentDashboard';
+import ViewerDashboard from './pages/ViewerDashboard';
 import TestRolesPage from './pages/TestRolesPage';
 import RequireRole from './components/RequireRole';
 
@@ -83,6 +85,22 @@ const AppContent: React.FC = () => {
               element={
                 <RequireRole allowed={['STUDENT', 'ADMIN', 'STAFF']}>
                   <StudentDashboard />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="/dashboard/staff"
+              element={
+                <RequireRole allowed={['STAFF', 'ADMIN']}>
+                  <StaffDashboard />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="/dashboard/viewer"
+              element={
+                <RequireRole allowed={['VIEWER', 'STUDENT', 'STAFF', 'ADMIN']}>
+                  <ViewerDashboard />
                 </RequireRole>
               }
             />

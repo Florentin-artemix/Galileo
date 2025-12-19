@@ -16,7 +16,7 @@ public interface PublicationFeignClient {
      * @param request DTO contenant les informations de la soumission
      * @return L'ID de la publication créée
      */
-    @PostMapping("/api/publications/depuis-soumission")
+    @PostMapping("/publications/depuis-soumission")
     Long creerPublicationDepuisSoumission(@RequestBody PublicationCreationRequest request);
 
     /**
