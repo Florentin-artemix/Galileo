@@ -62,18 +62,6 @@ const ViewerDashboard: React.FC = () => {
     }
   };
 
-  const StatCard = ({ title, value, icon, color }: { title: string; value: number; icon: string; color: string }) => (
-    <div className={`bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border-l-4 ${color}`}>
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-gray-600 dark:text-gray-400 text-sm font-medium">{title}</p>
-          <p className="text-3xl font-bold text-gray-900 dark:text-white mt-2">{value}</p>
-        </div>
-        <div className="text-4xl opacity-20">{icon}</div>
-      </div>
-    </div>
-  );
-
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -145,6 +133,18 @@ const ViewerDashboard: React.FC = () => {
 };
 
 // Composants enfants
+const StatCard = ({ title, value, icon, color }: { title: string; value: number; icon: string; color: string }) => (
+  <div className={`bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border-l-4 ${color}`}>
+    <div className="flex items-center justify-between">
+      <div>
+        <p className="text-gray-600 dark:text-gray-400 text-sm font-medium">{title}</p>
+        <p className="text-3xl font-bold text-gray-900 dark:text-white mt-2">{value}</p>
+      </div>
+      <div className="text-4xl opacity-20">{icon}</div>
+    </div>
+  </div>
+);
+
 const TabButton = ({ active, onClick, icon, children }: any) => (
   <button
     onClick={onClick}

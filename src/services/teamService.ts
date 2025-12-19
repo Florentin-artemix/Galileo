@@ -3,8 +3,10 @@
  */
 
 import type { TeamMember } from '../../types';
+import { API_BASE_URL } from '../config/api';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
+// Utiliser la configuration centralisée de l'API
+// const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 
 export interface TeamMemberDTO {
   id: number;

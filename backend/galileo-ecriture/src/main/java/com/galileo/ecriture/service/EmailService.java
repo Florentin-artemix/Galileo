@@ -28,7 +28,6 @@ public class EmailService {
         logger.info("Envoi de confirmation de soumission à: {}", soumission.getEmailAuteur());
         
         // TODO: Implémenter l'envoi réel avec SendGrid
-        String sujet = "Confirmation de soumission - " + soumission.getTitre();
         String contenu = String.format(
             "Bonjour %s,\n\n" +
             "Votre soumission \"%s\" a bien été reçue et est en cours de traitement.\n\n" +
@@ -54,7 +53,6 @@ public class EmailService {
         logger.info("Notification admin pour nouvelle soumission: {}", soumission.getId());
         
         // TODO: Implémenter l'envoi réel avec SendGrid
-        String sujet = "Nouvelle soumission à examiner - " + soumission.getTitre();
         String contenu = String.format(
             "Une nouvelle soumission a été reçue:\n\n" +
             "Titre: %s\n" +
@@ -79,7 +77,6 @@ public class EmailService {
     public void notifierValidation(Soumission soumission) {
         logger.info("Notification de validation à: {}", soumission.getEmailAuteur());
         
-        String sujet = "Votre soumission a été acceptée - " + soumission.getTitre();
         String contenu = String.format(
             "Bonjour %s,\n\n" +
             "Excellente nouvelle ! Votre soumission \"%s\" a été acceptée pour publication.\n\n" +
@@ -102,7 +99,6 @@ public class EmailService {
     public void notifierRejet(Soumission soumission) {
         logger.info("Notification de rejet à: {}", soumission.getEmailAuteur());
         
-        String sujet = "Décision concernant votre soumission - " + soumission.getTitre();
         String contenu = String.format(
             "Bonjour %s,\n\n" +
             "Nous avons le regret de vous informer que votre soumission \"%s\" " +
@@ -127,7 +123,6 @@ public class EmailService {
     public void notifierRevision(Soumission soumission) {
         logger.info("Notification de révision à: {}", soumission.getEmailAuteur());
         
-        String sujet = "Révisions demandées pour votre soumission - " + soumission.getTitre();
         String contenu = String.format(
             "Bonjour %s,\n\n" +
             "Votre soumission \"%s\" a été examinée et nécessite quelques révisions.\n\n" +
