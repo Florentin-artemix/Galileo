@@ -137,7 +137,16 @@ const AuthPage: React.FC = () => {
       if (isLogin) {
         // 🔗 POINT D'INTÉGRATION 1: Login avec Firebase
         await authService.login(email, password);
-        navigate('/'); // Redirect vers page d'accueil après connexion
+        
+        // Rediriger vers le dashboard approprié selon le rôle
+        const userRole = await authService.getUserRole();
+        if (userRole === 'ADMIN' || userRole === 'STAFF') {
+          navigate('/dashboard/admin');
+        } else if (userRole === 'STUDENT') {
+          navigate('/dashboard/student');
+        } else {
+          navigate('/'); // VIEWER va vers la page d'accueil
+        }
       } else {
         // 🔗 POINT D'INTÉGRATION 2: Inscription avec Firebase
         const userCredential = await authService.signup(email, password);
@@ -161,11 +170,21 @@ const AuthPage: React.FC = () => {
           if (!response.ok) {
             console.warn('Impossible de définir le rôle immédiatement');
           }
+          
+          // Attendre un peu pour que le rôle soit propagé
+          await new Promise(resolve => setTimeout(resolve, 500));
         } catch (roleError) {
           console.warn('Erreur lors de la définition du rôle:', roleError);
         }
         
-        navigate('/'); // Redirect vers page d'accueil
+        // Rediriger vers le dashboard approprié selon le rôle choisi
+        if (role === 'ADMIN' || role === 'STAFF') {
+          navigate('/dashboard/admin');
+        } else if (role === 'STUDENT') {
+          navigate('/dashboard/student');
+        } else {
+          navigate('/'); // VIEWER va vers la page d'accueil
+        }
       }
     } catch (err: any) {
       console.error('Authentication error:', err);
