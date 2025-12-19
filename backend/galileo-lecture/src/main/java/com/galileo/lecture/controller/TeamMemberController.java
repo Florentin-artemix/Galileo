@@ -108,4 +108,69 @@ public class TeamMemberController {
             ));
         }
     }
+
+    /**
+     * GET /team/profile/me - Récupérer son profil d'équipe (basé sur Firebase UID)
+     */
+    @GetMapping("/profile/me")
+    public ResponseEntity<?> getMyProfile(
+            @RequestHeader(value = "X-User-Id", required = false) String firebaseUid,
+            @RequestHeader(value = "X-User-Email", required = false) String email) {
+        
+        if (firebaseUid == null || firebaseUid.isEmpty()) {
+            log.warn("Tentative d'accès au profil sans X-User-Id");
+            return ResponseEntity.ok(Map.of(
+                    "exists", false,
+                    "message", "Non authentifié"
+            ));
+        }
+        
+        log.info("Récupération profil équipe pour UID: {}", firebaseUid);
+        try {
+            TeamMemberDTO member = teamMemberService.getMemberByFirebaseUid(firebaseUid);
+            return ResponseEntity.ok(member);
+        } catch (RuntimeException e) {
+            log.info("Pas de profil équipe pour UID: {}", firebaseUid);
+            return ResponseEntity.ok(Map.of(
+                    "exists", false,
+                    "email", email != null ? email : ""
+            ));
+        }
+    }
+
+    /**
+     * POST /team/profile/me - Créer ou mettre à jour son profil d'équipe
+     */
+    @PostMapping("/profile/me")
+    public ResponseEntity<?> updateMyProfile(
+            @RequestHeader(value = "X-User-Id", required = false) String firebaseUid,
+            @RequestHeader(value = "X-User-Email", required = false) String email,
+            @Valid @RequestBody TeamMemberCreateDTO dto) {
+        
+        if (firebaseUid == null || firebaseUid.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of(
+                    "error", "Non authentifié",
+                    "message", "Token Firebase requis"
+            ));
+        }
+        
+        log.info("Mise à jour profil équipe pour UID: {}", firebaseUid);
+        
+        // S'assurer que le DTO a le bon UID et email
+        dto.setFirebaseUid(firebaseUid);
+        if (dto.getEmail() == null || dto.getEmail().isEmpty()) {
+            dto.setEmail(email);
+        }
+        
+        try {
+            TeamMemberDTO updated = teamMemberService.createOrUpdateByFirebaseUid(firebaseUid, dto);
+            return ResponseEntity.ok(updated);
+        } catch (RuntimeException e) {
+            log.error("Erreur mise à jour profil équipe: {}", e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of(
+                    "error", "Erreur de mise à jour",
+                    "message", e.getMessage()
+            ));
+        }
+    }
 }

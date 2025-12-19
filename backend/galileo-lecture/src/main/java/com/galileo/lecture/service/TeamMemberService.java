@@ -88,6 +88,31 @@ public class TeamMemberService {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Récupérer un membre par Firebase UID
+     */
+    @Transactional(readOnly = true)
+    public TeamMemberDTO getMemberByFirebaseUid(String firebaseUid) {
+        TeamMember member = teamMemberRepository.findByFirebaseUid(firebaseUid)
+                .orElseThrow(() -> new RuntimeException("Membre non trouvé pour UID: " + firebaseUid));
+        return convertToDTO(member);
+    }
+
+    /**
+     * Créer ou mettre à jour un membre par Firebase UID
+     */
+    public TeamMemberDTO createOrUpdateByFirebaseUid(String firebaseUid, TeamMemberCreateDTO dto) {
+        TeamMember member = teamMemberRepository.findByFirebaseUid(firebaseUid)
+                .orElse(new TeamMember());
+        
+        member.setFirebaseUid(firebaseUid);
+        updateEntityFromDTO(member, dto);
+        
+        TeamMember saved = teamMemberRepository.save(member);
+        log.info("Profil équipe {} pour UID: {}", member.getId() == null ? "créé" : "mis à jour", firebaseUid);
+        return convertToDTO(saved);
+    }
+
     // ============ Méthodes de conversion ============
 
     private TeamMemberDTO convertToDTO(TeamMember member) {
@@ -100,6 +125,8 @@ public class TeamMemberService {
         dto.setLocation(member.getLocation());
         dto.setEmail(member.getEmail());
         dto.setPhone(member.getPhone());
+        dto.setMotivation(member.getMotivation());
+        dto.setLinkedinUrl(member.getLinkedinUrl());
         return dto;
     }
 
@@ -111,8 +138,13 @@ public class TeamMemberService {
         member.setLocation(dto.getLocation());
         member.setEmail(dto.getEmail());
         member.setPhone(dto.getPhone());
+        member.setMotivation(dto.getMotivation());
+        member.setLinkedinUrl(dto.getLinkedinUrl());
         if (dto.getDisplayOrder() != null) {
             member.setDisplayOrder(dto.getDisplayOrder());
+        }
+        if (dto.getFirebaseUid() != null) {
+            member.setFirebaseUid(dto.getFirebaseUid());
         }
     }
 }

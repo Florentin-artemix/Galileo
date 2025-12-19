@@ -6,6 +6,16 @@ spring:
   cloud:
     gateway:
       routes:
+        # Profil équipe (GET/POST authentifié) - AVANT les routes publiques !
+        - id: team-profile
+          uri: http://lecture:8081
+          predicates:
+            - Path=/api/team/profile/**
+          filters:
+            - StripPrefix=1
+            - name: FirebaseAuthenticationFilter
+          order: -10
+        
         # Publications, Blog, Événements, Équipe, Recherche (GET public)
         - id: service-lecture-public
           uri: http://lecture:8081
@@ -43,6 +53,15 @@ spring:
             - StripPrefix=1
             - name: FirebaseAuthenticationFilter
           order: 0
+        
+        # Upload/gestion des photos de profil
+        - id: profile-photos
+          uri: http://ecriture:8082
+          predicates:
+            - Path=/api/profile/**
+          filters:
+            - StripPrefix=1
+            - name: FirebaseAuthenticationFilter
         
         # Service Écriture
         - id: service-ecriture

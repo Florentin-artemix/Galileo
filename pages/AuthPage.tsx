@@ -79,8 +79,11 @@ const AuthPage: React.FC = () => {
   const navigate = useNavigate();
 
   const [isLogin, setIsLogin] = useState(true);
+  const [showResetPassword, setShowResetPassword] = useState(false);
+  const [resetEmailSent, setResetEmailSent] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
   
   // Form fields
   const [email, setEmail] = useState('');
@@ -185,7 +188,10 @@ const AuthPage: React.FC = () => {
 
   const toggleMode = () => {
     setIsLogin(!isLogin);
+    setShowResetPassword(false);
+    setResetEmailSent(false);
     setError('');
+    setSuccessMessage('');
     setEmail('');
     setPassword('');
     setConfirmPassword('');
@@ -193,6 +199,49 @@ const AuthPage: React.FC = () => {
     setProgram('');
     setMotivation('');
     setRole('STUDENT');
+  };
+
+  const handleResetPassword = async (e: FormEvent) => {
+    e.preventDefault();
+    
+    if (!email) {
+      setError(t.error_email_required || 'Veuillez entrer votre adresse email');
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+
+    try {
+      await authService.sendPasswordReset(email);
+      setResetEmailSent(true);
+      setSuccessMessage(t.reset_email_sent || 'Un email de réinitialisation a été envoyé à votre adresse.');
+    } catch (err: any) {
+      console.error('Password reset error:', err);
+      if (err.code === 'auth/user-not-found') {
+        setError(t.error_user_not_found || 'Aucun compte trouvé avec cette adresse email.');
+      } else if (err.code === 'auth/invalid-email') {
+        setError(t.error_invalid_email || 'Adresse email invalide.');
+      } else {
+        setError(t.error_generic || 'Une erreur est survenue. Veuillez réessayer.');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const showResetForm = () => {
+    setShowResetPassword(true);
+    setResetEmailSent(false);
+    setError('');
+    setSuccessMessage('');
+  };
+
+  const backToLogin = () => {
+    setShowResetPassword(false);
+    setResetEmailSent(false);
+    setError('');
+    setSuccessMessage('');
   };
 
   return (
@@ -205,13 +254,17 @@ const AuthPage: React.FC = () => {
               className="text-4xl md:text-5xl font-poppins font-bold text-light-text dark:text-off-white mb-4 animate-slide-in-up"
               style={{ animationDelay: '100ms', animationFillMode: 'backwards' }}
             >
-              {isLogin ? t.login_title : t.signup_title}
+              {showResetPassword 
+                ? (t.reset_password_title || 'Réinitialiser le mot de passe')
+                : (isLogin ? t.login_title : t.signup_title)}
             </h1>
             <p 
               className="text-lg text-light-text-secondary dark:text-gray-300 animate-slide-in-up"
               style={{ animationDelay: '200ms', animationFillMode: 'backwards' }}
             >
-              {isLogin ? t.login_subtitle : t.signup_subtitle}
+              {showResetPassword 
+                ? (t.reset_password_subtitle || 'Entrez votre email pour recevoir un lien de réinitialisation')
+                : (isLogin ? t.login_subtitle : t.signup_subtitle)}
             </p>
             {!isLogin && (
               <p 
@@ -227,6 +280,79 @@ const AuthPage: React.FC = () => {
             className="bg-light-bg/60 dark:bg-navy/50 border border-light-border dark:border-dark-border rounded-2xl p-8 backdrop-blur-xl shadow-2xl dark:shadow-teal/10 animate-slide-in-up"
             style={{ animationDelay: '300ms', animationFillMode: 'backwards' }}
           >
+            {/* Formulaire de réinitialisation du mot de passe */}
+            {showResetPassword ? (
+              <div className="space-y-6">
+                {resetEmailSent ? (
+                  <div className="text-center space-y-4">
+                    <div className="w-16 h-16 mx-auto bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
+                      <svg className="w-8 h-8 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                    </div>
+                    <p className="text-green-600 dark:text-green-400 font-medium">
+                      {successMessage}
+                    </p>
+                    <p className="text-sm text-light-text-secondary dark:text-gray-400">
+                      {t.check_email_instructions || 'Vérifiez votre boîte de réception et suivez les instructions pour créer un nouveau mot de passe.'}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={backToLogin}
+                      className="mt-4 text-light-accent dark:text-teal hover:underline font-medium"
+                    >
+                      {t.back_to_login || '← Retour à la connexion'}
+                    </button>
+                  </div>
+                ) : (
+                  <form onSubmit={handleResetPassword} className="space-y-6">
+                    <FloatingLabelInput
+                      id="reset-email"
+                      label={t.email_label}
+                      name="email"
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      required
+                    />
+
+                    {error && (
+                      <div className="bg-red-100 dark:bg-red-900/30 border border-red-400 dark:border-red-700 text-red-700 dark:text-red-400 px-4 py-3 rounded-lg">
+                        {error}
+                      </div>
+                    )}
+
+                    <button
+                      type="submit"
+                      disabled={loading}
+                      className="w-full bg-light-accent dark:bg-teal text-white dark:text-navy font-bold py-3 px-6 rounded-full text-lg hover:bg-light-accent-hover dark:hover:bg-opacity-80 transition-all duration-300 transform hover:scale-105 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                    >
+                      {loading ? (
+                        <span className="flex items-center justify-center">
+                          <svg className="animate-spin h-5 w-5 mr-3" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          {t.loading}
+                        </span>
+                      ) : (
+                        t.send_reset_link || 'Envoyer le lien de réinitialisation'
+                      )}
+                    </button>
+
+                    <div className="text-center">
+                      <button
+                        type="button"
+                        onClick={backToLogin}
+                        className="text-light-accent dark:text-teal hover:underline"
+                      >
+                        {t.back_to_login || '← Retour à la connexion'}
+                      </button>
+                    </div>
+                  </form>
+                )}
+              </div>
+            ) : (
             <form onSubmit={handleSubmit} className="space-y-6">
               {/* Nom complet (seulement pour inscription) */}
               {!isLogin && (
@@ -262,6 +388,19 @@ const AuthPage: React.FC = () => {
                 onChange={(e) => setPassword(e.target.value)}
                 required
               />
+
+              {/* Lien mot de passe oublié (uniquement pour connexion) */}
+              {isLogin && (
+                <div className="text-right -mt-2">
+                  <button
+                    type="button"
+                    onClick={showResetForm}
+                    className="text-sm text-light-accent dark:text-teal hover:underline"
+                  >
+                    {t.forgot_password || 'Mot de passe oublié ?'}
+                  </button>
+                </div>
+              )}
 
               {/* Confirmation mot de passe (seulement pour inscription) */}
               {!isLogin && (
@@ -364,6 +503,7 @@ const AuthPage: React.FC = () => {
                 </button>
               </div>
             </form>
+            )}
           </div>
         </div>
       </div>

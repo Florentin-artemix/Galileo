@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
-import { getAllTeamMembers } from '../src/services/teamService';
+import { getTeamMembersByRole } from '../src/services/teamService';
 import type { TeamMember } from '../types';
 import Modal from '../components/Modal';
 
@@ -56,7 +56,8 @@ const TeamPage: React.FC = () => {
       try {
         setLoading(true);
         setError(null);
-        const members = await getAllTeamMembers();
+        // Récupérer uniquement les membres avec le rôle STAFF
+        const members = await getTeamMembersByRole('STAFF');
         setTeamMembers(members);
       } catch (err) {
         console.error('Erreur chargement équipe:', err);

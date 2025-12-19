@@ -3,6 +3,7 @@ import {
   createUserWithEmailAndPassword,
   signOut,
   onAuthStateChanged,
+  sendPasswordResetEmail,
   User
 } from 'firebase/auth';
 import { auth } from '../config/firebase';
@@ -179,5 +180,12 @@ export const authService = {
     localStorage.removeItem(`${ROLE_STORAGE_KEY}_uid`);
     cachedRole = 'VIEWER';
     cachedUid = null;
+  },
+
+  /**
+   * Envoyer un email de réinitialisation de mot de passe
+   */
+  async sendPasswordReset(email: string): Promise<void> {
+    await sendPasswordResetEmail(auth, email);
   }
 };

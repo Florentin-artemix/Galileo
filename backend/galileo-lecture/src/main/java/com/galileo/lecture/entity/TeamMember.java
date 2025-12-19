@@ -18,6 +18,9 @@ public class TeamMember {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(name = "firebase_uid", unique = true, length = 128)
+    private String firebaseUid;
+
     @Column(nullable = false, length = 200)
     private String name;
 
@@ -38,6 +41,12 @@ public class TeamMember {
 
     @Column(length = 50)
     private String phone;
+
+    @Column(columnDefinition = "TEXT")
+    private String motivation;
+
+    @Column(name = "linkedin_url", length = 500)
+    private String linkedinUrl;
 
     @Column(name = "display_order")
     private Integer displayOrder;

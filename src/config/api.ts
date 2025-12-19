@@ -74,6 +74,19 @@ export const API_ENDPOINTS = {
     blog: `${API_BASE_URL}/indexation/blog`,
     reindex: `${API_BASE_URL}/indexation/reindex`,
   },
+
+  // Profil utilisateur (Authentifié)
+  profile: {
+    me: `${API_BASE_URL}/team/profile/me`,
+    uploadPhoto: `${API_BASE_URL}/profile/photo`,
+    deletePhoto: `${API_BASE_URL}/profile/photo`,
+  },
+
+  // Équipe
+  team: {
+    list: `${API_BASE_URL}/team`,
+    byRole: (role: string) => `${API_BASE_URL}/team/role/${role}`,
+  },
 };
 
 // Configuration des requêtes

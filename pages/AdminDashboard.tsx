@@ -7,6 +7,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { UserRole } from '../src/services/authService';
 import { ROLE_LABELS } from '../src/constants/roles';
 import RoleBadge from '../components/RoleBadge';
+import ProfileCard from '../components/ProfileCard';
 
 interface Soumission {
   id: number;
@@ -34,7 +35,7 @@ interface Stats {
   pendingSubmissions: number;
 }
 
-type TabType = 'dashboard' | 'users' | 'events' | 'publications' | 'pending';
+type TabType = 'dashboard' | 'profile' | 'users' | 'events' | 'publications' | 'pending';
 
 const AdminDashboard: React.FC = () => {
   const { user, role } = useAuth();
@@ -53,6 +54,21 @@ const AdminDashboard: React.FC = () => {
     totalPublications: 0,
     totalEvents: 0,
     pendingSubmissions: 0
+  });
+  const [showEventModal, setShowEventModal] = useState(false);
+  const [newEvent, setNewEvent] = useState({
+    titleFr: '',
+    titleEn: '',
+    date: '',
+    typeFr: '',
+    typeEn: '',
+    domainFr: '',
+    domainEn: '',
+    location: '',
+    summaryFr: '',
+    summaryEn: '',
+    descriptionFr: '',
+    descriptionEn: ''
   });
 
   // Charger les données initiales
@@ -134,6 +150,44 @@ const AdminDashboard: React.FC = () => {
     }
   };
 
+  const createEvent = async () => {
+    try {
+      const token = await user?.getIdToken();
+      if (!token) {
+        setError('Token d\'authentification manquant');
+        return;
+      }
+
+      const eventData = {
+        title: { fr: newEvent.titleFr, en: newEvent.titleEn },
+        date: newEvent.date,
+        type: { fr: newEvent.typeFr, en: newEvent.typeEn },
+        domain: { fr: newEvent.domainFr, en: newEvent.domainEn },
+        location: newEvent.location,
+        summary: { fr: newEvent.summaryFr, en: newEvent.summaryEn },
+        description: { fr: newEvent.descriptionFr, en: newEvent.descriptionEn },
+        speakers: [],
+        tags: [],
+        imageUrl: 'https://picsum.photos/800/400',
+        photos: [],
+        resources: []
+      };
+
+      const created = await eventService.createEvent(eventData, token);
+      setEvents(prev => [created, ...prev]);
+      setShowEventModal(false);
+      setNewEvent({
+        titleFr: '', titleEn: '', date: '', typeFr: '', typeEn: '',
+        domainFr: '', domainEn: '', location: '', summaryFr: '', summaryEn: '',
+        descriptionFr: '', descriptionEn: ''
+      });
+      setSuccess('Événement créé avec succès');
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (e: any) {
+      setError('Erreur lors de la création: ' + (e.message || ''));
+    }
+  };
+
   const deleteEvent = async (eventId: number) => {
     if (!confirm('Êtes-vous sûr de vouloir supprimer cet événement ?')) return;
     try {
@@ -195,6 +249,9 @@ const AdminDashboard: React.FC = () => {
           <TabButton active={tab === 'dashboard'} onClick={() => setTab('dashboard')} icon="📊">
             Vue d'ensemble
           </TabButton>
+          <TabButton active={tab === 'profile'} onClick={() => setTab('profile')} icon="👤">
+            Mon Profil
+          </TabButton>
           <TabButton active={tab === 'pending'} onClick={() => setTab('pending')} icon="⏳" badge={pending.length}>
             Soumissions
           </TabButton>
@@ -219,6 +276,12 @@ const AdminDashboard: React.FC = () => {
             <DashboardView stats={stats} pending={pending} publications={publications} events={events} />
           )}
 
+          {tab === 'profile' && (
+            <div className="max-w-2xl mx-auto">
+              <ProfileCard />
+            </div>
+          )}
+
           {tab === 'pending' && (
             <PendingSubmissionsView pending={pending} onUpdateStatut={updateStatut} />
           )}
@@ -228,7 +291,12 @@ const AdminDashboard: React.FC = () => {
           )}
 
           {tab === 'events' && role === 'ADMIN' && (
-            <EventsView events={events} language={language} onDelete={deleteEvent} />
+            <EventsView 
+              events={events} 
+              language={language} 
+              onDelete={deleteEvent}
+              onAdd={() => setShowEventModal(true)}
+            />
           )}
 
           {tab === 'users' && role === 'ADMIN' && (
@@ -236,6 +304,171 @@ const AdminDashboard: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* Modal de création d'événement */}
+      {showEventModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4">
+              <h3 className="text-2xl font-bold text-gray-900 dark:text-white">🎯 Nouvel événement</h3>
+            </div>
+            <div className="p-6 space-y-4">
+              <div className="grid md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Titre (FR) *</label>
+                  <input
+                    type="text"
+                    value={newEvent.titleFr}
+                    onChange={(e) => setNewEvent({ ...newEvent, titleFr: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Titre (EN) *</label>
+                  <input
+                    type="text"
+                    value={newEvent.titleEn}
+                    onChange={(e) => setNewEvent({ ...newEvent, titleEn: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="grid md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Date *</label>
+                  <input
+                    type="date"
+                    value={newEvent.date}
+                    onChange={(e) => setNewEvent({ ...newEvent, date: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Lieu *</label>
+                  <input
+                    type="text"
+                    value={newEvent.location}
+                    onChange={(e) => setNewEvent({ ...newEvent, location: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="grid md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Type (FR) *</label>
+                  <input
+                    type="text"
+                    value={newEvent.typeFr}
+                    onChange={(e) => setNewEvent({ ...newEvent, typeFr: e.target.value })}
+                    placeholder="ex: Conférence, Atelier"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Type (EN) *</label>
+                  <input
+                    type="text"
+                    value={newEvent.typeEn}
+                    onChange={(e) => setNewEvent({ ...newEvent, typeEn: e.target.value })}
+                    placeholder="ex: Conference, Workshop"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="grid md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Domaine (FR) *</label>
+                  <input
+                    type="text"
+                    value={newEvent.domainFr}
+                    onChange={(e) => setNewEvent({ ...newEvent, domainFr: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Domaine (EN) *</label>
+                  <input
+                    type="text"
+                    value={newEvent.domainEn}
+                    onChange={(e) => setNewEvent({ ...newEvent, domainEn: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Résumé (FR) *</label>
+                <textarea
+                  value={newEvent.summaryFr}
+                  onChange={(e) => setNewEvent({ ...newEvent, summaryFr: e.target.value })}
+                  rows={2}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Résumé (EN) *</label>
+                <textarea
+                  value={newEvent.summaryEn}
+                  onChange={(e) => setNewEvent({ ...newEvent, summaryEn: e.target.value })}
+                  rows={2}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Description (FR) *</label>
+                <textarea
+                  value={newEvent.descriptionFr}
+                  onChange={(e) => setNewEvent({ ...newEvent, descriptionFr: e.target.value })}
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Description (EN) *</label>
+                <textarea
+                  value={newEvent.descriptionEn}
+                  onChange={(e) => setNewEvent({ ...newEvent, descriptionEn: e.target.value })}
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  required
+                />
+              </div>
+            </div>
+            <div className="sticky bottom-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 px-6 py-4 flex gap-3">
+              <button
+                onClick={createEvent}
+                disabled={!newEvent.titleFr || !newEvent.titleEn || !newEvent.date}
+                className="flex-1 px-4 py-2 bg-teal hover:bg-teal/90 text-white rounded-lg transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                ✓ Créer l'événement
+              </button>
+              <button
+                onClick={() => setShowEventModal(false)}
+                className="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-white rounded-lg transition-colors font-medium"
+              >
+                Annuler
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -429,11 +662,14 @@ const PublicationsView = ({ publications }: any) => (
   </div>
 );
 
-const EventsView = ({ events, language, onDelete }: any) => (
+const EventsView = ({ events, language, onDelete, onAdd }: any) => (
   <div>
     <div className="flex items-center justify-between mb-6">
       <h2 className="text-2xl font-bold text-gray-900 dark:text-white">🎯 Événements ({events.length})</h2>
-      <button className="px-4 py-2 bg-teal hover:bg-teal/90 text-white rounded-lg transition-colors font-medium">
+      <button 
+        onClick={onAdd}
+        className="px-4 py-2 bg-teal hover:bg-teal/90 text-white rounded-lg transition-colors font-medium"
+      >
         ➕ Nouvel événement
       </button>
     </div>

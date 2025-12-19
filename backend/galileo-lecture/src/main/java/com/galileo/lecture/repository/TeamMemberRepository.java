@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface TeamMemberRepository extends JpaRepository<TeamMember, Long> {
@@ -17,6 +18,9 @@ public interface TeamMemberRepository extends JpaRepository<TeamMember, Long> {
 
     // Trouver par nom
     List<TeamMember> findByNameContainingIgnoreCaseAndIsActiveTrue(String name);
+
+    // Trouver par Firebase UID
+    Optional<TeamMember> findByFirebaseUid(String firebaseUid);
 
     // Compter les membres actifs
     long countByIsActiveTrue();

@@ -4,6 +4,7 @@ import { eventService } from '../src/services/eventService';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { NavLink } from 'react-router-dom';
+import ProfileCard from '../components/ProfileCard';
 
 interface Event {
   id: number;
@@ -19,7 +20,7 @@ interface Stats {
   totalEvents: number;
 }
 
-type TabType = 'dashboard' | 'publications' | 'events';
+type TabType = 'dashboard' | 'profile' | 'publications' | 'events';
 
 const ViewerDashboard: React.FC = () => {
   const { user } = useAuth();
@@ -105,6 +106,9 @@ const ViewerDashboard: React.FC = () => {
           <TabButton active={tab === 'dashboard'} onClick={() => setTab('dashboard')} icon="📊">
             Vue d'ensemble
           </TabButton>
+          <TabButton active={tab === 'profile'} onClick={() => setTab('profile')} icon="👤">
+            Mon Profil
+          </TabButton>
           <TabButton active={tab === 'publications'} onClick={() => setTab('publications')} icon="📚">
             Publications
           </TabButton>
@@ -117,6 +121,12 @@ const ViewerDashboard: React.FC = () => {
         <div className="animate-fade-in">
           {tab === 'dashboard' && (
             <DashboardView stats={stats} publications={publications} events={events} />
+          )}
+
+          {tab === 'profile' && (
+            <div className="max-w-2xl mx-auto">
+              <ProfileCard />
+            </div>
           )}
 
           {tab === 'publications' && (

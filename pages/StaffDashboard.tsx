@@ -3,6 +3,7 @@ import { soumissionsService, publicationsService, PublicationDTO } from '../src/
 import { eventService } from '../src/services/eventService';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
+import ProfileCard from '../components/ProfileCard';
 
 interface Soumission {
   id: number;
@@ -29,7 +30,7 @@ interface Stats {
   pendingSubmissions: number;
 }
 
-type TabType = 'dashboard' | 'pending' | 'publications' | 'events';
+type TabType = 'dashboard' | 'profile' | 'pending' | 'publications' | 'events';
 
 const StaffDashboard: React.FC = () => {
   const { user } = useAuth();
@@ -156,6 +157,9 @@ const StaffDashboard: React.FC = () => {
           <TabButton active={tab === 'dashboard'} onClick={() => setTab('dashboard')} icon="📊">
             Vue d'ensemble
           </TabButton>
+          <TabButton active={tab === 'profile'} onClick={() => setTab('profile')} icon="👤">
+            Mon Profil
+          </TabButton>
           <TabButton active={tab === 'pending'} onClick={() => setTab('pending')} icon="⏳" badge={pending.length}>
             Soumissions
           </TabButton>
@@ -171,6 +175,12 @@ const StaffDashboard: React.FC = () => {
         <div className="animate-fade-in">
           {tab === 'dashboard' && (
             <DashboardView stats={stats} pending={pending} publications={publications} events={events} />
+          )}
+
+          {tab === 'profile' && (
+            <div className="max-w-2xl mx-auto">
+              <ProfileCard />
+            </div>
           )}
 
           {tab === 'pending' && (

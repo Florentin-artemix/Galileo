@@ -10,6 +10,8 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class TeamMemberCreateDTO {
     
+    private String firebaseUid;
+    
     @NotBlank(message = "Le nom est requis")
     private String name;
     
@@ -21,5 +23,7 @@ public class TeamMemberCreateDTO {
     private String location;
     private String email;
     private String phone;
+    private String motivation;
+    private String linkedinUrl;
     private Integer displayOrder;
 }
