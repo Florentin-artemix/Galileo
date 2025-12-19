@@ -30,6 +30,7 @@ export const en = {
     confirm_password_label: 'Confirm password',
     program_label: 'Field / Program of study',
     motivation_label: 'Your motivation to join Galileo...',
+    role_label: 'Account type',
     login_button: 'Log in',
     signup_button: 'Sign up',
     logout_button: 'Logout',

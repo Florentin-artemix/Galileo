@@ -20,15 +20,25 @@ public class CorsConfig {
     public CorsWebFilter corsWebFilter() {
         CorsConfiguration corsConfig = new CorsConfiguration();
         
+        // Utiliser la configuration permissive par défaut et la personnaliser
+        corsConfig.applyPermitDefaultValues();
+        
         // Autoriser les origines du frontend (à adapter selon l'environnement)
-        corsConfig.setAllowedOrigins(Arrays.asList(
-            "http://localhost:3000",
-            "http://localhost:5173",
-            "https://galileo-frontend.com" // À remplacer par votre domaine
+        // Utiliser allowedOriginPatterns au lieu de allowedOrigins pour supporter allowCredentials
+        corsConfig.setAllowedOriginPatterns(Arrays.asList(
+            "http://localhost:*",
+            "http://127.0.0.1:*",
+            "https://galileo-frontend.com"
         ));
         
-        // Autoriser tous les headers
-        corsConfig.setAllowedHeaders(List.of("*"));
+        // Autoriser tous les headers y compris x-user-role
+        corsConfig.setAllowedHeaders(Arrays.asList("*"));
+        
+        // Exposer les headers personnalisés
+        corsConfig.setExposedHeaders(Arrays.asList(
+            "x-user-role",
+            "X-User-Role"
+        ));
         
         // Autoriser toutes les méthodes HTTP
         corsConfig.setAllowedMethods(Arrays.asList(

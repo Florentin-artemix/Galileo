@@ -177,7 +177,7 @@ const EventsPage: React.FC = () => {
     const { types, domains, years, filteredEvents } = useMemo(() => {
         const uniqueTypes = [...new Set(events.map(e => e.type?.[language] || ''))].filter(Boolean).sort();
         const uniqueDomains = [...new Set(events.map(e => e.domain?.[language] || ''))].filter(Boolean).sort();
-        const uniqueYears = [...new Set(events.map(e => new Date(e.date).getFullYear().toString()))].sort((a,b) => b.localeCompare(a));
+        const uniqueYears = [...new Set(events.map(e => new Date(e.date).getFullYear().toString()))].sort((a: string, b: string) => b.localeCompare(a));
 
         let processedEvents = events.filter(event => {
             const eventYear = new Date(event.date).getFullYear().toString();

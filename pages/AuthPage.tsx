@@ -89,6 +89,7 @@ const AuthPage: React.FC = () => {
   const [name, setName] = useState('');
   const [program, setProgram] = useState('');
   const [motivation, setMotivation] = useState('');
+  const [role, setRole] = useState<'STUDENT' | 'STAFF' | 'ADMIN' | 'VIEWER'>('STUDENT');
 
   const validateForm = (): boolean => {
     setError('');
@@ -141,7 +142,8 @@ const AuthPage: React.FC = () => {
         // 🔗 POINT D'INTÉGRATION 2: Inscription avec Firebase
         // Les nouveaux utilisateurs commencent avec le rôle VIEWER
         // L'admin doit leur attribuer un rôle (STUDENT, STAFF, ADMIN)
-        await authService.signup(email, password, name);
+        await authService.signup(email, password);
+        // TODO: Enregistrer le nom, programme, motivation et rôle demandé dans Firestore
         navigate('/'); // Redirect vers page d'accueil - l'admin doit attribuer un rôle
       }
     } catch (err: any) {
@@ -173,6 +175,7 @@ const AuthPage: React.FC = () => {
     setName('');
     setProgram('');
     setMotivation('');
+    setRole('STUDENT');
   };
 
   return (
@@ -279,6 +282,32 @@ const AuthPage: React.FC = () => {
                   onChange={(e) => setMotivation(e.target.value)}
                   required
                 />
+              )}
+
+              {/* Sélecteur de rôle (seulement pour inscription) */}
+              {!isLogin && (
+                <div className="relative">
+                  <label 
+                    htmlFor="role" 
+                    className="block text-sm font-medium text-light-text-secondary dark:text-gray-400 mb-2"
+                  >
+                    {t.role_label || "Type de compte"}
+                  </label>
+                  <select
+                    id="role"
+                    value={role}
+                    onChange={(e) => setRole(e.target.value as 'STUDENT' | 'STAFF' | 'ADMIN' | 'VIEWER')}
+                    className="block px-3 py-4 w-full text-base text-light-text dark:text-off-white bg-light-bg dark:bg-navy rounded-lg border-2 border-light-border dark:border-dark-border focus:outline-none focus:ring-0 focus:border-light-accent dark:focus:border-teal"
+                  >
+                    <option value="VIEWER">Visiteur - Consultation uniquement</option>
+                    <option value="STUDENT">Étudiant - Soumission et suivi de publications</option>
+                    <option value="STAFF">Personnel - Modération et gestion du contenu</option>
+                    <option value="ADMIN">Administrateur - Gestion complète (TEST UNIQUEMENT)</option>
+                  </select>
+                  <p className="text-xs text-light-text-secondary dark:text-gray-500 mt-1">
+                    {role === 'ADMIN' ? '⚠️ Rôle admin pour test uniquement - sera retiré en production' : 'Votre rôle devra être approuvé par un administrateur'}
+                  </p>
+                </div>
               )}
 
               {/* Message d'erreur */}

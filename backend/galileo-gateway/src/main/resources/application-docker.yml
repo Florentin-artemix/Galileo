@@ -8,7 +8,7 @@ spring:
       routes:
         # Publications, Blog, Événements, Équipe, Recherche (GET public)
         - id: service-lecture-public
-          uri: http://galileo-service-lecture:8081
+          uri: http://lecture:8081
           predicates:
             - Path=/api/publications/**,/api/articles/**,/api/blog/**,/api/events/**,/api/team/**,/api/search/**
             - Method=GET
@@ -17,7 +17,7 @@ spring:
         
         # Événements et Équipe (POST/PUT/DELETE - authentifié)
         - id: service-lecture-admin
-          uri: http://galileo-service-lecture:8081
+          uri: http://lecture:8081
           predicates:
             - Path=/api/events/**,/api/team/**
             - Method=POST,PUT,DELETE
@@ -27,7 +27,7 @@ spring:
         
         # Indexation (POST)
         - id: service-lecture-indexation
-          uri: http://galileo-service-lecture:8081
+          uri: http://lecture:8081
           predicates:
             - Path=/api/indexation/**
           filters:
@@ -35,7 +35,7 @@ spring:
         
         # Service Écriture
         - id: service-ecriture
-          uri: http://galileo-service-ecriture:8082
+          uri: http://ecriture:8082
           predicates:
             - Path=/api/soumissions/**,/api/admin/**
           filters:

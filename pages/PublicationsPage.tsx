@@ -75,35 +75,7 @@ const PublicationsPage: React.FC = () => {
     
     const [copiedCite, setCopiedCite] = useState('');
 
-    // Afficher un loader pendant le chargement
-    if (loading) {
-        return (
-            <div className="min-h-screen flex items-center justify-center">
-                <div className="text-center">
-                    <svg className="animate-spin h-12 w-12 mx-auto text-light-accent dark:text-teal" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    <p className="mt-4 text-light-text dark:text-off-white">{translations.publications_page?.loading || 'Chargement des publications...'}</p>
-                </div>
-            </div>
-        );
-    }
-
-    // Afficher une erreur si nécessaire
-    if (error) {
-        return (
-            <div className="min-h-screen flex items-center justify-center">
-                <div className="text-center">
-                    <p className="text-red-500 mb-4">{error}</p>
-                    <button onClick={refreshPublications} className="bg-light-accent dark:bg-teal text-white px-4 py-2 rounded-full">
-                        Réessayer
-                    </button>
-                </div>
-            </div>
-        );
-    }
-
+    // Ce hook doit être appelé avant tout return conditionnel
     const { domains, authors, years, filteredPublications } = useMemo(() => {
         const uniqueDomains = [...new Set(publications.map(p => p.domain[language]))].sort();
         const uniqueAuthors = [...new Set(publications.flatMap(p => p.authors))].sort();
@@ -186,6 +158,35 @@ ER  -`;
         navigator.clipboard.writeText(text);
         setCopiedCite(type);
         setTimeout(() => setCopiedCite(''), 2000);
+    }
+
+    // Afficher un loader pendant le chargement (APRÈS tous les hooks)
+    if (loading) {
+        return (
+            <div className="min-h-screen flex items-center justify-center">
+                <div className="text-center">
+                    <svg className="animate-spin h-12 w-12 mx-auto text-light-accent dark:text-teal" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <p className="mt-4 text-light-text dark:text-off-white">{translations.publications_page?.loading || 'Chargement des publications...'}</p>
+                </div>
+            </div>
+        );
+    }
+
+    // Afficher une erreur si nécessaire (APRÈS tous les hooks)
+    if (error) {
+        return (
+            <div className="min-h-screen flex items-center justify-center">
+                <div className="text-center">
+                    <p className="text-red-500 mb-4">{error}</p>
+                    <button onClick={refreshPublications} className="bg-light-accent dark:bg-teal text-white px-4 py-2 rounded-full">
+                        Réessayer
+                    </button>
+                </div>
+            </div>
+        );
     }
 
     const inputClasses = "w-full bg-light-card dark:bg-navy/70 border border-light-border dark:border-dark-border rounded-md shadow-sm py-2 px-3 text-light-text dark:text-off-white focus:outline-none focus:ring-light-accent dark:focus:ring-teal focus:border-light-accent dark:focus:border-teal";
