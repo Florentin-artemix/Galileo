@@ -140,11 +140,32 @@ const AuthPage: React.FC = () => {
         navigate('/'); // Redirect vers page d'accueil après connexion
       } else {
         // 🔗 POINT D'INTÉGRATION 2: Inscription avec Firebase
-        // Les nouveaux utilisateurs commencent avec le rôle VIEWER
-        // L'admin doit leur attribuer un rôle (STUDENT, STAFF, ADMIN)
-        await authService.signup(email, password);
-        // TODO: Enregistrer le nom, programme, motivation et rôle demandé dans Firestore
-        navigate('/'); // Redirect vers page d'accueil - l'admin doit attribuer un rôle
+        const userCredential = await authService.signup(email, password);
+        
+        // Attribuer immédiatement le rôle choisi (pour TEST uniquement)
+        // En production, tous les nouveaux utilisateurs devraient être VIEWER par défaut
+        try {
+          const token = await userCredential.getIdToken();
+          const response = await fetch('http://localhost:8080/api/users/role', {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              uid: userCredential.uid,
+              role: role
+            })
+          });
+          
+          if (!response.ok) {
+            console.warn('Impossible de définir le rôle immédiatement');
+          }
+        } catch (roleError) {
+          console.warn('Erreur lors de la définition du rôle:', roleError);
+        }
+        
+        navigate('/'); // Redirect vers page d'accueil
       }
     } catch (err: any) {
       console.error('Authentication error:', err);
