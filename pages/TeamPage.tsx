@@ -56,9 +56,19 @@ const TeamPage: React.FC = () => {
       try {
         setLoading(true);
         setError(null);
-        // Récupérer uniquement les membres avec le rôle STAFF
-        const members = await getTeamMembersByRole('STAFF');
-        setTeamMembers(members);
+        // Récupérer les membres STAFF et ADMIN en parallèle
+        const [staffMembers, adminMembers] = await Promise.all([
+          getTeamMembersByRole('STAFF'),
+          getTeamMembersByRole('ADMIN')
+        ]);
+        
+        // Combiner et dédupliquer par ID
+        const allMembers = [...staffMembers, ...adminMembers];
+        const uniqueMembers = allMembers.filter((member, index, self) =>
+          index === self.findIndex(m => m.id === member.id)
+        );
+        
+        setTeamMembers(uniqueMembers);
       } catch (err) {
         console.error('Erreur chargement équipe:', err);
         setError('Impossible de charger les membres de l\'équipe');
