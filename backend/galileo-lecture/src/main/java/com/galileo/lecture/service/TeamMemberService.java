@@ -106,10 +106,31 @@ public class TeamMemberService {
                 .orElse(new TeamMember());
         
         member.setFirebaseUid(firebaseUid);
+        
+        // Si le nom n'est pas fourni, utiliser l'email ou un nom par défaut
+        if (dto.getName() == null || dto.getName().isBlank()) {
+            if (dto.getEmail() != null && !dto.getEmail().isBlank()) {
+                dto.setName(dto.getEmail().split("@")[0]);
+            } else if (member.getName() != null && !member.getName().isBlank()) {
+                dto.setName(member.getName()); // Garder le nom existant
+            } else {
+                dto.setName("Utilisateur");
+            }
+        }
+        
+        // Si le rôle n'est pas fourni, utiliser VIEWER par défaut
+        if (dto.getRole() == null || dto.getRole().isBlank()) {
+            if (member.getRole() != null && !member.getRole().isBlank()) {
+                dto.setRole(member.getRole()); // Garder le rôle existant
+            } else {
+                dto.setRole("VIEWER");
+            }
+        }
+        
         updateEntityFromDTO(member, dto);
         
         TeamMember saved = teamMemberRepository.save(member);
-        log.info("Profil équipe {} pour UID: {}", member.getId() == null ? "créé" : "mis à jour", firebaseUid);
+        log.info("Profil équipe {} pour UID: {}", saved.getId() != null ? "mis à jour" : "créé", firebaseUid);
         return convertToDTO(saved);
     }
 

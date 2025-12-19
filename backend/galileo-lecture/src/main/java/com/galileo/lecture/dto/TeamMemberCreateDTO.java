@@ -12,10 +12,10 @@ public class TeamMemberCreateDTO {
     
     private String firebaseUid;
     
-    @NotBlank(message = "Le nom est requis")
+    // Le nom peut être vide, on utilisera l'email par défaut
     private String name;
     
-    @NotBlank(message = "Le rôle est requis")
+    // Le rôle peut être vide, on utilisera VIEWER par défaut
     private String role;
     
     private String description;

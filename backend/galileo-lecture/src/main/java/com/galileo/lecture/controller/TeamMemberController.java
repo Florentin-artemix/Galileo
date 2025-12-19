@@ -145,6 +145,7 @@ public class TeamMemberController {
     public ResponseEntity<?> updateMyProfile(
             @RequestHeader(value = "X-User-Id", required = false) String firebaseUid,
             @RequestHeader(value = "X-User-Email", required = false) String email,
+            @RequestHeader(value = "X-User-Role", required = false) String userRole,
             @Valid @RequestBody TeamMemberCreateDTO dto) {
         
         if (firebaseUid == null || firebaseUid.isEmpty()) {
@@ -154,12 +155,17 @@ public class TeamMemberController {
             ));
         }
         
-        log.info("Mise à jour profil équipe pour UID: {}", firebaseUid);
+        log.info("Mise à jour profil équipe pour UID: {}, rôle Firebase: {}", firebaseUid, userRole);
         
         // S'assurer que le DTO a le bon UID et email
         dto.setFirebaseUid(firebaseUid);
         if (dto.getEmail() == null || dto.getEmail().isEmpty()) {
             dto.setEmail(email);
+        }
+        
+        // Si le rôle du profil n'est pas fourni, utiliser le rôle Firebase
+        if (dto.getRole() == null || dto.getRole().isBlank()) {
+            dto.setRole(userRole != null && !userRole.isBlank() ? userRole : "VIEWER");
         }
         
         try {

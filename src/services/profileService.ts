@@ -15,7 +15,10 @@ export interface TeamMemberProfile {
 
 export interface PhotoUploadResponse {
   r2Key: string;
-  signedUrl: string;
+  signedUrl?: string;
+  imageUrl?: string;
+  success?: boolean;
+  message?: string;
 }
 
 // Service API pour les profils utilisateurs

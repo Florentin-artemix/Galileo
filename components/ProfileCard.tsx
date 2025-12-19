@@ -85,8 +85,20 @@ const ProfileCard: React.FC<ProfileCardProps> = ({ className = '' }) => {
 
     try {
       const result = await profileApi.uploadPhoto(idToken, file);
-      setProfile(prev => ({ ...prev, imageUrl: result.signedUrl }));
-      setMessage({ type: 'success', text: 'Photo téléchargée avec succès !' });
+      const newImageUrl = result.imageUrl || result.signedUrl;
+      
+      // Mettre à jour le profil avec la nouvelle URL
+      const updatedProfile = { ...profile, imageUrl: newImageUrl };
+      setProfile(updatedProfile);
+      
+      // Sauvegarder automatiquement le profil avec la nouvelle photo
+      try {
+        await profileApi.saveMyProfile(idToken, updatedProfile);
+        setMessage({ type: 'success', text: 'Photo téléchargée et sauvegardée !' });
+      } catch (saveError) {
+        console.error('Erreur sauvegarde profil après upload:', saveError);
+        setMessage({ type: 'success', text: 'Photo téléchargée ! N\'oubliez pas de sauvegarder votre profil.' });
+      }
     } catch (error) {
       console.error('Erreur upload photo:', error);
       setMessage({ type: 'error', text: 'Erreur lors du téléchargement de la photo.' });
