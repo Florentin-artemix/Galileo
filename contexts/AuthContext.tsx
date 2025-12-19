@@ -59,7 +59,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // 🔗 POINT D'INTÉGRATION 4: Rafraîchir le token JWT
   const refreshToken = async (): Promise<string | null> => {
     if (user) {
-      const token = await authService.getIdToken(true); // Force refresh
+      const token = await authService.getIdToken(); // Force refresh
       setIdToken(token);
       return token;
     }

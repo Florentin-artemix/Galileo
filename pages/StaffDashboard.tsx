@@ -1,12 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { soumissionsService, publicationsService, PublicationDTO } from '../src/services/publicationsService';
-import { usersService, UserDTO } from '../src/services/usersService';
 import { eventService } from '../src/services/eventService';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
-import { UserRole } from '../src/services/authService';
-import { ROLE_LABELS } from '../src/constants/roles';
-import RoleBadge from '../components/RoleBadge';
 
 interface Soumission {
   id: number;
@@ -28,71 +24,52 @@ interface Event {
 }
 
 interface Stats {
-  totalUsers: number;
   totalPublications: number;
   totalEvents: number;
   pendingSubmissions: number;
 }
 
-type TabType = 'dashboard' | 'users' | 'events' | 'publications' | 'pending';
+type TabType = 'dashboard' | 'pending' | 'publications' | 'events';
 
-const AdminDashboard: React.FC = () => {
-  const { user, role } = useAuth();
+const StaffDashboard: React.FC = () => {
+  const { user } = useAuth();
   const { translations, language } = useLanguage();
   const [pending, setPending] = useState<Soumission[]>([]);
   const [publications, setPublications] = useState<PublicationDTO[]>([]);
-  const [users, setUsers] = useState<UserDTO[]>([]);
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [tab, setTab] = useState<TabType>('dashboard');
-  const [updatingUser, setUpdatingUser] = useState<string | null>(null);
   const [stats, setStats] = useState<Stats>({
-    totalUsers: 0,
     totalPublications: 0,
     totalEvents: 0,
     pendingSubmissions: 0
   });
 
-  // Charger les données initiales
   useEffect(() => {
     loadData();
-  }, [role]);
+  }, []);
 
   const loadData = async () => {
     setLoading(true);
     setError(null);
     try {
-      const [pendingData, pubData] = await Promise.all([
+      const [pendingData, pubData, eventsData] = await Promise.all([
         soumissionsService.getSoumissionsEnAttente().catch(() => []),
-        publicationsService.getPublications(0, 100).catch(() => ({ content: [] }))
+        publicationsService.getPublications(0, 100).catch(() => ({ content: [] })),
+        eventService.getAllEventsNoPagination().catch(() => [])
       ]);
 
       setPending(pendingData || []);
       setPublications(pubData.content || []);
+      setEvents(eventsData || []);
 
-      // Charger les utilisateurs et événements pour ADMIN
-      if (role === 'ADMIN') {
-        try {
-          const [usersData, eventsData] = await Promise.all([
-            usersService.getUsers().catch(() => []),
-            eventService.getAllEventsNoPagination().catch(() => [])
-          ]);
-          setUsers(usersData || []);
-          setEvents(eventsData || []);
-          
-          // Calculer les statistiques
-          setStats({
-            totalUsers: usersData?.length || 0,
-            totalPublications: pubData.content?.length || 0,
-            totalEvents: eventsData?.length || 0,
-            pendingSubmissions: pendingData?.length || 0
-          });
-        } catch (e) {
-          console.warn('Erreur chargement données admin:', e);
-        }
-      }
+      setStats({
+        totalPublications: pubData.content?.length || 0,
+        totalEvents: eventsData?.length || 0,
+        pendingSubmissions: pendingData?.length || 0
+      });
     } catch (e: any) {
       setError("Impossible de charger les données");
       console.error(e);
@@ -115,22 +92,6 @@ const AdminDashboard: React.FC = () => {
       setTimeout(() => setSuccess(null), 3000);
     } catch (e: any) {
       setError(e.response?.data?.message || "Erreur lors de la mise à jour");
-    }
-  };
-
-  const updateUserRole = async (uid: string, newRole: UserRole) => {
-    setUpdatingUser(uid);
-    try {
-      await usersService.updateRole(uid, newRole);
-      setUsers((prev) =>
-        prev.map((u) => (u.uid === uid ? { ...u, role: newRole } : u))
-      );
-      setSuccess('Rôle modifié avec succès');
-      setTimeout(() => setSuccess(null), 3000);
-    } catch (e) {
-      setError("Impossible de modifier le rôle");
-    } finally {
-      setUpdatingUser(null);
     }
   };
 
@@ -180,7 +141,7 @@ const AdminDashboard: React.FC = () => {
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-2">
-            🎛️ Dashboard {role === 'ADMIN' ? 'Administrateur' : 'Staff'}
+            👔 Dashboard Personnel
           </h1>
           <p className="text-gray-600 dark:text-gray-400">
             Connecté en tant que <span className="font-semibold">{user?.email}</span>
@@ -213,16 +174,9 @@ const AdminDashboard: React.FC = () => {
           <TabButton active={tab === 'publications'} onClick={() => setTab('publications')} icon="📚">
             Publications
           </TabButton>
-          {role === 'ADMIN' && (
-            <>
-              <TabButton active={tab === 'events'} onClick={() => setTab('events')} icon="🎯">
-                Événements
-              </TabButton>
-              <TabButton active={tab === 'users'} onClick={() => setTab('users')} icon="👥" badge={users.length}>
-                Utilisateurs
-              </TabButton>
-            </>
-          )}
+          <TabButton active={tab === 'events'} onClick={() => setTab('events')} icon="🎯">
+            Événements
+          </TabButton>
         </div>
 
         {/* Tab Content */}
@@ -239,12 +193,8 @@ const AdminDashboard: React.FC = () => {
             <PublicationsView publications={publications} />
           )}
 
-          {tab === 'events' && role === 'ADMIN' && (
+          {tab === 'events' && (
             <EventsView events={events} language={language} onDelete={deleteEvent} />
-          )}
-
-          {tab === 'users' && role === 'ADMIN' && (
-            <UsersView users={users} currentUserEmail={user?.email} updatingUser={updatingUser} onUpdateRole={updateUserRole} />
           )}
         </div>
       </div>
@@ -275,8 +225,7 @@ const TabButton = ({ active, onClick, icon, badge, children }: any) => (
 const DashboardView = ({ stats, pending, publications, events }: any) => (
   <div>
     {/* Stats Cards */}
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-      <StatCard title="Total Utilisateurs" value={stats.totalUsers} icon="👥" color="border-blue-500" />
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
       <StatCard title="Publications" value={stats.totalPublications} icon="📚" color="border-green-500" />
       <StatCard title="Événements" value={stats.totalEvents} icon="🎯" color="border-purple-500" />
       <StatCard title="En attente" value={stats.pendingSubmissions} icon="⏳" color="border-orange-500" />
@@ -394,7 +343,6 @@ const PublicationsView = ({ publications }: any) => (
           <table className="w-full text-sm">
             <thead className="bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
               <tr>
-                <th className="px-6 py-4 text-left font-semibold">ID</th>
                 <th className="px-6 py-4 text-left font-semibold">Titre</th>
                 <th className="px-6 py-4 text-left font-semibold">Auteur</th>
                 <th className="px-6 py-4 text-left font-semibold">Domaine</th>
@@ -405,7 +353,6 @@ const PublicationsView = ({ publications }: any) => (
             <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
               {publications.map((pub: any) => (
                 <tr key={pub.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-                  <td className="px-6 py-4">{pub.id}</td>
                   <td className="px-6 py-4 font-medium text-gray-900 dark:text-white max-w-md">
                     <div className="truncate">{pub.titre}</div>
                   </td>
@@ -481,80 +428,4 @@ const EventsView = ({ events, language, onDelete }: any) => (
   </div>
 );
 
-const UsersView = ({ users, currentUserEmail, updatingUser, onUpdateRole }: any) => (
-  <div>
-    <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">👥 Gestion des utilisateurs ({users.length})</h2>
-    
-    <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-      <p className="text-sm text-blue-700 dark:text-blue-300">
-        <strong>ℹ️ Note:</strong> Les nouveaux utilisateurs commencent avec le rôle "Visiteur". 
-        Modifiez leur rôle ci-dessous pour leur donner accès aux fonctionnalités.
-        L'utilisateur devra se reconnecter pour que le nouveau rôle prenne effet.
-      </p>
-    </div>
-
-    {users.length === 0 ? (
-      <div className="text-center py-16 bg-white dark:bg-gray-800 rounded-xl shadow-lg">
-        <p className="text-lg text-gray-500 dark:text-gray-400">Aucun utilisateur enregistré</p>
-      </div>
-    ) : (
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
-              <tr>
-                <th className="px-6 py-4 text-left font-semibold">Email</th>
-                <th className="px-6 py-4 text-left font-semibold">Nom</th>
-                <th className="px-6 py-4 text-left font-semibold">Rôle actuel</th>
-                <th className="px-6 py-4 text-left font-semibold">Changer le rôle</th>
-                <th className="px-6 py-4 text-left font-semibold">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-              {users.map((u: any) => (
-                <tr key={u.uid} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-                  <td className="px-6 py-4 font-medium text-gray-900 dark:text-white">
-                    {u.email}
-                    {u.email === currentUserEmail && (
-                      <span className="ml-2 px-2 py-1 bg-teal/20 text-teal text-xs rounded-full">Vous</span>
-                    )}
-                  </td>
-                  <td className="px-6 py-4">{u.displayName || '-'}</td>
-                  <td className="px-6 py-4">
-                    <RoleBadge role={u.role} />
-                  </td>
-                  <td className="px-6 py-4">
-                    <select
-                      value={u.role}
-                      onChange={(e) => onUpdateRole(u.uid, e.target.value as UserRole)}
-                      disabled={updatingUser === u.uid || u.email === currentUserEmail}
-                      className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <option value="VIEWER">{ROLE_LABELS.VIEWER}</option>
-                      <option value="STUDENT">{ROLE_LABELS.STUDENT}</option>
-                      <option value="STAFF">{ROLE_LABELS.STAFF}</option>
-                      <option value="ADMIN">{ROLE_LABELS.ADMIN}</option>
-                    </select>
-                    {updatingUser === u.uid && (
-                      <span className="ml-2 text-xs text-gray-500">⏳</span>
-                    )}
-                  </td>
-                  <td className="px-6 py-4">
-                    <button
-                      disabled={u.email === currentUserEmail}
-                      className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      🗑️ Supprimer
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    )}
-  </div>
-);
-
-export default AdminDashboard;
+export default StaffDashboard;
