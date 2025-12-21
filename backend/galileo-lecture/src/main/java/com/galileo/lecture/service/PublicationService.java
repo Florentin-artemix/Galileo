@@ -54,6 +54,15 @@ public class PublicationService {
     }
 
     /**
+     * Récupérer une publication par son ID (entité complète, avec r2KeyPdf pour usage interne)
+     */
+    public Publication obtenirPublicationEntiteParId(Long id) {
+        return publicationRepository.findById(id)
+                .filter(Publication::getPubliee)
+                .orElseThrow(() -> new RuntimeException("Publication non trouvée"));
+    }
+
+    /**
      * Rechercher des publications par domaine
      */
     public List<PublicationDTO> rechercherParDomaine(String domaine) {
@@ -175,6 +184,8 @@ public class PublicationService {
                 .domaine(dto.getDomaineRecherche())
                 .motsCles(motsClesStr)
                 .urlPdf(dto.getUrlPdf())
+                .r2KeyPdf(dto.getR2KeyPdf()) // Stocker la clé R2 pour régénération des URLs
+                .sourceSoumissionId(dto.getSoumissionId()) // Référence à la soumission originale
                 .publiee(true)
                 .nombreVues(0)
                 .nombreTelechargements(0)

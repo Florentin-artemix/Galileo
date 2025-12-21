@@ -149,15 +149,24 @@ public class PublicationController {
             ));
         }
         
-        // Récupérer la publication
-        PublicationDTO publication = publicationService.obtenirPublicationParId(id);
+        // Récupérer la publication (entité complète pour accéder à r2KeyPdf)
+        com.galileo.lecture.entity.Publication publication = publicationService.obtenirPublicationEntiteParId(id);
         
-        // Extraire la clé du fichier depuis l'URL stockée (ex: publications/2024/file.pdf)
-        String urlPdf = publication.getUrlPdf();
-        String key = urlPdf.substring(urlPdf.lastIndexOf("/galileo/") + 9); // Extraire la clé après /galileo/
+        // Utiliser directement la clé R2 stockée (plus fiable que l'extraction depuis l'URL)
+        String r2Key = publication.getR2KeyPdf();
+        
+        if (r2Key == null || r2Key.isEmpty()) {
+            log.error("Clé R2 non disponible pour la publication ID: {}", id);
+            return ResponseEntity.status(500).body(java.util.Map.of(
+                "error", "Clé R2 non disponible",
+                "message", "Impossible de générer l'URL de téléchargement : clé R2 manquante"
+            ));
+        }
         
         // Générer URL signée valable 30 minutes
-        String urlSignee = cloudflareR2Service.genererUrlSignee(key, 30);
+        String urlSignee = cloudflareR2Service.genererUrlSignee(r2Key, 30);
+        
+        log.info("URL signée générée pour publication {} avec clé R2: {}", id, r2Key);
         
         return ResponseEntity.ok(java.util.Map.of(
             "url", urlSignee,

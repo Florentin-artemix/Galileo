@@ -48,6 +48,10 @@ public class Publication {
     @Column(name = "url_image_couverture", length = 1000)
     private String urlImageCouverture; // URL depuis Cloudflare R2
 
+    // Métadonnées R2 pour régénération des URLs
+    @Column(name = "r2_key_pdf", length = 500)
+    private String r2KeyPdf; // Clé du fichier PDF dans R2 (permanent, utilisé pour régénérer les URLs signées)
+
     @Column(name = "taille_fichier")
     private Long tailleFichier; // En octets
 
