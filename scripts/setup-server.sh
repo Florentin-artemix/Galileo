@@ -41,19 +41,19 @@ fi
 # =============================================================================
 # ÉTAPE 1: Mise à jour du système
 # =============================================================================
-log_info "Étape 1/7: Mise à jour du système..."
+log_info "Étape 1/9: Mise à jour du système..."
 sudo apt update && sudo apt upgrade -y
 
 # =============================================================================
 # ÉTAPE 2: Installation des outils essentiels
 # =============================================================================
-log_info "Étape 2/7: Installation des outils essentiels..."
+log_info "Étape 2/9: Installation des outils essentiels..."
 sudo apt install -y curl wget git vim ufw fail2ban htop net-tools
 
 # =============================================================================
 # ÉTAPE 3: Configuration du pare-feu
 # =============================================================================
-log_info "Étape 3/7: Configuration du pare-feu UFW..."
+log_info "Étape 3/9: Configuration du pare-feu UFW..."
 sudo ufw --force reset
 sudo ufw default deny incoming
 sudo ufw default allow outgoing
@@ -68,7 +68,7 @@ sudo ufw status
 # =============================================================================
 # ÉTAPE 4: Configuration de Fail2Ban
 # =============================================================================
-log_info "Étape 4/7: Configuration de Fail2Ban..."
+log_info "Étape 4/9: Configuration de Fail2Ban..."
 if [ ! -f /etc/fail2ban/jail.local ]; then
     sudo cp /etc/fail2ban/jail.conf /etc/fail2ban/jail.local
 fi
@@ -92,7 +92,7 @@ sudo systemctl enable fail2ban
 # =============================================================================
 # ÉTAPE 5: Installation de Docker
 # =============================================================================
-log_info "Étape 5/7: Installation de Docker..."
+log_info "Étape 5/9: Installation de Docker..."
 
 # Supprimer les anciennes versions
 for pkg in docker.io docker-doc docker-compose podman-docker containerd runc; do 
@@ -128,7 +128,7 @@ log_info "Version de Docker Compose: $(docker compose version 2>/dev/null || ech
 # =============================================================================
 # ÉTAPE 6: Installation de Nginx
 # =============================================================================
-log_info "Étape 6/7: Installation de Nginx..."
+log_info "Étape 6/9: Installation de Nginx..."
 sudo apt install -y nginx
 sudo systemctl enable nginx
 sudo systemctl start nginx
@@ -136,13 +136,13 @@ sudo systemctl start nginx
 # =============================================================================
 # ÉTAPE 7: Installation de Certbot
 # =============================================================================
-log_info "Étape 7/7: Installation de Certbot pour SSL..."
+log_info "Étape 7/9: Installation de Certbot pour SSL..."
 sudo apt install -y certbot python3-certbot-nginx
 
 # =============================================================================
 # ÉTAPE 8: Création des dossiers de données
 # =============================================================================
-log_info "Création des dossiers de données..."
+log_info "Étape 8/9: Création des dossiers de données..."
 mkdir -p ~/galileo-data/postgres-lecture
 mkdir -p ~/galileo-data/postgres-ecriture
 mkdir -p ~/galileo-data/elasticsearch
@@ -154,7 +154,7 @@ chmod -R 755 ~/galileo-data
 # ÉTAPE 9: Configuration du swap (si nécessaire)
 # =============================================================================
 if [ ! -f /swapfile ]; then
-    log_info "Configuration du swap (2GB)..."
+    log_info "Étape 9/9: Configuration du swap (2GB)..."
     sudo fallocate -l 2G /swapfile
     sudo chmod 600 /swapfile
     sudo mkswap /swapfile

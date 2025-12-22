@@ -86,7 +86,16 @@ df -h ~/galileo-data 2>/dev/null | tail -n 1 | awk '{printf "  Données: %s util
 echo ""
 log_header "🧠 Utilisation de la mémoire:"
 echo "--------------------------------------"
-free -h | grep "Mem:" | awk '{printf "  RAM: %s utilisé sur %s (%s)\n", $3, $2, $3"/"$2}'
+free -h | grep "Mem:" | awk '{
+    used=$3; 
+    total=$2; 
+    # Get numeric values for percentage
+    cmd="free -m | grep Mem:";
+    cmd | getline; 
+    close(cmd);
+    percent = ($3/$2)*100;
+    printf "  RAM: %s utilisé sur %s (%.1f%%)\n", used, total, percent
+}'
 free -h | grep "Swap:" | awk '{printf "  Swap: %s utilisé sur %s\n", $3, $2}'
 
 echo ""

@@ -606,6 +606,7 @@ server {
 EOF
 
 # Remplacer "galileo.votredomaine.com" par votre vrai domaine dans le fichier
+# IMPORTANT: Remplacez VOTRE_DOMAINE_ICI par votre domaine réel (ex: galileo.exemple.com)
 sudo sed -i 's/galileo.votredomaine.com/VOTRE_DOMAINE_ICI/g' /etc/nginx/sites-available/galileo
 
 # Tester la configuration

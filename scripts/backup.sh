@@ -39,14 +39,14 @@ echo "========================================"
 # =============================================================================
 log_info "📦 Sauvegarde des bases de données PostgreSQL..."
 
-if docker ps | grep -q galileo-db-lecture; then
+if docker container inspect galileo-db-lecture > /dev/null 2>&1; then
     docker exec galileo-db-lecture pg_dump -U galileo_user db_galileo_lecture | gzip > $BACKUP_DIR/db-lecture-$DATE.sql.gz
     log_info "✓ Base de données Lecture sauvegardée"
 else
     log_warn "⚠ Container galileo-db-lecture non trouvé"
 fi
 
-if docker ps | grep -q galileo-db-ecriture; then
+if docker container inspect galileo-db-ecriture > /dev/null 2>&1; then
     docker exec galileo-db-ecriture pg_dump -U galileo_user db_galileo_ecriture | gzip > $BACKUP_DIR/db-ecriture-$DATE.sql.gz
     log_info "✓ Base de données Écriture sauvegardée"
 else
@@ -58,7 +58,7 @@ fi
 # =============================================================================
 log_info "📦 Sauvegarde Elasticsearch..."
 
-if docker ps | grep -q galileo-elasticsearch; then
+if docker container inspect galileo-elasticsearch > /dev/null 2>&1; then
     # Créer un snapshot repository si nécessaire
     docker exec galileo-elasticsearch curl -s -X PUT "localhost:9200/_snapshot/backup" \
         -H 'Content-Type: application/json' \

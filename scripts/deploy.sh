@@ -113,7 +113,9 @@ deploy_update() {
     bash ~/Galileo/scripts/backup.sh || log_warn "Sauvegarde échouée"
     
     log_info "Récupération des dernières modifications..."
-    git pull origin main || git pull origin master
+    # Get current branch name
+    current_branch=$(git branch --show-current)
+    git pull origin "$current_branch"
     
     log_info "Arrêt des services..."
     docker compose -f $COMPOSE_FILE down

@@ -37,7 +37,8 @@ if [ -z "$1" ]; then
     log_error "Usage: bash restore.sh [backup_date]"
     echo ""
     echo "Sauvegardes disponibles:"
-    ls -1 $BACKUP_DIR/*.sql.gz 2>/dev/null | sed 's/.*\/db-lecture-\(.*\)\.sql\.gz/  - \1/' | sort -u || echo "  Aucune sauvegarde trouvée"
+    # List both lecture and ecriture backups
+    ls -1 $BACKUP_DIR/db-*-*.sql.gz 2>/dev/null | sed 's/.*\/db-[^-]*-\(.*\)\.sql\.gz/  - \1/' | sort -u || echo "  Aucune sauvegarde trouvée"
     exit 1
 fi
 
