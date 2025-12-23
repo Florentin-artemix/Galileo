@@ -122,5 +122,33 @@ export const blogService = {
       { headers: getAuthHeaders(token) }
     );
   },
+
+  /**
+   * Upload une image pour un article de blog vers Cloudflare R2
+   */
+  async uploadBlogImage(file: File): Promise<{ imageUrl: string; r2Key: string }> {
+    const token = await authService.getIdToken();
+    if (!token) {
+      throw new Error('Non authentifié');
+    }
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await fetch('/api/blog/upload-image', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(error || 'Erreur lors de l\'upload de l\'image');
+    }
+
+    return response.json();
+  },
 };
 

@@ -86,6 +86,9 @@ const AdminDashboard: React.FC = () => {
     tempsLecture: 5,
     publie: true
   });
+  const [blogImageFile, setBlogImageFile] = useState<File | null>(null);
+  const [blogImagePreview, setBlogImagePreview] = useState<string | null>(null);
+  const [uploadingBlogImage, setUploadingBlogImage] = useState(false);
 
   // Charger les données initiales
   useEffect(() => {
@@ -258,7 +261,24 @@ const AdminDashboard: React.FC = () => {
         setError('Veuillez remplir tous les champs obligatoires');
         return;
       }
-      const created = await blogService.createArticle(newBlogArticle);
+
+      let articleData = { ...newBlogArticle };
+
+      // Upload de l'image si un fichier est sélectionné
+      if (blogImageFile) {
+        setUploadingBlogImage(true);
+        try {
+          const uploadResult = await blogService.uploadBlogImage(blogImageFile);
+          articleData.urlImagePrincipale = uploadResult.imageUrl;
+        } catch (uploadError: any) {
+          setError('Erreur lors de l\'upload de l\'image: ' + (uploadError.message || ''));
+          setUploadingBlogImage(false);
+          return;
+        }
+        setUploadingBlogImage(false);
+      }
+
+      const created = await blogService.createArticle(articleData);
       setBlogArticles(prev => [created, ...prev]);
       setShowBlogModal(false);
       setNewBlogArticle({
@@ -272,6 +292,8 @@ const AdminDashboard: React.FC = () => {
         tempsLecture: 5,
         publie: true
       });
+      setBlogImageFile(null);
+      setBlogImagePreview(null);
       setSuccess('Article de blog créé avec succès');
       setTimeout(() => setSuccess(null), 3000);
     } catch (e: any) {
@@ -286,7 +308,24 @@ const AdminDashboard: React.FC = () => {
         setError('Veuillez remplir tous les champs obligatoires');
         return;
       }
-      const updated = await blogService.updateArticle(editingBlogArticle.id, newBlogArticle);
+
+      let articleData = { ...newBlogArticle };
+
+      // Upload de l'image si un nouveau fichier est sélectionné
+      if (blogImageFile) {
+        setUploadingBlogImage(true);
+        try {
+          const uploadResult = await blogService.uploadBlogImage(blogImageFile);
+          articleData.urlImagePrincipale = uploadResult.imageUrl;
+        } catch (uploadError: any) {
+          setError('Erreur lors de l\'upload de l\'image: ' + (uploadError.message || ''));
+          setUploadingBlogImage(false);
+          return;
+        }
+        setUploadingBlogImage(false);
+      }
+
+      const updated = await blogService.updateArticle(editingBlogArticle.id, articleData);
       setBlogArticles(prev => prev.map(a => a.id === editingBlogArticle.id ? updated : a));
       setShowBlogModal(false);
       setEditingBlogArticle(null);
@@ -301,6 +340,8 @@ const AdminDashboard: React.FC = () => {
         tempsLecture: 5,
         publie: true
       });
+      setBlogImageFile(null);
+      setBlogImagePreview(null);
       setSuccess('Article de blog mis à jour avec succès');
       setTimeout(() => setSuccess(null), 3000);
     } catch (e: any) {
@@ -813,15 +854,81 @@ const AdminDashboard: React.FC = () => {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  URL de l'image principale
+                  Image principale
                 </label>
-                <input
-                  type="url"
-                  value={newBlogArticle.urlImagePrincipale || ''}
-                  onChange={(e) => setNewBlogArticle({ ...newBlogArticle, urlImagePrincipale: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                  placeholder="https://example.com/image.jpg"
-                />
+                <div className="space-y-3">
+                  {/* Aperçu de l'image */}
+                  {(blogImagePreview || newBlogArticle.urlImagePrincipale) && (
+                    <div className="relative w-full h-48 rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700">
+                      <img 
+                        src={blogImagePreview || newBlogArticle.urlImagePrincipale || ''} 
+                        alt="Aperçu"
+                        className="w-full h-full object-cover"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setBlogImageFile(null);
+                          setBlogImagePreview(null);
+                          setNewBlogArticle({ ...newBlogArticle, urlImagePrincipale: '' });
+                        }}
+                        className="absolute top-2 right-2 p-1 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+                  )}
+                  
+                  {/* Bouton d'upload */}
+                  <div className="flex items-center gap-3">
+                    <label className="flex-1 cursor-pointer">
+                      <div className="flex items-center justify-center gap-2 px-4 py-3 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg hover:border-teal dark:hover:border-teal transition-colors bg-gray-50 dark:bg-gray-700/50">
+                        <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        <span className="text-sm text-gray-600 dark:text-gray-300">
+                          {blogImageFile ? blogImageFile.name : 'Sélectionner une image depuis votre PC'}
+                        </span>
+                      </div>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            // Vérifier la taille (max 5MB)
+                            if (file.size > 5 * 1024 * 1024) {
+                              setError('L\'image ne doit pas dépasser 5MB');
+                              return;
+                            }
+                            setBlogImageFile(file);
+                            // Créer un aperçu local
+                            const reader = new FileReader();
+                            reader.onloadend = () => {
+                              setBlogImagePreview(reader.result as string);
+                            };
+                            reader.readAsDataURL(file);
+                          }
+                        }}
+                      />
+                    </label>
+                  </div>
+                  
+                  {/* Indicateur d'upload en cours */}
+                  {uploadingBlogImage && (
+                    <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                      <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-teal"></div>
+                      <span>Upload de l'image en cours...</span>
+                    </div>
+                  )}
+                  
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    Formats acceptés: JPG, PNG, GIF, WebP (max 5MB)
+                  </p>
+                </div>
               </div>
 
               <div className="flex items-center">
@@ -840,10 +947,17 @@ const AdminDashboard: React.FC = () => {
             <div className="sticky bottom-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 px-6 py-4 flex gap-3">
               <button
                 onClick={editingBlogArticle ? updateBlogArticle : createBlogArticle}
-                disabled={!newBlogArticle.titre || !newBlogArticle.contenu || !newBlogArticle.resume || !newBlogArticle.auteur}
-                className="flex-1 px-4 py-2 bg-teal hover:bg-teal/90 text-white rounded-lg transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={!newBlogArticle.titre || !newBlogArticle.contenu || !newBlogArticle.resume || !newBlogArticle.auteur || uploadingBlogImage}
+                className="flex-1 px-4 py-2 bg-teal hover:bg-teal/90 text-white rounded-lg transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
-                {editingBlogArticle ? '✓ Modifier l\'article' : '✓ Créer l\'article'}
+                {uploadingBlogImage ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white"></div>
+                    Upload en cours...
+                  </>
+                ) : (
+                  editingBlogArticle ? '✓ Modifier l\'article' : '✓ Créer l\'article'
+                )}
               </button>
               <button
                 onClick={() => {
@@ -860,6 +974,8 @@ const AdminDashboard: React.FC = () => {
                     tempsLecture: 5,
                     publie: true
                   });
+                  setBlogImageFile(null);
+                  setBlogImagePreview(null);
                 }}
                 className="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-white rounded-lg transition-colors font-medium"
               >
