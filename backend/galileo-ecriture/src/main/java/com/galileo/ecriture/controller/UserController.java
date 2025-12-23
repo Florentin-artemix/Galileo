@@ -54,9 +54,9 @@ public class UserController {
 
         try {
             Role targetRole = Role.valueOf(roleStr.toUpperCase());
-            // Utiliser attribuerRoleInitial pour ne pas révoquer les tokens
-            userService.attribuerRoleInitial(uid, targetRole);
-            logger.info("Auto-inscription: utilisateur {} enregistré avec rôle {}", uid, targetRole);
+            // Utiliser attribuerRoleInitial pour ne pas révoquer les tokens et synchroniser dans PostgreSQL
+            userService.attribuerRoleInitial(uid, email, null, targetRole);
+            logger.info("Auto-inscription: utilisateur {} enregistré avec rôle {} dans PostgreSQL", uid, targetRole);
             return ResponseEntity.ok(Map.of(
                 "message", "Inscription réussie",
                 "uid", uid,

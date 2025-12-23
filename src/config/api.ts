@@ -4,13 +4,13 @@
 
 // Base URL de l'API selon l'environnement
 const getApiBaseUrl = (): string => {
-  // En production Docker, utiliser le proxy nginx
+  // En production Docker, utiliser le proxy nginx (pas de /api car apiClient a déjà baseURL)
   if (import.meta.env.PROD) {
-    return '/api';
+    return '';
   }
   
-  // En développement local
-  return import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
+  // En développement local, apiClient a déjà baseURL avec /api
+  return '';
 };
 
 export const API_BASE_URL = getApiBaseUrl();
@@ -21,7 +21,8 @@ export const API_ENDPOINTS = {
   publications: {
     list: `${API_BASE_URL}/publications`,
     detail: (id: number) => `${API_BASE_URL}/publications/${id}`,
-    download: (id: number) => `${API_BASE_URL}/publications/${id}/download`,
+    downloadUrl: (id: number) => `${API_BASE_URL}/publications/${id}/telecharger`,
+    recordDownload: (id: number) => `${API_BASE_URL}/publications/${id}/telechargement`,
     incrementViews: (id: number) => `${API_BASE_URL}/publications/${id}/views`,
     byDomain: (domain: string) => `${API_BASE_URL}/publications/domaine/${domain}`,
   },
@@ -30,8 +31,12 @@ export const API_ENDPOINTS = {
   blog: {
     list: `${API_BASE_URL}/blog`,
     detail: (id: number) => `${API_BASE_URL}/blog/${id}`,
-    published: `${API_BASE_URL}/blog/publies`,
-    incrementViews: (id: number) => `${API_BASE_URL}/blog/${id}/views`,
+    recent: `${API_BASE_URL}/blog/recents`,
+    popular: `${API_BASE_URL}/blog/populaires`,
+    byCategory: (category: string) => `${API_BASE_URL}/blog/categorie/${category}`,
+    create: `${API_BASE_URL}/blog`,
+    update: (id: number) => `${API_BASE_URL}/blog/${id}`,
+    delete: (id: number) => `${API_BASE_URL}/blog/${id}`,
   },
 
   // Événements
@@ -45,12 +50,18 @@ export const API_ENDPOINTS = {
   search: {
     publications: `${API_BASE_URL}/search/publications`,
     blog: `${API_BASE_URL}/search/blog`,
+    advanced: `${API_BASE_URL}/search/publications/advanced`,
     autocompletePublications: `${API_BASE_URL}/search/publications/autocomplete`,
     autocompleteBlog: `${API_BASE_URL}/search/blog/autocomplete`,
     similar: (id: number) => `${API_BASE_URL}/search/publications/${id}/similar`,
     byDomain: (domain: string) => `${API_BASE_URL}/search/publications/domain/${domain}`,
     byAuthor: (author: string) => `${API_BASE_URL}/search/publications/author/${author}`,
     byCategory: (category: string) => `${API_BASE_URL}/search/blog/category/${category}`,
+    aggregations: {
+      domains: `${API_BASE_URL}/search/aggregations/domains`,
+      authors: `${API_BASE_URL}/search/aggregations/authors`,
+      blogCategories: `${API_BASE_URL}/search/aggregations/blog-categories`,
+    },
   },
 
   // Soumissions (Authentifié)
@@ -66,6 +77,7 @@ export const API_ENDPOINTS = {
     pending: `${API_BASE_URL}/admin/soumissions/en-attente`,
     validate: (id: number) => `${API_BASE_URL}/admin/soumissions/${id}/valider`,
     reject: (id: number) => `${API_BASE_URL}/admin/soumissions/${id}/rejeter`,
+    requestRevision: (id: number) => `${API_BASE_URL}/admin/soumissions/${id}/demander-revisions`,
   },
 
   // Indexation Elasticsearch (Admin)

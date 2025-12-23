@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { soumissionsService, publicationsService, PublicationDTO } from '../src/services/publicationsService';
 import { usersService, UserDTO } from '../src/services/usersService';
 import { eventService } from '../src/services/eventService';
+import { blogService, ArticleBlogDTO, ArticleBlogCreateDTO } from '../src/services/blogService';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { UserRole } from '../src/services/authService';
@@ -35,7 +36,7 @@ interface Stats {
   pendingSubmissions: number;
 }
 
-type TabType = 'dashboard' | 'profile' | 'users' | 'events' | 'publications' | 'pending';
+type TabType = 'dashboard' | 'profile' | 'users' | 'events' | 'publications' | 'pending' | 'blog';
 
 const AdminDashboard: React.FC = () => {
   const { user, role } = useAuth();
@@ -44,11 +45,13 @@ const AdminDashboard: React.FC = () => {
   const [publications, setPublications] = useState<PublicationDTO[]>([]);
   const [users, setUsers] = useState<UserDTO[]>([]);
   const [events, setEvents] = useState<Event[]>([]);
+  const [blogArticles, setBlogArticles] = useState<ArticleBlogDTO[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [tab, setTab] = useState<TabType>('dashboard');
   const [updatingUser, setUpdatingUser] = useState<string | null>(null);
+  const [loadingUsers, setLoadingUsers] = useState(false);
   const [stats, setStats] = useState<Stats>({
     totalUsers: 0,
     totalPublications: 0,
@@ -56,6 +59,8 @@ const AdminDashboard: React.FC = () => {
     pendingSubmissions: 0
   });
   const [showEventModal, setShowEventModal] = useState(false);
+  const [showBlogModal, setShowBlogModal] = useState(false);
+  const [editingBlogArticle, setEditingBlogArticle] = useState<ArticleBlogDTO | null>(null);
   const [newEvent, setNewEvent] = useState({
     titleFr: '',
     titleEn: '',
@@ -69,6 +74,17 @@ const AdminDashboard: React.FC = () => {
     summaryEn: '',
     descriptionFr: '',
     descriptionEn: ''
+  });
+  const [newBlogArticle, setNewBlogArticle] = useState<ArticleBlogCreateDTO>({
+    titre: '',
+    contenu: '',
+    resume: '',
+    auteur: '',
+    categorie: '',
+    motsCles: '',
+    urlImagePrincipale: '',
+    tempsLecture: 5,
+    publie: true
   });
 
   // Charger les données initiales
@@ -88,25 +104,48 @@ const AdminDashboard: React.FC = () => {
       setPending(pendingData || []);
       setPublications(pubData.content || []);
 
-      // Charger les utilisateurs et événements pour ADMIN
-      if (role === 'ADMIN') {
+      // Charger les utilisateurs, événements et articles de blog pour ADMIN/STAFF
+      if (role === 'ADMIN' || role === 'STAFF') {
         try {
-          const [usersData, eventsData] = await Promise.all([
-            usersService.getUsers().catch(() => []),
-            eventService.getAllEventsNoPagination().catch(() => [])
+          if (role === 'ADMIN') {
+            setLoadingUsers(true);
+          }
+          const [usersData, eventsData, blogData] = await Promise.all([
+            role === 'ADMIN' ? usersService.getUsers().catch((err) => {
+              console.error('Erreur lors de la récupération des utilisateurs:', err);
+              const errorMsg = err.response?.data?.message || err.response?.data?.erreur || err.message || 'Erreur inconnue';
+              setError(`Erreur lors du chargement des utilisateurs: ${errorMsg}`);
+              return [];
+            }) : Promise.resolve([]),
+            role === 'ADMIN' ? eventService.getAllEventsNoPagination().catch((err) => {
+              console.error('Erreur lors de la récupération des événements:', err);
+              return [];
+            }) : Promise.resolve([]),
+            blogService.getArticles().catch((err) => {
+              console.error('Erreur lors de la récupération des articles de blog:', err);
+              return [];
+            })
           ]);
-          setUsers(usersData || []);
-          setEvents(eventsData || []);
+          if (role === 'ADMIN') {
+            setUsers(usersData || []);
+            setEvents(eventsData || []);
+            setLoadingUsers(false);
+            console.log(`✅ ${usersData?.length || 0} utilisateurs chargés`);
+          }
+          setBlogArticles(blogData || []);
           
           // Calculer les statistiques
-          setStats({
-            totalUsers: usersData?.length || 0,
-            totalPublications: pubData.content?.length || 0,
-            totalEvents: eventsData?.length || 0,
-            pendingSubmissions: pendingData?.length || 0
-          });
+          if (role === 'ADMIN') {
+            setStats({
+              totalUsers: usersData?.length || 0,
+              totalPublications: pubData.content?.length || 0,
+              totalEvents: eventsData?.length || 0,
+              pendingSubmissions: pendingData?.length || 0
+            });
+          }
         } catch (e) {
-          console.warn('Erreur chargement données admin:', e);
+          console.error('Erreur chargement données admin:', e);
+          setError('Erreur lors du chargement des données administrateur');
         }
       }
     } catch (e: any) {
@@ -117,14 +156,22 @@ const AdminDashboard: React.FC = () => {
     }
   };
 
-  const updateStatut = async (id: number, statut: 'ACCEPTEE' | 'REJETEE') => {
+  const updateStatut = async (id: number, statut: 'ACCEPTEE' | 'REJETEE' | 'EN_REVISION') => {
     try {
       if (statut === 'ACCEPTEE') {
         await soumissionsService.validerSoumission(id);
         setSuccess('Soumission acceptée avec succès');
-      } else {
+      } else if (statut === 'REJETEE') {
         await soumissionsService.rejeterSoumission(id);
         setSuccess('Soumission rejetée');
+      } else if (statut === 'EN_REVISION') {
+        const commentaire = prompt('Commentaires pour la révision:');
+        if (commentaire) {
+          await soumissionsService.demanderRevisions(id, commentaire);
+          setSuccess('Demande de révisions envoyée');
+        } else {
+          return; // Annulé par l'utilisateur
+        }
       }
       setPending((prev) => prev.filter((s) => s.id !== id));
       setError(null);
@@ -205,6 +252,90 @@ const AdminDashboard: React.FC = () => {
     }
   };
 
+  const createBlogArticle = async () => {
+    try {
+      if (!newBlogArticle.titre || !newBlogArticle.contenu || !newBlogArticle.resume || !newBlogArticle.auteur) {
+        setError('Veuillez remplir tous les champs obligatoires');
+        return;
+      }
+      const created = await blogService.createArticle(newBlogArticle);
+      setBlogArticles(prev => [created, ...prev]);
+      setShowBlogModal(false);
+      setNewBlogArticle({
+        titre: '',
+        contenu: '',
+        resume: '',
+        auteur: '',
+        categorie: '',
+        motsCles: '',
+        urlImagePrincipale: '',
+        tempsLecture: 5,
+        publie: true
+      });
+      setSuccess('Article de blog créé avec succès');
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (e: any) {
+      setError('Erreur lors de la création: ' + (e.message || ''));
+    }
+  };
+
+  const updateBlogArticle = async () => {
+    if (!editingBlogArticle) return;
+    try {
+      if (!newBlogArticle.titre || !newBlogArticle.contenu || !newBlogArticle.resume || !newBlogArticle.auteur) {
+        setError('Veuillez remplir tous les champs obligatoires');
+        return;
+      }
+      const updated = await blogService.updateArticle(editingBlogArticle.id, newBlogArticle);
+      setBlogArticles(prev => prev.map(a => a.id === editingBlogArticle.id ? updated : a));
+      setShowBlogModal(false);
+      setEditingBlogArticle(null);
+      setNewBlogArticle({
+        titre: '',
+        contenu: '',
+        resume: '',
+        auteur: '',
+        categorie: '',
+        motsCles: '',
+        urlImagePrincipale: '',
+        tempsLecture: 5,
+        publie: true
+      });
+      setSuccess('Article de blog mis à jour avec succès');
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (e: any) {
+      setError('Erreur lors de la mise à jour: ' + (e.message || ''));
+    }
+  };
+
+  const deleteBlogArticle = async (id: number) => {
+    if (!confirm('Êtes-vous sûr de vouloir supprimer cet article de blog ?')) return;
+    try {
+      await blogService.deleteArticle(id);
+      setBlogArticles(prev => prev.filter(a => a.id !== id));
+      setSuccess('Article de blog supprimé');
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (e: any) {
+      setError('Erreur lors de la suppression: ' + (e.message || ''));
+    }
+  };
+
+  const openBlogEditModal = (article: ArticleBlogDTO) => {
+    setEditingBlogArticle(article);
+    setNewBlogArticle({
+      titre: article.titre,
+      contenu: article.contenu,
+      resume: article.resume,
+      auteur: article.auteur,
+      categorie: article.categorie || '',
+      motsCles: article.motsCles || '',
+      urlImagePrincipale: article.urlImagePrincipale || '',
+      tempsLecture: article.tempsLecture || 5,
+      publie: true
+    });
+    setShowBlogModal(true);
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -258,6 +389,11 @@ const AdminDashboard: React.FC = () => {
           <TabButton active={tab === 'publications'} onClick={() => setTab('publications')} icon="📚">
             Publications
           </TabButton>
+          {(role === 'ADMIN' || role === 'STAFF') && (
+            <TabButton active={tab === 'blog'} onClick={() => setTab('blog')} icon="✍️">
+              Blog
+            </TabButton>
+          )}
           {role === 'ADMIN' && (
             <>
               <TabButton active={tab === 'events'} onClick={() => setTab('events')} icon="🎯">
@@ -300,7 +436,105 @@ const AdminDashboard: React.FC = () => {
           )}
 
           {tab === 'users' && role === 'ADMIN' && (
-            <UsersView users={users} currentUserEmail={user?.email} updatingUser={updatingUser} onUpdateRole={updateUserRole} />
+            <UsersView 
+              users={users} 
+              currentUserEmail={user?.email} 
+              updatingUser={updatingUser} 
+              onUpdateRole={updateUserRole}
+              loading={loadingUsers}
+              onReload={async () => {
+                setLoadingUsers(true);
+                setError(null);
+                try {
+                  const usersData = await usersService.getUsers();
+                  setUsers(usersData || []);
+                  setStats(prev => ({ ...prev, totalUsers: usersData?.length || 0 }));
+                  console.log(`✅ ${usersData?.length || 0} utilisateurs rechargés`);
+                } catch (err: any) {
+                  console.error('Erreur lors du rechargement des utilisateurs:', err);
+                  const errorMsg = err.response?.data?.message || err.response?.data?.erreur || err.message || 'Erreur inconnue';
+                  setError(`Erreur lors du rechargement des utilisateurs: ${errorMsg}`);
+                } finally {
+                  setLoadingUsers(false);
+                }
+              }}
+            />
+          )}
+
+          {tab === 'blog' && (role === 'ADMIN' || role === 'STAFF') && (
+            <div className="space-y-6">
+              <div className="flex justify-between items-center">
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Articles de Blog</h2>
+                <button
+                  onClick={() => {
+                    setEditingBlogArticle(null);
+                    setNewBlogArticle({
+                      titre: '',
+                      contenu: '',
+                      resume: '',
+                      auteur: user?.email || '',
+                      categorie: '',
+                      motsCles: '',
+                      urlImagePrincipale: '',
+                      tempsLecture: 5,
+                      publie: true
+                    });
+                    setShowBlogModal(true);
+                  }}
+                  className="px-4 py-2 bg-teal text-white rounded-lg hover:bg-teal/90 transition-colors"
+                >
+                  + Nouvel Article
+                </button>
+              </div>
+              
+              {blogArticles.length === 0 ? (
+                <p className="text-gray-600 dark:text-gray-400 text-center py-8">
+                  Aucun article de blog pour le moment.
+                </p>
+              ) : (
+                <div className="grid gap-4">
+                  {blogArticles.map(article => (
+                    <div key={article.id} className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border border-gray-200 dark:border-gray-700">
+                      <div className="flex justify-between items-start mb-4">
+                        <div className="flex-1">
+                          <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">{article.titre}</h3>
+                          <p className="text-gray-600 dark:text-gray-400 text-sm mb-2">{article.resume}</p>
+                          <div className="flex gap-4 text-sm text-gray-500 dark:text-gray-400">
+                            <span>Par {article.auteur}</span>
+                            <span>•</span>
+                            <span>{new Date(article.datePublication).toLocaleDateString('fr-FR')}</span>
+                            <span>•</span>
+                            <span>{article.nombreVues} vues</span>
+                            {article.categorie && (
+                              <>
+                                <span>•</span>
+                                <span className="bg-teal/10 text-teal px-2 py-1 rounded">{article.categorie}</span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex gap-2 ml-4">
+                          <button
+                            onClick={() => openBlogEditModal(article)}
+                            className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors text-sm"
+                          >
+                            Modifier
+                          </button>
+                          {role === 'ADMIN' && (
+                            <button
+                              onClick={() => deleteBlogArticle(article.id)}
+                              className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 transition-colors text-sm"
+                            >
+                              Supprimer
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           )}
         </div>
       </div>
@@ -469,6 +703,172 @@ const AdminDashboard: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Modal de création/modification d'article de blog */}
+      {showBlogModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4">
+              <h3 className="text-2xl font-bold text-gray-900 dark:text-white">
+                ✍️ {editingBlogArticle ? 'Modifier l\'article' : 'Nouvel article de blog'}
+              </h3>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Titre * <span className="text-xs text-gray-500">(min 10, max 500 caractères)</span>
+                </label>
+                <input
+                  type="text"
+                  value={newBlogArticle.titre}
+                  onChange={(e) => setNewBlogArticle({ ...newBlogArticle, titre: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  placeholder="Titre de l'article"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Résumé * <span className="text-xs text-gray-500">(min 50, max 1000 caractères)</span>
+                </label>
+                <textarea
+                  value={newBlogArticle.resume}
+                  onChange={(e) => setNewBlogArticle({ ...newBlogArticle, resume: e.target.value })}
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  placeholder="Résumé court de l'article"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Contenu * <span className="text-xs text-gray-500">(min 100 caractères)</span>
+                </label>
+                <textarea
+                  value={newBlogArticle.contenu}
+                  onChange={(e) => setNewBlogArticle({ ...newBlogArticle, contenu: e.target.value })}
+                  rows={10}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white font-mono text-sm"
+                  placeholder="Contenu de l'article (une ligne par paragraphe)"
+                  required
+                />
+              </div>
+
+              <div className="grid md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Auteur *
+                  </label>
+                  <input
+                    type="text"
+                    value={newBlogArticle.auteur}
+                    onChange={(e) => setNewBlogArticle({ ...newBlogArticle, auteur: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    placeholder="Nom de l'auteur"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Catégorie
+                  </label>
+                  <input
+                    type="text"
+                    value={newBlogArticle.categorie || ''}
+                    onChange={(e) => setNewBlogArticle({ ...newBlogArticle, categorie: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    placeholder="ex: Recherche, Actualité, Tutoriel"
+                  />
+                </div>
+              </div>
+
+              <div className="grid md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Mots-clés <span className="text-xs text-gray-500">(séparés par des virgules)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={newBlogArticle.motsCles || ''}
+                    onChange={(e) => setNewBlogArticle({ ...newBlogArticle, motsCles: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    placeholder="ex: science, recherche, IA"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Temps de lecture <span className="text-xs text-gray-500">(en minutes)</span>
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={newBlogArticle.tempsLecture || 5}
+                    onChange={(e) => setNewBlogArticle({ ...newBlogArticle, tempsLecture: parseInt(e.target.value) || 5 })}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  URL de l'image principale
+                </label>
+                <input
+                  type="url"
+                  value={newBlogArticle.urlImagePrincipale || ''}
+                  onChange={(e) => setNewBlogArticle({ ...newBlogArticle, urlImagePrincipale: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  placeholder="https://example.com/image.jpg"
+                />
+              </div>
+
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  id="publie"
+                  checked={newBlogArticle.publie ?? true}
+                  onChange={(e) => setNewBlogArticle({ ...newBlogArticle, publie: e.target.checked })}
+                  className="w-4 h-4 text-teal border-gray-300 rounded focus:ring-teal"
+                />
+                <label htmlFor="publie" className="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                  Publié (visible publiquement)
+                </label>
+              </div>
+            </div>
+            <div className="sticky bottom-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 px-6 py-4 flex gap-3">
+              <button
+                onClick={editingBlogArticle ? updateBlogArticle : createBlogArticle}
+                disabled={!newBlogArticle.titre || !newBlogArticle.contenu || !newBlogArticle.resume || !newBlogArticle.auteur}
+                className="flex-1 px-4 py-2 bg-teal hover:bg-teal/90 text-white rounded-lg transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {editingBlogArticle ? '✓ Modifier l\'article' : '✓ Créer l\'article'}
+              </button>
+              <button
+                onClick={() => {
+                  setShowBlogModal(false);
+                  setEditingBlogArticle(null);
+                  setNewBlogArticle({
+                    titre: '',
+                    contenu: '',
+                    resume: '',
+                    auteur: '',
+                    categorie: '',
+                    motsCles: '',
+                    urlImagePrincipale: '',
+                    tempsLecture: 5,
+                    publie: true
+                  });
+                }}
+                className="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-white rounded-lg transition-colors font-medium"
+              >
+                Annuler
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -593,18 +993,26 @@ const PendingSubmissionsView = ({ pending, onUpdateStatut }: any) => (
               )}
             </div>
 
-            <div className="flex gap-3">
+            <div className="flex flex-col gap-2">
+              <div className="flex gap-2">
+                <button
+                  onClick={() => onUpdateStatut(soumission.id, 'ACCEPTEE')}
+                  className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors font-medium text-sm"
+                >
+                  ✓ Accepter
+                </button>
+                <button
+                  onClick={() => onUpdateStatut(soumission.id, 'REJETEE')}
+                  className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors font-medium text-sm"
+                >
+                  ✗ Rejeter
+                </button>
+              </div>
               <button
-                onClick={() => onUpdateStatut(soumission.id, 'ACCEPTEE')}
-                className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors font-medium"
+                onClick={() => onUpdateStatut(soumission.id, 'EN_REVISION')}
+                className="w-full px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg transition-colors font-medium text-sm"
               >
-                ✓ Accepter
-              </button>
-              <button
-                onClick={() => onUpdateStatut(soumission.id, 'REJETEE')}
-                className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors font-medium"
-              >
-                ✗ Rejeter
+                ✏️ Demander des révisions
               </button>
             </div>
           </div>
@@ -717,9 +1125,20 @@ const EventsView = ({ events, language, onDelete, onAdd }: any) => (
   </div>
 );
 
-const UsersView = ({ users, currentUserEmail, updatingUser, onUpdateRole }: any) => (
+const UsersView = ({ users, currentUserEmail, updatingUser, onUpdateRole, loading, onReload }: any) => (
   <div>
-    <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">👥 Gestion des utilisateurs ({users.length})</h2>
+    <div className="flex items-center justify-between mb-6">
+      <h2 className="text-2xl font-bold text-gray-900 dark:text-white">👥 Gestion des utilisateurs ({users.length})</h2>
+      {onReload && (
+        <button
+          onClick={onReload}
+          disabled={loading}
+          className="px-4 py-2 bg-teal hover:bg-teal/90 text-white rounded-lg transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          🔄 Recharger
+        </button>
+      )}
+    </div>
     
     <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
       <p className="text-sm text-blue-700 dark:text-blue-300">
@@ -729,9 +1148,17 @@ const UsersView = ({ users, currentUserEmail, updatingUser, onUpdateRole }: any)
       </p>
     </div>
 
-    {users.length === 0 ? (
+    {loading ? (
+      <div className="text-center py-16 bg-white dark:bg-gray-800 rounded-xl shadow-lg">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-b-4 border-teal mx-auto mb-4"></div>
+        <p className="text-lg text-gray-500 dark:text-gray-400">Chargement des utilisateurs...</p>
+      </div>
+    ) : users.length === 0 ? (
       <div className="text-center py-16 bg-white dark:bg-gray-800 rounded-xl shadow-lg">
         <p className="text-lg text-gray-500 dark:text-gray-400">Aucun utilisateur enregistré</p>
+        <p className="text-sm text-gray-400 dark:text-gray-500 mt-2">
+          Si vous pensez qu'il devrait y avoir des utilisateurs, vérifiez la console pour les erreurs.
+        </p>
       </div>
     ) : (
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden">

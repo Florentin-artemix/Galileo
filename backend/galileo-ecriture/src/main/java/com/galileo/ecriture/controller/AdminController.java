@@ -18,7 +18,7 @@ import java.util.Map;
 /**
  * Contrôleur Admin pour la gestion des soumissions
  * Tous les endpoints nécessitent l'authentification (headers X-User-Id et X-User-Email)
- * TODO: Ajouter vérification du rôle ADMIN dans un filtre ou via Firebase custom claims
+ * La vérification des rôles ADMIN/STAFF est effectuée via RoleGuard
  */
 @RestController
 @RequestMapping("/admin/soumissions")

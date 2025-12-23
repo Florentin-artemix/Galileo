@@ -5,6 +5,8 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { usePublications } from '../contexts/PublicationsContext';
 import type { Publication } from '../types';
 import Modal from '../components/Modal';
+import { searchService } from '../src/services/searchService';
+import { publicationsService } from '../src/services/publicationsService';
 
 const PublicationCard: React.FC<{ 
     pub: Publication, 

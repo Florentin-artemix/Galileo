@@ -56,6 +56,60 @@ export const searchService = {
   },
 
   /**
+   * Recherche avancée avec filtres multiples
+   */
+  async advancedSearch(params: {
+    query?: string;
+    domaine?: string;
+    auteur?: string;
+    page?: number;
+    size?: number;
+  }): Promise<SearchResponse> {
+    const response = await apiClient.get('/search/publications/advanced', {
+      params: {
+        q: params.query || '',
+        domaine: params.domaine || '',
+        auteur: params.auteur || '',
+        page: params.page || 0,
+        size: params.size || 10
+      }
+    });
+    return response.data;
+  },
+
+  /**
+   * Recherche de publications similaires
+   */
+  async getSimilarPublications(id: number, limit: number = 5): Promise<SearchResult[]> {
+    const response = await apiClient.get(`/search/publications/${id}/similar`, {
+      params: { limit }
+    });
+    return response.data.content || [];
+  },
+
+  /**
+   * Autocomplete pour publications
+   */
+  async autocompletePublications(prefix: string): Promise<string[]> {
+    if (prefix.length < 2) return [];
+    const response = await apiClient.get('/search/publications/autocomplete', {
+      params: { prefix }
+    });
+    return response.data;
+  },
+
+  /**
+   * Autocomplete pour blog
+   */
+  async autocompleteBlog(prefix: string): Promise<string[]> {
+    if (prefix.length < 2) return [];
+    const response = await apiClient.get('/search/blog/autocomplete', {
+      params: { prefix }
+    });
+    return response.data;
+  },
+
+  /**
    * Recherche globale (publications + blog)
    */
   async searchAll(query: string): Promise<{ publications: SearchResult[]; blog: SearchResult[] }> {

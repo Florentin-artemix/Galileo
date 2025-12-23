@@ -93,8 +93,9 @@ public class SoumissionService {
         Soumission saved = soumissionRepository.save(soumission);
         logger.info("Soumission créée: {} par {}", saved.getId(), userEmail);
 
-        // Envoyer notification à l'auteur
+        // Notifications (emails désactivés, uniquement logging)
         emailService.envoyerConfirmationSoumission(saved);
+        emailService.notifierNouvelleSubmission(saved);
         
         // Auto-publier vers service-lecture
         publierVersServiceLecture(saved, urlSignee);

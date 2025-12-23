@@ -6,6 +6,47 @@ import { publicationsService } from '../src/services/publicationsService';
 import type { Publication } from '../types';
 import PdfViewer from '../components/PdfViewer';
 
+// Composant pour le bouton de téléchargement avec enregistrement
+const DownloadButton: React.FC<{ publicationId: number }> = ({ publicationId }) => {
+  const { translations } = useLanguage();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleDownload = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const url = await publicationsService.getDownloadUrl(publicationId);
+      // Ouvrir le téléchargement
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = '';
+      link.target = '_blank';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (err: any) {
+      setError('Erreur lors du téléchargement');
+      console.error('Erreur téléchargement:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <>
+      <button
+        onClick={handleDownload}
+        disabled={loading}
+        className="inline-block bg-light-accent dark:bg-teal text-white dark:text-navy font-bold py-3 px-6 rounded-full hover:bg-light-accent-hover dark:hover:bg-opacity-80 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        {loading ? '⏳ Téléchargement...' : translations.publications_page.download_pdf}
+      </button>
+      {error && <p className="text-red-500 text-sm mt-2">{error}</p>}
+    </>
+  );
+};
+
 const SinglePublicationPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const { language, translations } = useLanguage();
@@ -94,9 +135,7 @@ const SinglePublicationPage: React.FC = () => {
               {publication.pdfUrl ? (
                   <>
                       <div className="mb-6">
-                          <a href={publication.pdfUrl} download className="inline-block bg-light-accent dark:bg-teal text-white dark:text-navy font-bold py-3 px-6 rounded-full hover:bg-light-accent-hover dark:hover:bg-opacity-80 transition-all duration-300">
-                              {translations.publications_page.download_pdf}
-                          </a>
+                          <DownloadButton publicationId={publication.id} />
                       </div>
                       <PdfViewer fileUrl={publication.pdfUrl} />
                   </>

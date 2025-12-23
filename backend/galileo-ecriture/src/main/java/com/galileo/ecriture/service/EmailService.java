@@ -7,135 +7,70 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 /**
- * Service d'envoi d'emails via SendGrid
- * NOTE: L'intégration complète SendGrid sera ajoutée plus tard
+ * Service de logging des notifications (emails désactivés)
+ * Note: L'envoi d'emails réels est désactivé. Toutes les notifications sont uniquement loggées.
  */
 @Service
 public class EmailService {
 
     private static final Logger logger = LoggerFactory.getLogger(EmailService.class);
 
-    @Value("${sendgrid.from-email}")
-    private String fromEmail;
-
-    @Value("${sendgrid.admin-email}")
-    private String adminEmail;
-
     /**
-     * Envoie une confirmation de soumission à l'auteur
+     * Log une confirmation de soumission (email désactivé)
      */
     public void envoyerConfirmationSoumission(Soumission soumission) {
-        logger.info("Envoi de confirmation de soumission à: {}", soumission.getEmailAuteur());
-        
-        // TODO: Implémenter l'envoi réel avec SendGrid
-        String contenu = String.format(
-            "Bonjour %s,\n\n" +
-            "Votre soumission \"%s\" a bien été reçue et est en cours de traitement.\n\n" +
-            "Référence: #%d\n" +
-            "Date de soumission: %s\n\n" +
-            "Vous recevrez une notification dès que votre soumission sera examinée.\n\n" +
-            "Cordialement,\n" +
-            "L'équipe Galileo",
+        logger.info("📧 [EMAIL DÉSACTIVÉ] Confirmation de soumission pour: {} ({}) - Soumission #{}: \"{}\"",
             soumission.getAuteurPrincipal(),
-            soumission.getTitre(),
+            soumission.getEmailAuteur(),
             soumission.getId(),
-            soumission.getDateSoumission()
-        );
-
-        logger.debug("Email de confirmation préparé: {}", contenu);
-        // Simulation d'envoi réussi
+            soumission.getTitre());
     }
 
     /**
-     * Notifie l'admin d'une nouvelle soumission
+     * Log une notification admin pour nouvelle soumission (email désactivé)
      */
     public void notifierNouvelleSubmission(Soumission soumission) {
-        logger.info("Notification admin pour nouvelle soumission: {}", soumission.getId());
-        
-        // TODO: Implémenter l'envoi réel avec SendGrid
-        String contenu = String.format(
-            "Une nouvelle soumission a été reçue:\n\n" +
-            "Titre: %s\n" +
-            "Auteur: %s (%s)\n" +
-            "Domaine: %s\n" +
-            "Référence: #%d\n\n" +
-            "Consultez le panneau d'administration pour examiner cette soumission.",
+        logger.info("📧 [EMAIL DÉSACTIVÉ] Nouvelle soumission reçue - #{}: \"{}\" par {} ({}) - Domaine: {}",
+            soumission.getId(),
             soumission.getTitre(),
             soumission.getAuteurPrincipal(),
             soumission.getEmailAuteur(),
-            soumission.getDomaineRecherche(),
-            soumission.getId()
-        );
-
-        logger.debug("Email de notification admin préparé: {}", contenu);
-        // Simulation d'envoi réussi
+            soumission.getDomaineRecherche());
     }
 
     /**
-     * Notifie l'auteur de la validation de sa soumission
+     * Log une notification de validation (email désactivé)
      */
     public void notifierValidation(Soumission soumission) {
-        logger.info("Notification de validation à: {}", soumission.getEmailAuteur());
-        
-        String contenu = String.format(
-            "Bonjour %s,\n\n" +
-            "Excellente nouvelle ! Votre soumission \"%s\" a été acceptée pour publication.\n\n" +
-            "Commentaire de l'équipe éditoriale:\n%s\n\n" +
-            "Votre article sera bientôt disponible sur notre plateforme.\n\n" +
-            "Cordialement,\n" +
-            "L'équipe Galileo",
+        logger.info("📧 [EMAIL DÉSACTIVÉ] Validation de soumission #{} pour {} ({}) - Titre: \"{}\" - Commentaire: {}",
+            soumission.getId(),
             soumission.getAuteurPrincipal(),
+            soumission.getEmailAuteur(),
             soumission.getTitre(),
-            soumission.getCommentaireAdmin()
-        );
-
-        logger.debug("Email de validation préparé: {}", contenu);
-        // Simulation d'envoi réussi
+            soumission.getCommentaireAdmin() != null ? soumission.getCommentaireAdmin().substring(0, Math.min(50, soumission.getCommentaireAdmin().length())) : "Aucun");
     }
 
     /**
-     * Notifie l'auteur du rejet de sa soumission
+     * Log une notification de rejet (email désactivé)
      */
     public void notifierRejet(Soumission soumission) {
-        logger.info("Notification de rejet à: {}", soumission.getEmailAuteur());
-        
-        String contenu = String.format(
-            "Bonjour %s,\n\n" +
-            "Nous avons le regret de vous informer que votre soumission \"%s\" " +
-            "n'a pas été retenue pour publication.\n\n" +
-            "Commentaire de l'équipe éditoriale:\n%s\n\n" +
-            "Nous vous encourageons à soumettre de nouveau après avoir pris en compte " +
-            "ces remarques.\n\n" +
-            "Cordialement,\n" +
-            "L'équipe Galileo",
+        logger.info("📧 [EMAIL DÉSACTIVÉ] Rejet de soumission #{} pour {} ({}) - Titre: \"{}\" - Commentaire: {}",
+            soumission.getId(),
             soumission.getAuteurPrincipal(),
+            soumission.getEmailAuteur(),
             soumission.getTitre(),
-            soumission.getCommentaireAdmin()
-        );
-
-        logger.debug("Email de rejet préparé: {}", contenu);
-        // Simulation d'envoi réussi
+            soumission.getCommentaireAdmin() != null ? soumission.getCommentaireAdmin().substring(0, Math.min(50, soumission.getCommentaireAdmin().length())) : "Aucun");
     }
 
     /**
-     * Notifie l'auteur que sa soumission nécessite des révisions
+     * Log une notification de révision demandée (email désactivé)
      */
     public void notifierRevision(Soumission soumission) {
-        logger.info("Notification de révision à: {}", soumission.getEmailAuteur());
-        
-        String contenu = String.format(
-            "Bonjour %s,\n\n" +
-            "Votre soumission \"%s\" a été examinée et nécessite quelques révisions.\n\n" +
-            "Commentaires et suggestions:\n%s\n\n" +
-            "Veuillez soumettre une version révisée en tenant compte de ces remarques.\n\n" +
-            "Cordialement,\n" +
-            "L'équipe Galileo",
+        logger.info("📧 [EMAIL DÉSACTIVÉ] Demande de révisions pour soumission #{} pour {} ({}) - Titre: \"{}\" - Commentaire: {}",
+            soumission.getId(),
             soumission.getAuteurPrincipal(),
+            soumission.getEmailAuteur(),
             soumission.getTitre(),
-            soumission.getCommentaireAdmin()
-        );
-
-        logger.debug("Email de révision préparé: {}", contenu);
-        // Simulation d'envoi réussi
+            soumission.getCommentaireAdmin() != null ? soumission.getCommentaireAdmin().substring(0, Math.min(50, soumission.getCommentaireAdmin().length())) : "Aucun");
     }
 }

@@ -89,18 +89,19 @@ export const publicationsService = {
   },
 
   /**
-   * Enregistrer un téléchargement
-   */
-  async recordDownload(id: number): Promise<void> {
-    await apiClient.post(`/publications/${id}/telecharger`);
-  },
-
-  /**
-   * Obtenir l'URL de téléchargement signée
+   * Obtenir l'URL de téléchargement signée et enregistrer le téléchargement
    */
   async getDownloadUrl(id: number): Promise<string> {
+    // Récupérer l'URL signée
     const response = await apiClient.get(`/publications/${id}/telecharger`);
-    return response.data.url;
+    const url = response.data.url;
+    
+    // Enregistrer le téléchargement (async, ne pas attendre)
+    apiClient.post(`/publications/${id}/telechargement`).catch(err => {
+      console.warn('Erreur lors de l\'enregistrement du téléchargement:', err);
+    });
+    
+    return url;
   },
 
   /**
