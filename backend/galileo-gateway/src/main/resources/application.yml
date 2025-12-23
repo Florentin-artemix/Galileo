@@ -21,7 +21,7 @@ spring:
           filters:
             - StripPrefix=1
         
-        # Service Lecture - Blog public
+        # Service Lecture - Blog public (GET)
         - id: lecture-blog-public
           uri: ${LECTURE_SERVICE_URL:http://localhost:8081}
           predicates:
@@ -29,6 +29,16 @@ spring:
             - Method=GET
           filters:
             - StripPrefix=1
+        
+        # Service Lecture - Blog admin (POST, PUT, DELETE)
+        - id: lecture-blog-admin
+          uri: ${LECTURE_SERVICE_URL:http://localhost:8081}
+          predicates:
+            - Path=/api/blog/**
+            - Method=POST,PUT,DELETE
+          filters:
+            - StripPrefix=1
+            - name: FirebaseAuthenticationFilter
         
         # Service Lecture - Événements publics (GET)
         - id: lecture-events-public

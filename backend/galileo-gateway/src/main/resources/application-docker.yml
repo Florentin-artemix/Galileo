@@ -25,11 +25,11 @@ spring:
           filters:
             - StripPrefix=1
         
-        # Événements et Équipe (POST/PUT/DELETE - authentifié)
+        # Événements, Blog et Équipe (POST/PUT/DELETE - authentifié)
         - id: service-lecture-admin
           uri: http://lecture:8081
           predicates:
-            - Path=/api/events/**,/api/team/**
+            - Path=/api/events/**,/api/blog/**,/api/team/**
             - Method=POST,PUT,DELETE
           filters:
             - StripPrefix=1

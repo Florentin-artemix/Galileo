@@ -2,7 +2,7 @@
  * Service pour gérer les événements via l'API backend
  */
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
+import apiClient from './apiService';
 
 export interface Speaker {
   name: string;
@@ -48,11 +48,10 @@ class EventService {
    */
   async getAllEvents(page: number = 0, size: number = 20): Promise<EventsResponse> {
     try {
-      const response = await fetch(`${API_BASE_URL}/events?page=${page}&size=${size}`);
-      if (!response.ok) {
-        throw new Error(`Erreur HTTP: ${response.status}`);
-      }
-      return await response.json();
+      const response = await apiClient.get('/events', {
+        params: { page, size }
+      });
+      return response.data;
     } catch (error) {
       console.error('Erreur récupération événements:', error);
       throw error;
@@ -64,11 +63,8 @@ class EventService {
    */
   async getAllEventsNoPagination(): Promise<EventData[]> {
     try {
-      const response = await fetch(`${API_BASE_URL}/events/all`);
-      if (!response.ok) {
-        throw new Error(`Erreur HTTP: ${response.status}`);
-      }
-      return await response.json();
+      const response = await apiClient.get('/events/all');
+      return response.data;
     } catch (error) {
       console.error('Erreur récupération événements:', error);
       throw error;
@@ -80,11 +76,8 @@ class EventService {
    */
   async getEventById(id: number): Promise<EventData> {
     try {
-      const response = await fetch(`${API_BASE_URL}/events/${id}`);
-      if (!response.ok) {
-        throw new Error(`Erreur HTTP: ${response.status}`);
-      }
-      return await response.json();
+      const response = await apiClient.get(`/events/${id}`);
+      return response.data;
     } catch (error) {
       console.error(`Erreur récupération événement ${id}:`, error);
       throw error;
@@ -96,11 +89,8 @@ class EventService {
    */
   async getUpcomingEvents(): Promise<EventData[]> {
     try {
-      const response = await fetch(`${API_BASE_URL}/events/upcoming`);
-      if (!response.ok) {
-        throw new Error(`Erreur HTTP: ${response.status}`);
-      }
-      return await response.json();
+      const response = await apiClient.get('/events/upcoming');
+      return response.data;
     } catch (error) {
       console.error('Erreur récupération événements à venir:', error);
       throw error;
@@ -112,11 +102,8 @@ class EventService {
    */
   async getPastEvents(): Promise<EventData[]> {
     try {
-      const response = await fetch(`${API_BASE_URL}/events/past`);
-      if (!response.ok) {
-        throw new Error(`Erreur HTTP: ${response.status}`);
-      }
-      return await response.json();
+      const response = await apiClient.get('/events/past');
+      return response.data;
     } catch (error) {
       console.error('Erreur récupération événements passés:', error);
       throw error;
@@ -128,11 +115,10 @@ class EventService {
    */
   async searchEvents(query: string): Promise<EventData[]> {
     try {
-      const response = await fetch(`${API_BASE_URL}/events/search?q=${encodeURIComponent(query)}`);
-      if (!response.ok) {
-        throw new Error(`Erreur HTTP: ${response.status}`);
-      }
-      return await response.json();
+      const response = await apiClient.get('/events/search', {
+        params: { q: query }
+      });
+      return response.data;
     } catch (error) {
       console.error('Erreur recherche événements:', error);
       throw error;
@@ -144,18 +130,12 @@ class EventService {
    */
   async createEvent(event: Omit<EventData, 'id'>, token: string): Promise<EventData> {
     try {
-      const response = await fetch(`${API_BASE_URL}/events`, {
-        method: 'POST',
+      const response = await apiClient.post('/events', event, {
         headers: {
-          'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(event)
+        }
       });
-      if (!response.ok) {
-        throw new Error(`Erreur HTTP: ${response.status}`);
-      }
-      return await response.json();
+      return response.data;
     } catch (error) {
       console.error('Erreur création événement:', error);
       throw error;
@@ -167,18 +147,12 @@ class EventService {
    */
   async updateEvent(id: number, event: Partial<EventData>, token: string): Promise<EventData> {
     try {
-      const response = await fetch(`${API_BASE_URL}/events/${id}`, {
-        method: 'PUT',
+      const response = await apiClient.put(`/events/${id}`, event, {
         headers: {
-          'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(event)
+        }
       });
-      if (!response.ok) {
-        throw new Error(`Erreur HTTP: ${response.status}`);
-      }
-      return await response.json();
+      return response.data;
     } catch (error) {
       console.error(`Erreur mise à jour événement ${id}:`, error);
       throw error;
@@ -190,15 +164,11 @@ class EventService {
    */
   async deleteEvent(id: number, token: string): Promise<void> {
     try {
-      const response = await fetch(`${API_BASE_URL}/events/${id}`, {
-        method: 'DELETE',
+      await apiClient.delete(`/events/${id}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
       });
-      if (!response.ok) {
-        throw new Error(`Erreur HTTP: ${response.status}`);
-      }
     } catch (error) {
       console.error(`Erreur suppression événement ${id}:`, error);
       throw error;

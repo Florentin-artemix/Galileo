@@ -6,6 +6,14 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        - VITE_FIREBASE_API_KEY=${VITE_FIREBASE_API_KEY}
+        - VITE_FIREBASE_AUTH_DOMAIN=${VITE_FIREBASE_AUTH_DOMAIN}
+        - VITE_FIREBASE_PROJECT_ID=${VITE_FIREBASE_PROJECT_ID}
+        - VITE_FIREBASE_STORAGE_BUCKET=${VITE_FIREBASE_STORAGE_BUCKET}
+        - VITE_FIREBASE_MESSAGING_SENDER_ID=${VITE_FIREBASE_MESSAGING_SENDER_ID}
+        - VITE_FIREBASE_APP_ID=${VITE_FIREBASE_APP_ID}
+        - VITE_API_URL=${VITE_API_URL}
     container_name: galileo-frontend
     ports:
       - "3000:80"
@@ -94,6 +102,8 @@ services:
       - SPRING_DATASOURCE_USERNAME=galileo_user
       - SPRING_DATASOURCE_PASSWORD=galileo_pass_2025
       - FEIGN_CLIENT_LECTURE_URL=http://service-lecture:8081
+    volumes:
+      - ./backend/galileo-gateway/config:/app/config:ro
     depends_on:
       db-ecriture:
         condition: service_healthy
