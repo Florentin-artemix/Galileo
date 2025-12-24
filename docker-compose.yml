@@ -102,6 +102,11 @@ services:
       - SPRING_DATASOURCE_USERNAME=galileo_user
       - SPRING_DATASOURCE_PASSWORD=galileo_pass_2025
       - FEIGN_CLIENT_LECTURE_URL=http://service-lecture:8081
+      # Cloudflare R2 Configuration
+      - R2_ACCESS_KEY_ID=97b0e86da0f3f912fcac017482603f50
+      - R2_SECRET_ACCESS_KEY=6660202e56742ae72d046fd1f3fee7b3679cf4bb399aae888509d9cf7aa27254
+      - R2_ENDPOINT=https://c298de3d6c8cfa623f8a66bd2add5c36.r2.cloudflarestorage.com
+      - R2_BUCKET_NAME=galileo
     volumes:
       - ./backend/galileo-gateway/config:/app/config:ro
     depends_on:
