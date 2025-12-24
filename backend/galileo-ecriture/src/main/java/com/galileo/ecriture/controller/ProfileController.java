@@ -23,12 +23,8 @@ public class ProfileController {
     private static final long MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB max
     private static final String[] ALLOWED_TYPES = {"image/jpeg", "image/png", "image/gif", "image/webp"};
 
-    private final CloudflareR2Service cloudflareR2Service;
-
     @Autowired(required = false)
-    public ProfileController(CloudflareR2Service cloudflareR2Service) {
-        this.cloudflareR2Service = cloudflareR2Service;
-    }
+    private CloudflareR2Service cloudflareR2Service;
 
     /**
      * POST /profile/photo - Upload une photo de profil
