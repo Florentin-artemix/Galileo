@@ -89,7 +89,7 @@ export const API_ENDPOINTS = {
 
   // Profil utilisateur (Authentifié)
   profile: {
-    me: `${API_BASE_URL}/team/profile/me`,
+    me: `${API_BASE_URL}/users/me`,
     uploadPhoto: `${API_BASE_URL}/profile/photo`,
     deletePhoto: `${API_BASE_URL}/profile/photo`,
   },

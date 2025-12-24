@@ -141,21 +141,17 @@ public class FirebaseAuthenticationFilter extends AbstractGatewayFilterFactory<F
                 }
             }
             
-            // Défaut à VIEWER si toujours pas de rôle
-            if (role == null) {
-                role = "VIEWER";
-            }
-            
             log.info("Request authenticated for user: {} ({}) with role {}", email, uid, role);
             
             // Ajouter les informations de l'utilisateur dans les headers pour les microservices
-            ServerHttpRequest modifiedRequest = request.mutate()
+            ServerHttpRequest.Builder builder = request.mutate()
                 .header("X-User-Id", uid)
-                .header("X-User-Email", email != null ? email : "")
-                .header("X-User-Role", role)
-                .build();
+                .header("X-User-Email", email != null ? email : "");
+            if (role != null) {
+                builder.header("X-User-Role", role);
+            }
             
-            return chain.filter(exchange.mutate().request(modifiedRequest).build());
+            return chain.filter(exchange.mutate().request(builder.build()).build());
         };
     }
     

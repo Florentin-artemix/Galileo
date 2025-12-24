@@ -153,7 +153,11 @@ const AuthPage: React.FC = () => {
       } else {
         // 🔗 POINT D'INTÉGRATION 2: Inscription avec Firebase + rôle
         // Le rôle est passé à signup() et stocké dans localStorage
-        await authService.signup(email, password, role);
+        await authService.signup(email, password, role, {
+          displayName: name,
+          program,
+          motivation
+        });
         
         console.log('Inscription réussie avec rôle:', role);
         

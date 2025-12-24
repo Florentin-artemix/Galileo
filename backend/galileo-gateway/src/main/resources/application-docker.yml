@@ -25,6 +25,17 @@ spring:
           filters:
             - StripPrefix=1
         
+        # Upload images blog vers Cloudflare R2 (service-ecriture)
+        - id: blog-upload-image
+          uri: ${ECRITURE_SERVICE_URL:http://service-ecriture:8082}
+          predicates:
+            - Path=/api/blog/upload-image
+            - Method=POST
+          filters:
+            - StripPrefix=1
+            - name: FirebaseAuthenticationFilter
+          order: -5
+        
         # Événements, Blog et Équipe (POST/PUT/DELETE - authentifié)
         - id: service-lecture-admin
           uri: ${LECTURE_SERVICE_URL:http://service-lecture:8081}
@@ -43,6 +54,16 @@ spring:
           filters:
             - StripPrefix=1
         
+        # Page équipe publique (STAFF + ADMIN depuis PostgreSQL)
+        - id: public-team
+          uri: ${ECRITURE_SERVICE_URL:http://service-ecriture:8082}
+          predicates:
+            - Path=/api/public/team/**
+            - Method=GET
+          filters:
+            - StripPrefix=1
+          order: -5
+        
         # Auto-inscription publique (sans vérification de rôle)
         - id: self-register
           uri: ${ECRITURE_SERVICE_URL:http://service-ecriture:8082}
@@ -59,6 +80,15 @@ spring:
           uri: ${ECRITURE_SERVICE_URL:http://service-ecriture:8082}
           predicates:
             - Path=/api/profile/**
+          filters:
+            - StripPrefix=1
+            - name: FirebaseAuthenticationFilter
+        
+        # Profil utilisateur (/api/users/me)
+        - id: ecriture-users
+          uri: ${ECRITURE_SERVICE_URL:http://service-ecriture:8082}
+          predicates:
+            - Path=/api/users/**
           filters:
             - StripPrefix=1
             - name: FirebaseAuthenticationFilter

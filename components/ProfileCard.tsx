@@ -34,7 +34,15 @@ const ProfileCard: React.FC<ProfileCardProps> = ({ className = '' }) => {
       try {
         const existingProfile = await profileApi.getMyProfile(idToken);
         if (existingProfile) {
-          setProfile(existingProfile);
+          // Mapper UserDTO (uid, displayName, program, motivation) -> TeamMemberProfile (name, description, motivation)
+          setProfile({
+            ...existingProfile,
+            name: (existingProfile as any).displayName || existingProfile.name || user?.displayName || '',
+            description: (existingProfile as any).program || existingProfile.description || '',
+            motivation: existingProfile.motivation || '',
+            email: (existingProfile as any).email || user?.email || '',
+            role: existingProfile.role || '',
+          });
         } else {
           // Pré-remplir avec les infos de Firebase
           setProfile(prev => ({

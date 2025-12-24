@@ -3,10 +3,9 @@
  */
 
 import type { TeamMember } from '../../types';
-import { API_BASE_URL } from '../config/api';
 
-// Utiliser la configuration centralisée de l'API
-// const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
+// URL de base pour les appels API (en production, nginx proxifie /api vers le gateway)
+const API_BASE = '/api';
 
 export interface TeamMemberDTO {
   id: number;
@@ -47,18 +46,29 @@ function mapToTeamMember(dto: TeamMemberDTO): TeamMember {
 }
 
 /**
- * Récupérer tous les membres actifs de l'équipe
+ * Récupérer tous les membres actifs de l'équipe (STAFF + ADMIN depuis PostgreSQL)
  */
 export async function getAllTeamMembers(): Promise<TeamMember[]> {
   try {
-    const response = await fetch(`${API_BASE_URL}/team`);
+    // Utiliser le nouvel endpoint public qui retourne les users STAFF/ADMIN
+    const response = await fetch(`${API_BASE}/public/team`);
     
     if (!response.ok) {
       throw new Error(`Erreur HTTP: ${response.status}`);
     }
     
-    const data: TeamMemberDTO[] = await response.json();
-    return data.map(mapToTeamMember);
+    const data = await response.json();
+    // Mapper les UserDTO vers TeamMember
+    return data.map((user: any) => ({
+      id: user.uid || user.id,
+      name: user.displayName || user.email?.split('@')[0] || 'Membre',
+      role: user.role || 'STAFF',
+      description: user.motivation || user.program || '',
+      imageUrl: user.imageUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.displayName || user.email || 'User')}&background=random&size=200`,
+      location: user.location,
+      email: user.email,
+      phone: user.phone
+    }));
   } catch (error) {
     console.error('Erreur lors de la récupération des membres:', error);
     throw error;
@@ -70,7 +80,7 @@ export async function getAllTeamMembers(): Promise<TeamMember[]> {
  */
 export async function getTeamMemberById(id: number): Promise<TeamMember> {
   try {
-    const response = await fetch(`${API_BASE_URL}/team/${id}`);
+    const response = await fetch(`${API_BASE}/team/${id}`);
     
     if (!response.ok) {
       throw new Error(`Membre non trouvé: ${id}`);
@@ -85,18 +95,29 @@ export async function getTeamMemberById(id: number): Promise<TeamMember> {
 }
 
 /**
- * Récupérer les membres par rôle
+ * Récupérer les membres par rôle (depuis PostgreSQL)
  */
 export async function getTeamMembersByRole(role: string): Promise<TeamMember[]> {
   try {
-    const response = await fetch(`${API_BASE_URL}/team/role/${encodeURIComponent(role)}`);
+    // Utiliser le nouvel endpoint public
+    const response = await fetch(`${API_BASE}/public/team/role/${encodeURIComponent(role)}`);
     
     if (!response.ok) {
       throw new Error(`Erreur HTTP: ${response.status}`);
     }
     
-    const data: TeamMemberDTO[] = await response.json();
-    return data.map(mapToTeamMember);
+    const data = await response.json();
+    // Mapper les UserDTO vers TeamMember
+    return data.map((user: any) => ({
+      id: user.uid || user.id,
+      name: user.displayName || user.email?.split('@')[0] || 'Membre',
+      role: user.role || role,
+      description: user.motivation || user.program || '',
+      imageUrl: user.imageUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.displayName || user.email || 'User')}&background=random&size=200`,
+      location: user.location,
+      email: user.email,
+      phone: user.phone
+    }));
   } catch (error) {
     console.error('Erreur lors de la récupération par rôle:', error);
     throw error;
@@ -111,7 +132,7 @@ export async function createTeamMember(
   authToken: string
 ): Promise<TeamMember> {
   try {
-    const response = await fetch(`${API_BASE_URL}/team`, {
+    const response = await fetch(`${API_BASE}/team`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -142,7 +163,7 @@ export async function updateTeamMember(
   authToken: string
 ): Promise<TeamMember> {
   try {
-    const response = await fetch(`${API_BASE_URL}/team/${id}`, {
+    const response = await fetch(`${API_BASE}/team/${id}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -169,7 +190,7 @@ export async function updateTeamMember(
  */
 export async function deleteTeamMember(id: number, authToken: string): Promise<void> {
   try {
-    const response = await fetch(`${API_BASE_URL}/team/${id}`, {
+    const response = await fetch(`${API_BASE}/team/${id}`, {
       method: 'DELETE',
       headers: {
         'Authorization': `Bearer ${authToken}`

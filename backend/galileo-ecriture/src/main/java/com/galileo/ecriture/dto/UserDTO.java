@@ -9,6 +9,8 @@ public class UserDTO {
     private String uid;
     private String email;
     private String displayName;
+    private String program;
+    private String motivation;
     private Role role;
     private String creationTime;
     private String lastSignInTime;
@@ -32,6 +34,12 @@ public class UserDTO {
 
     public String getDisplayName() { return displayName; }
     public void setDisplayName(String displayName) { this.displayName = displayName; }
+
+    public String getProgram() { return program; }
+    public void setProgram(String program) { this.program = program; }
+
+    public String getMotivation() { return motivation; }
+    public void setMotivation(String motivation) { this.motivation = motivation; }
 
     public Role getRole() { return role; }
     public void setRole(Role role) { this.role = role; }

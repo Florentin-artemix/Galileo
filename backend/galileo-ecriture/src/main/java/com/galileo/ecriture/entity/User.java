@@ -6,7 +6,6 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.time.Instant;
 import java.time.LocalDateTime;
 
 /**
@@ -39,6 +38,12 @@ public class User {
     @Enumerated(EnumType.STRING)
     @Column(name = "role", nullable = false, length = 20)
     private Role role = Role.VIEWER;
+
+    @Column(name = "program", length = 255)
+    private String program;
+
+    @Column(name = "motivation", columnDefinition = "TEXT")
+    private String motivation;
 
     @Column(name = "disabled", nullable = false)
     private Boolean disabled = false;

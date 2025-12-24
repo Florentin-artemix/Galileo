@@ -57,7 +57,7 @@ public class Soumission {
     private String notes; // Notes supplémentaires de l'auteur
 
     // Fichiers (URLs Cloudflare R2)
-    @Column(name = "url_pdf", nullable = false, length = 1000)
+    @Column(name = "url_pdf", length = 1000)
     private String urlPdf;
 
     @Column(name = "url_image_couverture", length = 1000)

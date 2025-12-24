@@ -120,10 +120,11 @@ const AdminDashboard: React.FC = () => {
               setError(`Erreur lors du chargement des utilisateurs: ${errorMsg}`);
               return [];
             }) : Promise.resolve([]),
-            role === 'ADMIN' ? eventService.getAllEventsNoPagination().catch((err) => {
+            // ADMIN et STAFF peuvent voir les événements
+            eventService.getAllEventsNoPagination().catch((err) => {
               console.error('Erreur lors de la récupération des événements:', err);
               return [];
-            }) : Promise.resolve([]),
+            }),
             blogService.getArticles().catch((err) => {
               console.error('Erreur lors de la récupération des articles de blog:', err);
               return [];
@@ -131,21 +132,19 @@ const AdminDashboard: React.FC = () => {
           ]);
           if (role === 'ADMIN') {
             setUsers(usersData || []);
-            setEvents(eventsData || []);
             setLoadingUsers(false);
             console.log(`✅ ${usersData?.length || 0} utilisateurs chargés`);
           }
+          setEvents(eventsData || []);
           setBlogArticles(blogData || []);
           
-          // Calculer les statistiques
-          if (role === 'ADMIN') {
-            setStats({
-              totalUsers: usersData?.length || 0,
-              totalPublications: pubData.content?.length || 0,
-              totalEvents: eventsData?.length || 0,
-              pendingSubmissions: pendingData?.length || 0
-            });
-          }
+          // Calculer les statistiques pour ADMIN et STAFF
+          setStats({
+            totalUsers: role === 'ADMIN' ? (usersData?.length || 0) : 0,
+            totalPublications: pubData.content?.length || 0,
+            totalEvents: eventsData?.length || 0,
+            pendingSubmissions: pendingData?.length || 0
+          });
         } catch (e) {
           console.error('Erreur chargement données admin:', e);
           setError('Erreur lors du chargement des données administrateur');

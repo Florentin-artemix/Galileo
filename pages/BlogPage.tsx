@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { useLanguage } from '../contexts/LanguageContext';
-import { blogService, type ArticleBlogDTO } from '../services/blogService';
+import { blogService, type ArticleBlogDTO } from '../src/services/blogService';
 
 const BlogPostCard: React.FC<{ post: ArticleBlogDTO }> = ({ post }) => {
     const { translations } = useLanguage();

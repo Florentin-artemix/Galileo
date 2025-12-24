@@ -112,6 +112,15 @@ spring:
           filters:
             - StripPrefix=1
             - name: FirebaseAuthenticationFilter
+
+        # Service Écriture - Profil utilisateur (rôle, motivation, etc.)
+        - id: ecriture-users
+          uri: ${ECRITURE_SERVICE_URL:http://localhost:8082}
+          predicates:
+            - Path=/api/users/**
+          filters:
+            - StripPrefix=1
+            - name: FirebaseAuthenticationFilter
         
         # Actuator endpoints
         - id: actuator
