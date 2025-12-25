@@ -45,6 +45,9 @@ public class User {
     @Column(name = "motivation", columnDefinition = "TEXT")
     private String motivation;
 
+    @Column(name = "image_url", length = 1000)
+    private String imageUrl;
+
     @Column(name = "disabled", nullable = false)
     private Boolean disabled = false;
 

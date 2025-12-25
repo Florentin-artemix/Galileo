@@ -174,6 +174,30 @@ public class UserService {
     }
 
     /**
+     * Mettre à jour le profil utilisateur (imageUrl, displayName, motivation)
+     */
+    @Transactional
+    public UserDTO mettreAJourProfil(String uid, String email, String imageUrl, String name, String motivation) {
+        User user = userRepository.findByUid(uid)
+                .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé: " + uid));
+        
+        if (imageUrl != null) {
+            user.setImageUrl(imageUrl);
+        }
+        if (name != null && !name.isBlank()) {
+            user.setDisplayName(name);
+        }
+        if (motivation != null) {
+            user.setMotivation(motivation);
+        }
+        
+        userRepository.save(user);
+        logger.info("Profil mis à jour pour user: {} (imageUrl: {})", uid, imageUrl != null ? "oui" : "non");
+        
+        return convertToDTO(user);
+    }
+
+    /**
      * Convertir un User (PostgreSQL) en UserDTO
      */
     private UserDTO convertToDTO(User user) {
@@ -183,6 +207,7 @@ public class UserService {
         dto.setDisplayName(user.getDisplayName());
         dto.setProgram(user.getProgram());
         dto.setMotivation(user.getMotivation());
+        dto.setImageUrl(user.getImageUrl());
         dto.setDisabled(user.getDisabled() != null ? user.getDisabled() : false);
         dto.setRole(user.getRole());
 

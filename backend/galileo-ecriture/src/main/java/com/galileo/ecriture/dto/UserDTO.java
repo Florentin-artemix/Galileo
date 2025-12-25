@@ -11,6 +11,7 @@ public class UserDTO {
     private String displayName;
     private String program;
     private String motivation;
+    private String imageUrl;
     private Role role;
     private String creationTime;
     private String lastSignInTime;
@@ -40,6 +41,9 @@ public class UserDTO {
 
     public String getMotivation() { return motivation; }
     public void setMotivation(String motivation) { this.motivation = motivation; }
+
+    public String getImageUrl() { return imageUrl; }
+    public void setImageUrl(String imageUrl) { this.imageUrl = imageUrl; }
 
     public Role getRole() { return role; }
     public void setRole(Role role) { this.role = role; }

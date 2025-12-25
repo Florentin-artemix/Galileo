@@ -1,5 +1,6 @@
 package com.galileo.ecriture.config;
 
+import com.galileo.ecriture.service.CloudflareR2Service;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -63,5 +64,13 @@ public class CloudflareR2Config {
         
         log.info("✅ Cloudflare R2 S3Presigner initialisé avec succès");
         return presigner;
+    }
+
+    @Bean
+    public CloudflareR2Service cloudflareR2Service(S3Client s3Client, S3Presigner s3Presigner) {
+        log.info("🚀 Création du bean CloudflareR2Service avec bucket: {}", bucketName);
+        CloudflareR2Service service = new CloudflareR2Service(s3Client, s3Presigner, bucketName);
+        log.info("✅ CloudflareR2Service initialisé avec succès");
+        return service;
     }
 }

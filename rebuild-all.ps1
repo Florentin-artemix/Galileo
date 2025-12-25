@@ -102,3 +102,5 @@ Write-Host "   docker-compose logs -f frontend" -ForegroundColor Gray
 Write-Host "   docker-compose logs -f gateway" -ForegroundColor Gray
 Write-Host ""
 
+
+

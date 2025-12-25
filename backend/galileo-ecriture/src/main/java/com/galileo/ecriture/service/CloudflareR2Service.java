@@ -2,9 +2,6 @@ package com.galileo.ecriture.service;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
-import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
@@ -17,21 +14,23 @@ import java.io.IOException;
 import java.time.Duration;
 import java.util.UUID;
 
-@Service
-@ConditionalOnBean(S3Client.class)
+/**
+ * Service pour la gestion des fichiers sur Cloudflare R2
+ * Ce bean est créé par CloudflareR2Config quand R2 est activé
+ */
 public class CloudflareR2Service {
 
     private static final Logger logger = LoggerFactory.getLogger(CloudflareR2Service.class);
 
     private final S3Client s3Client;
     private final S3Presigner s3Presigner;
+    private final String bucketName;
 
-    @Value("${cloudflare.r2.bucket}")
-    private String bucketName;
-
-    public CloudflareR2Service(S3Client s3Client, S3Presigner s3Presigner) {
+    public CloudflareR2Service(S3Client s3Client, S3Presigner s3Presigner, String bucketName) {
         this.s3Client = s3Client;
         this.s3Presigner = s3Presigner;
+        this.bucketName = bucketName;
+        logger.info("CloudflareR2Service créé avec bucket: {}", bucketName);
     }
 
     /**

@@ -80,8 +80,8 @@ public class BlogImageController {
             // Upload vers R2 avec préfixe blog/
             String r2Key = cloudflareR2Service.uploadFile(file, "blog/");
             
-            // Générer une URL signée valide 30 jours (43200 minutes)
-            String signedUrl = cloudflareR2Service.genererUrlSignee(r2Key, 43200);
+            // Générer une URL signée valide 7 jours (10080 minutes) - maximum autorisé par S3/R2
+            String signedUrl = cloudflareR2Service.genererUrlSignee(r2Key, 10080);
             
             logger.info("Image blog uploadée: {} par user {}", r2Key, userId);
 

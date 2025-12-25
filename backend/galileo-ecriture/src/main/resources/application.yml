@@ -29,9 +29,10 @@ spring:
 # Cloudflare R2 Configuration (S3-compatible)
 cloudflare:
   r2:
+    enabled: true
     endpoint: https://c298de3d6c8cfa623f8a66bd2add5c36.r2.cloudflarestorage.com
     account-id: c298de3d6c8cfa623f8a66bd2add5c36
-    bucket: galileo
+    bucket-name: galileo
     access-key: ${CLOUDFLARE_R2_ACCESS_KEY:}
     secret-key: ${CLOUDFLARE_R2_SECRET_KEY:}
     region: auto
