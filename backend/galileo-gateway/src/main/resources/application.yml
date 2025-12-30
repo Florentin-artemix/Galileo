@@ -122,6 +122,48 @@ spring:
             - StripPrefix=1
             - name: FirebaseAuthenticationFilter
         
+        # ============================================
+        # NOUVEAUX SERVICES - Extension Architecture
+        # ============================================
+        
+        # Service User Profile - Profils enrichis, Favoris, Historique
+        - id: userprofile-service
+          uri: ${USERPROFILE_SERVICE_URL:http://localhost:8083}
+          predicates:
+            - Path=/api/userprofile/**
+          filters:
+            - StripPrefix=1
+            - RewritePath=/api/userprofile/(?<segment>.*), /api/users/${segment}
+            - name: FirebaseAuthenticationFilter
+        
+        # Service Notification - Notifications utilisateur
+        - id: notification-service
+          uri: ${NOTIFICATION_SERVICE_URL:http://localhost:8084}
+          predicates:
+            - Path=/api/notifications/**
+          filters:
+            - StripPrefix=1
+            - name: FirebaseAuthenticationFilter
+        
+        # Service Analytics - Tracking (public)
+        - id: analytics-tracking
+          uri: ${ANALYTICS_SERVICE_URL:http://localhost:8085}
+          predicates:
+            - Path=/api/analytics/track/**
+            - Method=POST
+          filters:
+            - StripPrefix=1
+        
+        # Service Analytics - Dashboard stats (admin)
+        - id: analytics-dashboard
+          uri: ${ANALYTICS_SERVICE_URL:http://localhost:8085}
+          predicates:
+            - Path=/api/analytics/dashboard,/api/analytics/publications/**
+            - Method=GET
+          filters:
+            - StripPrefix=1
+            - name: FirebaseAuthenticationFilter
+        
         # Actuator endpoints
         - id: actuator
           uri: http://localhost:8080

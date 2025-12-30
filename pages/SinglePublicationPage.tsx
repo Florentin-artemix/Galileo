@@ -109,9 +109,9 @@ const SinglePublicationPage: React.FC = () => {
   return (
     <div className="animate-slide-in-up">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-24">
-        <div className="max-w-4xl mx-auto bg-light-card dark:bg-navy/30 border border-light-border dark:border-dark-border rounded-lg p-6 sm:p-8 shadow-2xl dark:shadow-teal/10">
+        <div className="max-w-4xl mx-auto bg-light-card dark:bg-navy/30 border border-light-border dark:border-dark-border rounded-lg p-6 sm:p-8 shadow-2xl dark:shadow-teal/10 overflow-hidden">
           <p className="text-light-accent dark:text-teal font-bold mb-2">{publication.domain[language]}</p>
-          <h1 className="text-3xl md:text-4xl font-poppins font-bold mb-4 text-light-text dark:text-off-white">{publication.title[language]}</h1>
+          <h1 className="text-3xl md:text-4xl font-poppins font-bold mb-4 text-light-text dark:text-off-white break-words">{publication.title[language]}</h1>
           <p className="text-light-text-secondary dark:text-gray-400 mb-2">
               <strong>Auteurs :</strong> {publication.authors.join(', ')}
           </p>
@@ -125,9 +125,9 @@ const SinglePublicationPage: React.FC = () => {
               ))}
           </div>
 
-          <div className="prose prose-lg max-w-none text-light-text-secondary dark:text-gray-300 prose-headings:font-poppins prose-headings:text-light-text dark:prose-headings:text-off-white">
+          <div className="prose prose-lg max-w-none text-light-text-secondary dark:text-gray-300 prose-headings:font-poppins prose-headings:text-light-text dark:prose-headings:text-off-white overflow-hidden">
               <h2 className="text-2xl font-poppins font-bold border-b border-light-border dark:border-dark-border pb-2 mb-4">Résumé</h2>
-              <p>{publication.summary[language]}</p>
+              <p className="break-words whitespace-pre-wrap">{publication.summary[language]}</p>
           </div>
 
           <div className="mt-12 border-t border-light-border dark:border-dark-border pt-8">

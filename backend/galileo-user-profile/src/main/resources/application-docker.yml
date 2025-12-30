@@ -1,0 +1,10 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://db-userprofile:5432/db_galileo_userprofile
+    username: galileo_user
+    password: galileo_pass_2025
+
+services:
+  lecture:
+    url: http://lecture:8081
+

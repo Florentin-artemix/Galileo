@@ -13,7 +13,7 @@ const ResourceCard: React.FC<{ item: ResourceItem }> = ({ item }) => {
             <div className="flex-grow">
                 <p className="text-xs font-semibold uppercase tracking-wider text-light-accent dark:text-teal">{item.format}</p>
                 <h3 className="font-poppins text-lg font-bold my-2 text-light-text dark:text-off-white group-hover:text-light-accent dark:group-hover:text-teal transition-colors duration-300">{item.name[language]}</h3>
-                <p className="text-sm text-light-text-secondary dark:text-gray-400">{item.description[language]}</p>
+                <p className="text-sm text-light-text-secondary dark:text-gray-400 line-clamp-3 overflow-hidden break-words">{item.description[language]}</p>
             </div>
             {!isWebLink && (
                  <div className="mt-4 pt-4 border-t border-light-border dark:border-dark-border">

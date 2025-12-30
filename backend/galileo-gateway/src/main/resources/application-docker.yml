@@ -101,6 +101,48 @@ spring:
           filters:
             - StripPrefix=1
             - name: FirebaseAuthenticationFilter
+        
+        # ============================================
+        # NOUVEAUX SERVICES - Extension Architecture
+        # ============================================
+        
+        # Service User Profile - Profils, Favoris, Historique (authentifié)
+        - id: userprofile-service
+          uri: ${USERPROFILE_SERVICE_URL:http://userprofile:8083}
+          predicates:
+            - Path=/api/userprofile/**
+          filters:
+            - StripPrefix=1
+            - RewritePath=/api/userprofile/(?<segment>.*), /api/users/${segment}
+            - name: FirebaseAuthenticationFilter
+        
+        # Service Notification - Notifications utilisateur (authentifié)
+        - id: notification-service
+          uri: ${NOTIFICATION_SERVICE_URL:http://notification:8084}
+          predicates:
+            - Path=/api/notifications/**
+          filters:
+            - StripPrefix=1
+            - name: FirebaseAuthenticationFilter
+        
+        # Service Analytics - Tracking (public pour tracking)
+        - id: analytics-tracking
+          uri: ${ANALYTICS_SERVICE_URL:http://analytics:8085}
+          predicates:
+            - Path=/api/analytics/track/**
+            - Method=POST
+          filters:
+            - StripPrefix=1
+        
+        # Service Analytics - Dashboard stats (authentifié admin)
+        - id: analytics-dashboard
+          uri: ${ANALYTICS_SERVICE_URL:http://analytics:8085}
+          predicates:
+            - Path=/api/analytics/dashboard,/api/analytics/publications/**
+            - Method=GET
+          filters:
+            - StripPrefix=1
+            - name: FirebaseAuthenticationFilter
 
 firebase:
   enabled: true

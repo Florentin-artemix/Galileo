@@ -270,7 +270,7 @@ ER  -`;
                  <Modal isOpen={isPreviewModalOpen} onClose={() => setPreviewModalOpen(false)} title={selectedPub.title[language]}>
                      <div className="space-y-4">
                          <p className="text-sm text-light-accent dark:text-teal">{selectedPub.authors.join(', ')}</p>
-                         <p className="text-light-text-secondary dark:text-gray-300">{selectedPub.summary[language]}</p>
+                         <p className="text-light-text-secondary dark:text-gray-300 break-words overflow-hidden">{selectedPub.summary[language]}</p>
                          <div className="flex flex-wrap gap-2 pt-4 border-t border-light-border dark:border-dark-border">
                               <NavLink to={`/publication/${selectedPub.id}`} className="flex-1 text-center bg-light-accent dark:bg-teal text-white dark:text-navy font-bold py-2 px-4 rounded-full hover:bg-light-accent-hover dark:hover:bg-opacity-80 transition-all duration-300">
                                 {translations.publications_page.read_article}
