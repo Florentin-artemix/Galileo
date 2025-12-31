@@ -194,7 +194,7 @@ const SubmissionPage: React.FC = () => {
 
     return (
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-24 animate-slide-in-up">
-            <div className="max-w-4xl mx-auto">
+            <div className="max-w-4xl w-full mx-auto">
                 <div className="text-center mb-12">
                     <h1 className="text-4xl font-poppins font-bold text-light-text dark:text-off-white">{translations.submission_page.title}</h1>
                     <p className="text-lg text-light-text-secondary dark:text-gray-300 mt-2">{translations.submission_page.subtitle}</p>
@@ -203,13 +203,13 @@ const SubmissionPage: React.FC = () => {
                 <SubmissionGuidelines />
 
                 <div className="bg-light-bg dark:bg-navy/50 border border-light-border dark:border-dark-border rounded-lg p-8 backdrop-blur-sm shadow-lg dark:shadow-teal/10">
-                    <div className="flex justify-between items-center mb-8 border-b border-light-border dark:border-dark-border pb-4">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between mb-8 border-b border-light-border dark:border-dark-border pb-4">
                         {Object.entries(translations.submission_page.steps).map(([key, value], index) => (
-                             <div key={key} className={`flex items-center gap-2 ${step > index + 1 ? 'text-light-accent dark:text-teal' : step === index + 1 ? 'text-light-text dark:text-off-white' : 'text-gray-500'}`}>
+                             <div key={key} className={`flex items-center gap-2 min-w-[180px] sm:min-w-0 ${step > index + 1 ? 'text-light-accent dark:text-teal' : step === index + 1 ? 'text-light-text dark:text-off-white' : 'text-gray-500'}`}>
                                 <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 ${step > index + 1 ? 'bg-light-accent dark:bg-teal text-white dark:text-navy border-light-accent dark:border-teal' : step === index + 1 ? 'border-light-accent dark:border-teal' : 'border-gray-500'}`}>
-                                    {step > index + 1 ? '✓' : index + 1}
+                                    {step > index + 1 ? '\u2713' : index + 1}
                                 </div>
-                                <span className="font-semibold">{value}</span>
+                                <span className="font-semibold text-sm sm:text-base text-center sm:text-left">{value}</span>
                             </div>
                         ))}
                     </div>
@@ -217,7 +217,7 @@ const SubmissionPage: React.FC = () => {
                     {step === 1 && (
                         <div>
                             <h2 className="text-2xl font-poppins font-bold text-light-text dark:text-off-white mb-4">{translations.submission_page.upload.title}</h2>
-                            <div {...getRootProps()} className={`p-12 border-2 border-dashed rounded-lg cursor-pointer text-center transition-colors ${isDragActive ? 'border-light-accent dark:border-teal bg-light-accent/10 dark:bg-teal/10' : 'border-light-border dark:border-teal/30 hover:border-light-accent dark:hover:border-teal'}`}>
+                            <div {...getRootProps()} className={`p-6 sm:p-10 lg:p-12 border-2 border-dashed rounded-lg cursor-pointer text-center transition-colors ${isDragActive ? 'border-light-accent dark:border-teal bg-light-accent/10 dark:bg-teal/10' : 'border-light-border dark:border-teal/30 hover:border-light-accent dark:hover:border-teal'}`}>
                                 <input {...getInputProps()} />
                                 {isLoading ? (
                                     <div>
@@ -238,7 +238,7 @@ const SubmissionPage: React.FC = () => {
                                 )}
                             </div>
                             {fileError && <p className="text-red-500 text-sm mt-2">{fileError}</p>}
-                            <div className="mt-8 text-right">
+                            <div className="mt-8 flex flex-col sm:flex-row sm:justify-end gap-3 text-right sm:text-left">
                                 <button onClick={handleNext} disabled={!file || isLoading} className="bg-light-accent dark:bg-teal text-white dark:text-navy font-bold py-2 px-6 rounded-full hover:bg-light-accent-hover dark:hover:bg-opacity-80 transition-all disabled:bg-gray-500 disabled:cursor-not-allowed">
                                     {translations.submission_page.buttons.next}
                                 </button>
@@ -269,7 +269,7 @@ const SubmissionPage: React.FC = () => {
                                     </div>
                                 )}
                             </div>
-                            <div className="mt-8 flex justify-between">
+                            <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-between">
                                 <button type="button" onClick={() => setStep(1)} className="border border-light-accent dark:border-teal text-light-accent dark:text-teal font-bold py-2 px-6 rounded-full hover:bg-light-accent dark:hover:bg-teal hover:text-white dark:hover:text-navy transition-colors">
                                     {translations.submission_page.buttons.previous}
                                 </button>
