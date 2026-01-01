@@ -60,6 +60,7 @@ const AppContent: React.FC = () => {
             <Route path="/team" element={<TeamPage />} />
             <Route path="/publications" element={<PublicationsPage />} />
             <Route path="/publication/:id" element={<SinglePublicationPage />} />
+            {/* Blog est PUBLIC - accessible sans authentification */}
             <Route path="/blog" element={<BlogPage />} />
             <Route path="/blog/:id" element={<SingleBlogPostPage />} />
             <Route path="/events" element={<EventsPage />} />
