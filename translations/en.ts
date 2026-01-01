@@ -9,6 +9,7 @@ export const en = {
     resources: 'Resources',
     team: 'Team',
     submit: 'Submit an Article',
+    blog: 'Blog',
     contact: 'Contact',
   },
   search: {

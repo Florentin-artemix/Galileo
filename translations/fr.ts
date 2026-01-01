@@ -9,6 +9,7 @@ export const fr = {
     resources: 'Ressources',
     team: "L'équipe",
     submit: 'Soumettre un article',
+    blog: 'Blog',
     contact: 'Contact',
   },
   search: {

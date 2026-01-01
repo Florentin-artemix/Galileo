@@ -15,41 +15,38 @@ const BlogPostCard: React.FC<{ post: ArticleBlogDTO }> = ({ post }) => {
         });
     };
 
-    const defaultImage = 'https://via.placeholder.com/800x400?text=Article+Blog';
-
     return (
         <NavLink 
             to={`/blog/${post.id}`} 
-            className="flex flex-col bg-light-card dark:bg-navy/50 border border-light-border dark:border-dark-border rounded-lg overflow-hidden transform hover:-translate-y-2 transition-transform duration-300 shadow-lg hover:shadow-xl dark:hover:shadow-teal/20 backdrop-blur-sm group h-full"
+            className="block bg-light-card dark:bg-navy/50 border border-light-border dark:border-dark-border rounded-lg p-5 sm:p-6 transform hover:-translate-y-1 hover:shadow-lg transition-all duration-300 group"
         >
-            <div className="relative w-full h-48 flex-shrink-0 overflow-hidden bg-gray-200 dark:bg-gray-700">
-                <img 
-                    src={post.urlImagePrincipale || defaultImage} 
-                    alt={post.titre} 
-                    className="w-full h-full object-cover" 
-                    onError={(e) => {
-                        (e.target as HTMLImageElement).src = defaultImage;
-                    }}
-                />
-            </div>
-            <div className="p-4 sm:p-6 flex flex-col flex-grow">
-                <p className="text-xs sm:text-sm text-light-accent dark:text-teal mb-2 break-words">
-                    {formatDate(post.datePublication)} • {post.tempsLecture || 5} min de lecture
-                </p>
-                <h3 className="font-poppins text-lg sm:text-xl font-bold mb-2 text-light-text dark:text-off-white group-hover:text-light-accent dark:group-hover:text-teal transition-colors duration-300 break-words">
-                    {post.titre}
-                </h3>
-                <p className="text-light-text-secondary dark:text-gray-400 text-sm mb-4 line-clamp-3 break-words flex-grow">
-                    {post.resume}
-                </p>
-                {post.categorie && (
-                    <span className="inline-block bg-light-accent/10 dark:bg-teal/10 text-light-accent dark:text-teal text-xs px-3 py-1 rounded-full mb-3 self-start break-words">
-                        {post.categorie}
-                    </span>
-                )}
-                <div className="mt-auto pt-2">
-                    <span className="font-bold text-light-accent dark:text-teal text-sm sm:text-base">{translations.blog_page.read_more} →</span>
-                </div>
+            {/* Date et temps de lecture */}
+            <p className="text-xs sm:text-sm text-light-accent dark:text-teal mb-3">
+                {formatDate(post.datePublication)} • {post.tempsLecture || 5} min de lecture
+            </p>
+            
+            {/* Titre */}
+            <h3 className="font-poppins text-lg sm:text-xl font-bold mb-3 text-light-text dark:text-off-white group-hover:text-light-accent dark:group-hover:text-teal transition-colors duration-300">
+                {post.titre}
+            </h3>
+            
+            {/* Description/Résumé */}
+            <p className="text-light-text-secondary dark:text-gray-400 text-sm mb-4 line-clamp-3">
+                {post.resume}
+            </p>
+            
+            {/* Catégorie (optionnel) */}
+            {post.categorie && (
+                <span className="inline-block bg-light-accent/10 dark:bg-teal/10 text-light-accent dark:text-teal text-xs px-3 py-1 rounded-full mb-3">
+                    {post.categorie}
+                </span>
+            )}
+            
+            {/* Lien "Lire la suite" */}
+            <div className="mt-3 pt-3 border-t border-light-border dark:border-dark-border">
+                <span className="font-semibold text-light-accent dark:text-teal text-sm group-hover:underline">
+                    {translations.blog_page.read_more} →
+                </span>
             </div>
         </NavLink>
     );

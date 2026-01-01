@@ -49,6 +49,7 @@ const Header: React.FC = () => {
     { to: '/publications', text: translations.nav.journal },
     { to: '/resources', text: translations.nav.resources },
     { to: '/team', text: translations.nav.team },
+    { to: '/blog', text: translations.nav.blog || 'Blog' },
     { to: '/contact', text: translations.nav.contact },
   ];
 
