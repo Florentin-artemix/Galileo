@@ -53,7 +53,7 @@ public class PermissionsController {
      * GET /api/users/permissions/check/{permission} - Vérifier une permission
      */
     @GetMapping("/check/{permission}")
-    public ResponseEntity<Map<String, Boolean>> verifierPermission(
+    public ResponseEntity<Map<String, Object>> verifierPermission(
             @PathVariable String permission,
             @RequestHeader(value = "X-User-Role", required = false, defaultValue = "VIEWER") String roleHeader) {
         
@@ -65,15 +65,18 @@ public class PermissionsController {
             perm = Permission.valueOf(permission.toUpperCase());
         } catch (IllegalArgumentException e) {
             // Permission invalide
-            return ResponseEntity.ok(Map.of("hasPermission", false));
+            Map<String, Object> errorResult = new HashMap<>();
+            errorResult.put("hasPermission", false);
+            return ResponseEntity.ok(errorResult);
         }
         
         boolean hasPermission = roleGuard.hasPermission(role, perm);
         
-        return ResponseEntity.ok(Map.of(
-                "permission", permission,
-                "hasPermission", hasPermission,
-                "role", role.name()
-        ));
+        Map<String, Object> result = new HashMap<>();
+        result.put("permission", permission);
+        result.put("hasPermission", hasPermission);
+        result.put("role", role.name());
+        
+        return ResponseEntity.ok(result);
     }
 }

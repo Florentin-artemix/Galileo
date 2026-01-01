@@ -1,9 +1,9 @@
 package com.galileo.ecriture.controller;
 
 import com.galileo.ecriture.dto.FeedbackDTO;
-import com.galileo.ecriture.dto.SoumissionDTO;
+import com.galileo.ecriture.dto.SoumissionResponseDTO;
 import com.galileo.ecriture.entity.Feedback;
-import com.galileo.ecriture.entity.Role;
+import com.galileo.ecriture.security.Role;
 import com.galileo.ecriture.entity.Soumission;
 import com.galileo.ecriture.repository.FeedbackRepository;
 import com.galileo.ecriture.repository.SoumissionRepository;
@@ -15,7 +15,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
@@ -40,13 +40,13 @@ public class StaffModerationController {
      * Récupère la file de modération (soumissions en attente)
      */
     @GetMapping("/queue")
-    public ResponseEntity<List<SoumissionDTO>> getModerationQueue(HttpServletRequest request) {
+    public ResponseEntity<List<SoumissionResponseDTO>> getModerationQueue(HttpServletRequest request) {
         log.info("Récupération de la file de modération");
         
         Role role = (Role) request.getAttribute("userRole");
         roleGuard.requirePermission(role, Permission.MODERATE);
         
-        List<Soumission> soumissions = soumissionRepository.findByStatut("EN_ATTENTE");
+        List<Soumission> soumissions = soumissionRepository.findByStatut(Soumission.StatutSoumission.EN_ATTENTE);
         
         return ResponseEntity.ok(soumissions.stream()
             .map(this::convertToDTO)
@@ -57,7 +57,7 @@ public class StaffModerationController {
      * Récupère toutes les soumissions avec filtres avancés
      */
     @GetMapping("/soumissions")
-    public ResponseEntity<List<SoumissionDTO>> getSoumissionsAvecFiltres(
+    public ResponseEntity<List<SoumissionResponseDTO>> getSoumissionsAvecFiltres(
             @RequestParam(required = false) String statut,
             @RequestParam(required = false) String auteurEmail,
             HttpServletRequest request) {
@@ -68,9 +68,14 @@ public class StaffModerationController {
         List<Soumission> soumissions;
         
         if (statut != null && !statut.isEmpty()) {
-            soumissions = soumissionRepository.findByStatut(statut);
+            try {
+                Soumission.StatutSoumission statutEnum = Soumission.StatutSoumission.valueOf(statut.toUpperCase());
+                soumissions = soumissionRepository.findByStatut(statutEnum);
+            } catch (IllegalArgumentException e) {
+                soumissions = soumissionRepository.findAll();
+            }
         } else if (auteurEmail != null && !auteurEmail.isEmpty()) {
-            soumissions = soumissionRepository.findByAuteurEmail(auteurEmail);
+            soumissions = soumissionRepository.findByUserEmailOrderByDateSoumissionDesc(auteurEmail);
         } else {
             soumissions = soumissionRepository.findAll();
         }
@@ -94,11 +99,10 @@ public class StaffModerationController {
         
         Map<String, Object> stats = new HashMap<>();
         stats.put("total", toutes.size());
-        stats.put("en_attente", toutes.stream().filter(s -> "EN_ATTENTE".equals(s.getStatut())).count());
-        stats.put("acceptee", toutes.stream().filter(s -> "ACCEPTEE".equals(s.getStatut())).count());
-        stats.put("refusee", toutes.stream().filter(s -> "REFUSEE".equals(s.getStatut())).count());
-        stats.put("revision", toutes.stream().filter(s -> "REVISION_DEMANDEE".equals(s.getStatut())).count());
-        stats.put("brouillon", toutes.stream().filter(s -> "BROUILLON".equals(s.getStatut())).count());
+        stats.put("en_attente", toutes.stream().filter(s -> Soumission.StatutSoumission.EN_ATTENTE.equals(s.getStatut())).count());
+        stats.put("validee", toutes.stream().filter(s -> Soumission.StatutSoumission.VALIDEE.equals(s.getStatut())).count());
+        stats.put("rejetee", toutes.stream().filter(s -> Soumission.StatutSoumission.REJETEE.equals(s.getStatut())).count());
+        stats.put("en_revision", toutes.stream().filter(s -> Soumission.StatutSoumission.EN_REVISION.equals(s.getStatut())).count());
         
         return ResponseEntity.ok(stats);
     }
@@ -107,7 +111,7 @@ public class StaffModerationController {
      * Approuve une soumission
      */
     @PostMapping("/approuver/{id}")
-    public ResponseEntity<SoumissionDTO> approuverSoumission(
+    public ResponseEntity<SoumissionResponseDTO> approuverSoumission(
             @PathVariable Long id,
             @RequestBody FeedbackRequest feedbackRequest,
             HttpServletRequest request) {
@@ -121,8 +125,9 @@ public class StaffModerationController {
         Soumission soumission = soumissionRepository.findById(id)
             .orElseThrow(() -> new RuntimeException("Soumission non trouvée"));
         
-        soumission.setStatut("ACCEPTEE");
-        soumission.setDateModification(LocalDateTime.now());
+        soumission.setStatut(Soumission.StatutSoumission.VALIDEE);
+        soumission.setDateValidation(LocalDateTime.now());
+        soumission.setValideePar(email);
         soumissionRepository.save(soumission);
         
         // Créer un feedback d'approbation
@@ -146,7 +151,7 @@ public class StaffModerationController {
      * Rejette une soumission
      */
     @PostMapping("/rejeter/{id}")
-    public ResponseEntity<SoumissionDTO> rejeterSoumission(
+    public ResponseEntity<SoumissionResponseDTO> rejeterSoumission(
             @PathVariable Long id,
             @RequestBody FeedbackRequest feedbackRequest,
             HttpServletRequest request) {
@@ -160,8 +165,9 @@ public class StaffModerationController {
         Soumission soumission = soumissionRepository.findById(id)
             .orElseThrow(() -> new RuntimeException("Soumission non trouvée"));
         
-        soumission.setStatut("REFUSEE");
-        soumission.setDateModification(LocalDateTime.now());
+        soumission.setStatut(Soumission.StatutSoumission.REJETEE);
+        soumission.setDateValidation(LocalDateTime.now());
+        soumission.setValideePar(email);
         soumissionRepository.save(soumission);
         
         // Créer un feedback de rejet
@@ -185,7 +191,7 @@ public class StaffModerationController {
      * Demande des révisions sur une soumission
      */
     @PostMapping("/demander-revision/{id}")
-    public ResponseEntity<SoumissionDTO> demanderRevision(
+    public ResponseEntity<SoumissionResponseDTO> demanderRevision(
             @PathVariable Long id,
             @RequestBody FeedbackRequest feedbackRequest,
             HttpServletRequest request) {
@@ -199,8 +205,7 @@ public class StaffModerationController {
         Soumission soumission = soumissionRepository.findById(id)
             .orElseThrow(() -> new RuntimeException("Soumission non trouvée"));
         
-        soumission.setStatut("REVISION_DEMANDEE");
-        soumission.setDateModification(LocalDateTime.now());
+        soumission.setStatut(Soumission.StatutSoumission.EN_REVISION);
         soumissionRepository.save(soumission);
         
         // Créer un feedback de demande de révision
@@ -280,17 +285,21 @@ public class StaffModerationController {
     }
 
     // Méthodes de conversion
-    private SoumissionDTO convertToDTO(Soumission soumission) {
-        SoumissionDTO dto = new SoumissionDTO();
+    private SoumissionResponseDTO convertToDTO(Soumission soumission) {
+        SoumissionResponseDTO dto = new SoumissionResponseDTO();
         dto.setId(soumission.getId());
         dto.setTitre(soumission.getTitre());
-        dto.setAuteurs(soumission.getAuteurs());
-        dto.setAuteurEmail(soumission.getAuteurEmail());
+        dto.setAuteurPrincipal(soumission.getAuteurPrincipal());
+        dto.setEmailAuteur(soumission.getEmailAuteur());
         dto.setResume(soumission.getResume());
-        dto.setContenu(soumission.getContenu());
         dto.setStatut(soumission.getStatut());
         dto.setDateSoumission(soumission.getDateSoumission());
-        dto.setDateModification(soumission.getDateModification());
+        dto.setDomaineRecherche(soumission.getDomaineRecherche());
+        dto.setMotsCles(soumission.getMotsCles());
+        dto.setCoAuteurs(soumission.getCoAuteurs());
+        dto.setCommentaireAdmin(soumission.getCommentaireAdmin());
+        dto.setValideePar(soumission.getValideePar());
+        dto.setDateValidation(soumission.getDateValidation());
         return dto;
     }
 

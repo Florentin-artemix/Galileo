@@ -1,7 +1,7 @@
 package com.galileo.ecriture.controller;
 
 import com.galileo.ecriture.entity.AuditLog;
-import com.galileo.ecriture.entity.Role;
+import com.galileo.ecriture.security.Role;
 import com.galileo.ecriture.repository.AuditLogRepository;
 import com.galileo.ecriture.security.Permission;
 import com.galileo.ecriture.security.RoleGuard;
@@ -15,7 +15,7 @@ import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 import java.time.LocalDateTime;
 import java.util.List;
 
