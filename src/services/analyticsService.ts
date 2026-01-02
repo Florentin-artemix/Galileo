@@ -101,10 +101,20 @@ export const analyticsService = {
 
   /**
    * Récupérer les statistiques du dashboard admin
+   * @param period - 'day' (1 jour), 'week' (7 jours), 'month' (30 jours), 'year' (365 jours)
    */
   async getDashboardStats(period: 'day' | 'week' | 'month' | 'year' = 'month'): Promise<DashboardStatsDTO> {
+    // Convertir period en nombre de jours pour l'API backend
+    const daysMap: Record<string, number> = {
+      'day': 1,
+      'week': 7,
+      'month': 30,
+      'year': 365
+    };
+    const days = daysMap[period] || 30;
+    
     const response = await apiClient.get('/analytics/dashboard', {
-      params: { period }
+      params: { days }
     });
     return response.data;
   },
