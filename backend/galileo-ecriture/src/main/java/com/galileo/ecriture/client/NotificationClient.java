@@ -68,7 +68,7 @@ public class NotificationClient {
         
         sendNotification(
             userId,
-            "SUBMISSION_APPROVED",
+            "SUBMISSION_VALIDATED",
             "Soumission approuvée",
             "Votre soumission \"" + submissionTitle + "\" a été approuvée et sera publiée prochainement.",
             data
@@ -105,7 +105,7 @@ public class NotificationClient {
         
         sendNotification(
             userId,
-            "SUBMISSION_REVISION_REQUESTED",
+            "SUBMISSION_RECEIVED",
             "Révision demandée",
             "Des révisions sont demandées pour votre soumission \"" + submissionTitle + "\".",
             data

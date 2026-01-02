@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
 
 interface PdfViewerProps {
@@ -12,6 +12,15 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ fileUrl, previewMode = true }) =>
   const [zoomLevel, setZoomLevel] = useState(1);
   const [showFullPdf, setShowFullPdf] = useState(!previewMode);
   const [isLoading, setIsLoading] = useState(true);
+  const [iframeKey, setIframeKey] = useState(0);
+
+  // Reset state when fileUrl changes
+  useEffect(() => {
+    setPageNumber(1);
+    setZoomLevel(1);
+    setIsLoading(true);
+    setIframeKey(prev => prev + 1);
+  }, [fileUrl]);
 
   const goToPrevPage = () => setPageNumber(Math.max(1, pageNumber - 1));
   const goToNextPage = () => setPageNumber(pageNumber + 1);
@@ -74,6 +83,7 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ fileUrl, previewMode = true }) =>
             </div>
           )}
           <iframe
+            key={`preview-${iframeKey}`}
             src={`${fileUrl}#page=1&view=FitH`}
             title="Aperçu PDF"
             className="w-full h-full"
@@ -167,7 +177,7 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ fileUrl, previewMode = true }) =>
       <div className="w-full aspect-[4/5] md:aspect-video overflow-auto bg-gray-200 dark:bg-gray-800">
         <div style={{ width: `${zoomLevel * 100}%`, height: `${zoomLevel * 100}%`, transition: 'width 0.3s, height 0.3s' }}>
           <iframe
-            key={iframeSrc}
+            key={`full-${iframeKey}-${iframeSrc}`}
             src={iframeSrc}
             title={translations.pdf_viewer.title}
             className="w-full h-full"

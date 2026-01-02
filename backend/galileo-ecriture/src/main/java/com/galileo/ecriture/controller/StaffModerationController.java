@@ -28,7 +28,7 @@ import java.util.stream.Collectors;
  * Permet de gérer la file de modération et d'ajouter des feedbacks
  */
 @RestController
-@RequestMapping("/api/staff/moderation")
+@RequestMapping("/staff/moderation")
 @RequiredArgsConstructor
 @Slf4j
 public class StaffModerationController {

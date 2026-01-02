@@ -10,10 +10,13 @@ export interface ReadingHistoryDTO {
   userId: string;
   publicationId: number;
   publicationTitle?: string;
+  publicationDomain?: string;
   publicationAuthors?: string[];
   publicationCategory?: string;
   progress: number; // 0-100
-  lastReadAt: string;
+  progressPercentage?: number;
+  readAt: string;
+  readingDurationSeconds?: number;
   totalReadingTime: number; // en secondes
   completed: boolean;
   createdAt: string;

@@ -484,7 +484,7 @@ const PublicationsView = ({ publications }: any) => (
               {publications.map((pub: any) => (
                 <tr key={pub.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                   <td className="px-6 py-4 font-medium text-gray-900 dark:text-white max-w-md">
-                    <NavLink to={`/publications/${pub.id}`} className="hover:text-teal underline">
+                    <NavLink to={`/publication/${pub.id}`} className="hover:text-teal underline">
                       {pub.titre}
                     </NavLink>
                   </td>
@@ -555,7 +555,7 @@ const FavoritesView = ({ favorites, onRemove }: { favorites: FavoriteDTO[]; onRe
 
             <div className="flex gap-3">
               <NavLink
-                to={`/publications/${fav.publicationId}`}
+                to={`/publication/${fav.publicationId}`}
                 className="flex-1 px-4 py-2 bg-teal hover:bg-teal-dark text-white rounded-lg transition-colors font-medium text-center"
               >
                 📖 Lire
@@ -599,7 +599,7 @@ const ReadingHistoryView = ({ history }: { history: ReadingHistoryDTO[] }) => (
                   {item.publicationTitle || 'Publication'}
                 </h3>
                 <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                  Dernière lecture: {new Date(item.lastReadAt).toLocaleDateString('fr-FR')}
+                  Dernière lecture: {item.readAt ? new Date(item.readAt).toLocaleDateString('fr-FR') : 'Non disponible'}
                 </p>
               </div>
               <div className="text-right">
@@ -608,7 +608,7 @@ const ReadingHistoryView = ({ history }: { history: ReadingHistoryDTO[] }) => (
                     ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' 
                     : 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
                 }`}>
-                  {item.completed ? '✅ Terminé' : `📖 ${item.progress}%`}
+                  {item.completed ? '✅ Terminé' : `📖 ${item.progressPercentage || item.progress || 0}%`}
                 </span>
               </div>
             </div>
@@ -618,7 +618,7 @@ const ReadingHistoryView = ({ history }: { history: ReadingHistoryDTO[] }) => (
               <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                 <div 
                   className="bg-teal h-2 rounded-full transition-all duration-300" 
-                  style={{ width: `${item.progress}%` }}
+                  style={{ width: `${item.progressPercentage || item.progress || 0}%` }}
                 ></div>
               </div>
               <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mt-1">
@@ -628,7 +628,7 @@ const ReadingHistoryView = ({ history }: { history: ReadingHistoryDTO[] }) => (
             </div>
 
             <NavLink
-              to={`/publications/${item.publicationId}`}
+              to={`/publication/${item.publicationId}`}
               className="inline-block px-4 py-2 bg-teal hover:bg-teal-dark text-white rounded-lg transition-colors font-medium"
             >
               {item.completed ? '🔄 Relire' : '▶️ Continuer'}

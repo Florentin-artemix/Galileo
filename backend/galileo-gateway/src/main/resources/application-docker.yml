@@ -8,7 +8,7 @@ spring:
       routes:
         # Profil équipe (GET/POST authentifié) - AVANT les routes publiques !
         - id: team-profile
-          uri: ${LECTURE_SERVICE_URL:http://service-lecture:8081}
+          uri: ${LECTURE_SERVICE_URL:http://lecture:8081}
           predicates:
             - Path=/api/team/profile/**
           filters:
@@ -18,7 +18,7 @@ spring:
         
         # Publications, Blog, Événements, Équipe, Recherche (GET public)
         - id: service-lecture-public
-          uri: ${LECTURE_SERVICE_URL:http://service-lecture:8081}
+          uri: ${LECTURE_SERVICE_URL:http://lecture:8081}
           predicates:
             - Path=/api/publications/**,/api/articles/**,/api/blog/**,/api/events/**,/api/team/**,/api/search/**
             - Method=GET
@@ -27,7 +27,7 @@ spring:
         
         # Upload images blog vers Cloudflare R2 (service-ecriture)
         - id: blog-upload-image
-          uri: ${ECRITURE_SERVICE_URL:http://service-ecriture:8082}
+          uri: ${ECRITURE_SERVICE_URL:http://ecriture:8082}
           predicates:
             - Path=/api/blog/upload-image
             - Method=POST
@@ -38,7 +38,7 @@ spring:
         
         # Événements, Blog et Équipe (POST/PUT/DELETE - authentifié)
         - id: service-lecture-admin
-          uri: ${LECTURE_SERVICE_URL:http://service-lecture:8081}
+          uri: ${LECTURE_SERVICE_URL:http://lecture:8081}
           predicates:
             - Path=/api/events/**,/api/blog/**,/api/team/**
             - Method=POST,PUT,DELETE
@@ -48,7 +48,7 @@ spring:
         
         # Indexation (POST)
         - id: service-lecture-indexation
-          uri: ${LECTURE_SERVICE_URL:http://service-lecture:8081}
+          uri: ${LECTURE_SERVICE_URL:http://lecture:8081}
           predicates:
             - Path=/api/indexation/**
           filters:
@@ -56,7 +56,7 @@ spring:
         
         # Page équipe publique (STAFF + ADMIN depuis PostgreSQL)
         - id: public-team
-          uri: ${ECRITURE_SERVICE_URL:http://service-ecriture:8082}
+          uri: ${ECRITURE_SERVICE_URL:http://ecriture:8082}
           predicates:
             - Path=/api/public/team/**
             - Method=GET
@@ -66,7 +66,7 @@ spring:
         
         # Auto-inscription publique (sans vérification de rôle)
         - id: self-register
-          uri: ${ECRITURE_SERVICE_URL:http://service-ecriture:8082}
+          uri: ${ECRITURE_SERVICE_URL:http://ecriture:8082}
           predicates:
             - Path=/api/admin/users/self-register
             - Method=POST
@@ -77,16 +77,36 @@ spring:
         
         # Upload/gestion des photos de profil
         - id: profile-photos
-          uri: ${ECRITURE_SERVICE_URL:http://service-ecriture:8082}
+          uri: ${ECRITURE_SERVICE_URL:http://ecriture:8082}
           predicates:
             - Path=/api/profile/**
           filters:
             - StripPrefix=1
             - name: FirebaseAuthenticationFilter
         
+        # Service Écriture - Modération Staff
+        - id: staff-moderation
+          uri: ${ECRITURE_SERVICE_URL:http://ecriture:8082}
+          predicates:
+            - Path=/api/staff/**
+          filters:
+            - StripPrefix=1
+            - name: FirebaseAuthenticationFilter
+          order: -5
+        
+        # Service Écriture - Dashboard Étudiant
+        - id: student-dashboard
+          uri: ${ECRITURE_SERVICE_URL:http://ecriture:8082}
+          predicates:
+            - Path=/api/student/**
+          filters:
+            - StripPrefix=1
+            - name: FirebaseAuthenticationFilter
+          order: -5
+        
         # Service Écriture
         - id: service-ecriture
-          uri: ${ECRITURE_SERVICE_URL:http://service-ecriture:8082}
+          uri: ${ECRITURE_SERVICE_URL:http://ecriture:8082}
           predicates:
             - Path=/api/soumissions/**,/api/admin/**
           filters:
@@ -193,7 +213,7 @@ spring:
         # Profil utilisateur de base (/api/users/me) - DOIT être en DERNIER
         # car /api/users/** matche tout
         - id: ecriture-users
-          uri: ${ECRITURE_SERVICE_URL:http://service-ecriture:8082}
+          uri: ${ECRITURE_SERVICE_URL:http://ecriture:8082}
           predicates:
             - Path=/api/users/**
           filters:

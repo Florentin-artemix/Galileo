@@ -6,6 +6,8 @@ import { useLanguage } from '../contexts/LanguageContext';
 import ProfileCard from '../components/ProfileCard';
 import { moderationService, ModerationItemDTO, ModerationStatsDTO } from '../src/services/moderationService';
 import { notificationService, NotificationDTO } from '../src/services/notificationService';
+import { favoritesService, FavoriteDTO } from '../src/services/favoritesService';
+import { readingHistoryService, ReadingHistoryDTO } from '../src/services/readingHistoryService';
 
 interface Soumission {
   id: number;
@@ -34,7 +36,7 @@ interface Stats {
   approvedToday: number;
 }
 
-type TabType = 'dashboard' | 'profile' | 'pending' | 'publications' | 'events' | 'moderation';
+type TabType = 'dashboard' | 'profile' | 'pending' | 'publications' | 'events' | 'moderation' | 'favorites' | 'history';
 
 const StaffDashboard: React.FC = () => {
   const { user } = useAuth();
@@ -44,6 +46,8 @@ const StaffDashboard: React.FC = () => {
   const [events, setEvents] = useState<Event[]>([]);
   const [moderationQueue, setModerationQueue] = useState<ModerationItemDTO[]>([]);
   const [moderationStats, setModerationStats] = useState<ModerationStatsDTO | null>(null);
+  const [favorites, setFavorites] = useState<FavoriteDTO[]>([]);
+  const [readingHistory, setReadingHistory] = useState<ReadingHistoryDTO[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -63,13 +67,16 @@ const StaffDashboard: React.FC = () => {
   const loadData = async () => {
     setLoading(true);
     setError(null);
+    const userId = user?.uid;
     try {
-      const [pendingData, pubData, eventsData, modQueueData, modStatsData] = await Promise.all([
+      const [pendingData, pubData, eventsData, modQueueData, modStatsData, favoritesData, historyData] = await Promise.all([
         soumissionsService.getSoumissionsEnAttente().catch(() => []),
         publicationsService.getPublications(0, 100).catch(() => ({ content: [] })),
         eventService.getAllEventsNoPagination().catch(() => []),
         moderationService.getPendingItems().catch(() => []),
-        moderationService.getStats().catch(() => null)
+        moderationService.getStats().catch(() => null),
+        userId ? favoritesService.getFavorites(userId).catch(() => []) : Promise.resolve([]),
+        userId ? readingHistoryService.getInProgress(userId).catch(() => []) : Promise.resolve([])
       ]);
 
       setPending(pendingData || []);
@@ -77,6 +84,8 @@ const StaffDashboard: React.FC = () => {
       setEvents(eventsData || []);
       setModerationQueue(modQueueData || []);
       setModerationStats(modStatsData);
+      setFavorites(favoritesData || []);
+      setReadingHistory(historyData || []);
 
       setStats({
         totalPublications: pubData.content?.length || 0,
@@ -227,6 +236,12 @@ const StaffDashboard: React.FC = () => {
           <TabButton active={tab === 'events'} onClick={() => setTab('events')} icon="🎯">
             Événements
           </TabButton>
+          <TabButton active={tab === 'favorites'} onClick={() => setTab('favorites')} icon="⭐" badge={favorites.length}>
+            Favoris
+          </TabButton>
+          <TabButton active={tab === 'history'} onClick={() => setTab('history')} icon="📖" badge={readingHistory.length}>
+            Historique
+          </TabButton>
         </div>
 
         {/* Tab Content */}
@@ -261,6 +276,25 @@ const StaffDashboard: React.FC = () => {
 
           {tab === 'events' && (
             <EventsView events={events} language={language} onDelete={deleteEvent} />
+          )}
+
+          {tab === 'favorites' && (
+            <FavoritesView favorites={favorites} onRemove={async (pubId) => {
+              if (user?.uid) {
+                try {
+                  await favoritesService.removeFavorite(user.uid, pubId);
+                  setFavorites(prev => prev.filter(f => f.publicationId !== pubId));
+                  setSuccess('Publication retirée des favoris');
+                  setTimeout(() => setSuccess(null), 3000);
+                } catch (e) {
+                  setError('Erreur lors de la suppression du favori');
+                }
+              }
+            }} />
+          )}
+
+          {tab === 'history' && (
+            <HistoryView history={readingHistory} />
           )}
         </div>
       </div>
@@ -656,5 +690,124 @@ const ModerationView = ({ queue, stats, onApprove, onReject, onRequestRevision }
     </div>
   );
 };
+
+// Composant pour afficher les favoris
+const FavoritesView = ({ favorites, onRemove }: { favorites: FavoriteDTO[]; onRemove: (pubId: number) => void }) => (
+  <div>
+    <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-3">
+      <span className="text-3xl">⭐</span> Mes Favoris
+      <span className="text-sm bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 px-3 py-1 rounded-full">
+        {favorites.length} publication{favorites.length > 1 ? 's' : ''}
+      </span>
+    </h2>
+
+    {favorites.length === 0 ? (
+      <div className="text-center py-16 bg-white dark:bg-gray-800 rounded-xl shadow-lg">
+        <span className="text-6xl mb-4 block">📚</span>
+        <p className="text-gray-500 dark:text-gray-400 text-lg">Aucun favori pour le moment</p>
+        <p className="text-gray-400 dark:text-gray-500 text-sm mt-2">Ajoutez des publications à vos favoris pour les retrouver ici</p>
+      </div>
+    ) : (
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        {favorites.map((fav) => (
+          <div key={fav.id} className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-5 hover:shadow-xl transition-shadow border border-gray-100 dark:border-gray-700">
+            <div className="flex justify-between items-start mb-3">
+              <h3 className="font-semibold text-gray-900 dark:text-white line-clamp-2 flex-1">
+                {fav.publicationTitle || `Publication #${fav.publicationId}`}
+              </h3>
+              <button
+                onClick={() => onRemove(fav.publicationId)}
+                className="ml-2 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 p-1 rounded-full transition-colors"
+                title="Retirer des favoris"
+              >
+                ✕
+              </button>
+            </div>
+            {fav.publicationAuthors && fav.publicationAuthors.length > 0 && (
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">👤 {fav.publicationAuthors.join(', ')}</p>
+            )}
+            {fav.publicationCategory && (
+              <span className="inline-block text-xs bg-teal/10 text-teal dark:bg-teal/20 px-2 py-1 rounded-full mb-3">
+                {fav.publicationCategory}
+              </span>
+            )}
+            <div className="flex items-center justify-between text-xs text-gray-400 dark:text-gray-500 mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
+              <span>Ajouté le {fav.createdAt ? new Date(fav.createdAt).toLocaleDateString('fr-FR') : 'N/A'}</span>
+              <a
+                href={`/publication/${fav.publicationId}`}
+                className="text-teal hover:text-teal/80 font-medium"
+              >
+                Voir →
+              </a>
+            </div>
+          </div>
+        ))}
+      </div>
+    )}
+  </div>
+);
+
+// Composant pour afficher l'historique de lecture
+const HistoryView = ({ history }: { history: ReadingHistoryDTO[] }) => (
+  <div>
+    <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-3">
+      <span className="text-3xl">📖</span> Historique de Lecture
+      <span className="text-sm bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 px-3 py-1 rounded-full">
+        {history.length} en cours
+      </span>
+    </h2>
+
+    {history.length === 0 ? (
+      <div className="text-center py-16 bg-white dark:bg-gray-800 rounded-xl shadow-lg">
+        <span className="text-6xl mb-4 block">📚</span>
+        <p className="text-gray-500 dark:text-gray-400 text-lg">Aucun historique de lecture</p>
+        <p className="text-gray-400 dark:text-gray-500 text-sm mt-2">Commencez à lire des publications pour voir votre progression ici</p>
+      </div>
+    ) : (
+      <div className="space-y-4">
+        {history.map((item) => (
+          <div key={item.id} className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-5 hover:shadow-xl transition-shadow border border-gray-100 dark:border-gray-700">
+            <div className="flex items-center gap-4">
+              <div className="flex-1">
+                <h3 className="font-semibold text-gray-900 dark:text-white mb-1">
+                  {item.publicationTitle || `Publication #${item.publicationId}`}
+                </h3>
+                {item.publicationDomain && (
+                  <span className="inline-block text-xs bg-teal/10 text-teal dark:bg-teal/20 px-2 py-1 rounded-full">
+                    {item.publicationDomain}
+                  </span>
+                )}
+              </div>
+              <div className="text-right">
+                <div className="text-sm text-gray-500 dark:text-gray-400 mb-2">
+                  {item.readAt ? new Date(item.readAt).toLocaleDateString('fr-FR') : 'N/A'}
+                </div>
+                <a
+                  href={`/publication/${item.publicationId}`}
+                  className="inline-block px-3 py-1 bg-teal text-white text-sm rounded-lg hover:bg-teal/90 transition-colors"
+                >
+                  Reprendre →
+                </a>
+              </div>
+            </div>
+            {/* Barre de progression */}
+            <div className="mt-4">
+              <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mb-1">
+                <span>Progression</span>
+                <span>{item.progressPercentage || item.progress || 0}%</span>
+              </div>
+              <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                <div
+                  className="bg-teal rounded-full h-2 transition-all"
+                  style={{ width: `${item.progressPercentage || item.progress || 0}%` }}
+                />
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    )}
+  </div>
+);
 
 export default StaffDashboard;

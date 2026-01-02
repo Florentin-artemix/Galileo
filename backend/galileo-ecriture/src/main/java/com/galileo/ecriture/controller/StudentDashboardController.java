@@ -25,7 +25,7 @@ import java.util.stream.Collectors;
  * Permet de gérer ses propres soumissions et voir les feedbacks
  */
 @RestController
-@RequestMapping("/api/student/dashboard")
+@RequestMapping("/student/dashboard")
 @RequiredArgsConstructor
 @Slf4j
 public class StudentDashboardController {

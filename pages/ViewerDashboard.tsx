@@ -221,7 +221,7 @@ const DashboardView = ({ stats, publications, events }: any) => (
             {publications.slice(0, 5).map((pub: any) => (
               <NavLink
                 key={pub.id}
-                to={`/publications/${pub.id}`}
+                to={`/publication/${pub.id}`}
                 className="block p-3 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition"
               >
                 <p className="font-medium text-gray-900 dark:text-white truncate">{pub.titre}</p>
@@ -277,7 +277,7 @@ const PublicationsView = ({ publications }: any) => (
               {publications.map((pub: any) => (
                 <tr key={pub.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                   <td className="px-6 py-4 font-medium text-gray-900 dark:text-white max-w-md">
-                    <NavLink to={`/publications/${pub.id}`} className="hover:text-teal underline">
+                    <NavLink to={`/publication/${pub.id}`} className="hover:text-teal underline">
                       {pub.titre}
                     </NavLink>
                   </td>

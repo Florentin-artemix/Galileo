@@ -15,7 +15,6 @@ import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import jakarta.servlet.http.HttpServletRequest;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -23,7 +22,7 @@ import java.util.List;
  * Contrôleur pour consulter les logs d'audit (ADMIN uniquement)
  */
 @RestController
-@RequestMapping("/api/admin/audit")
+@RequestMapping("/admin/audit")
 @RequiredArgsConstructor
 @Slf4j
 public class AuditController {
@@ -35,10 +34,12 @@ public class AuditController {
      * Récupère les derniers logs d'audit (100 les plus récents)
      */
     @GetMapping("/recent")
-    public ResponseEntity<List<AuditLog>> getRecentLogs(HttpServletRequest request) {
-        log.info("Récupération des logs d'audit récents");
+    public ResponseEntity<List<AuditLog>> getRecentLogs(
+            @RequestHeader(value = "X-User-Role", required = false, defaultValue = "VIEWER") String roleHeader,
+            @RequestParam(defaultValue = "50") int limit) {
+        log.info("Récupération des logs d'audit récents (limit={})", limit);
         
-        Role role = (Role) request.getAttribute("userRole");
+        Role role = roleGuard.resolveRole(roleHeader);
         roleGuard.requirePermission(role, Permission.VIEW_AUDIT_LOGS);
         
         List<AuditLog> logs = auditLogRepository.findTop100ByOrderByCreatedAtDesc();
@@ -51,18 +52,18 @@ public class AuditController {
      */
     @GetMapping
     public ResponseEntity<Page<AuditLog>> getLogs(
+            @RequestHeader(value = "X-User-Role", required = false, defaultValue = "VIEWER") String roleHeader,
             @RequestParam(required = false) String userEmail,
             @RequestParam(required = false) String action,
             @RequestParam(required = false) String resourceType,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endDate,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "50") int size,
-            HttpServletRequest request) {
+            @RequestParam(defaultValue = "50") int size) {
         
         log.info("Récupération des logs d'audit avec filtres");
         
-        Role role = (Role) request.getAttribute("userRole");
+        Role role = roleGuard.resolveRole(roleHeader);
         roleGuard.requirePermission(role, Permission.VIEW_AUDIT_LOGS);
         
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
@@ -88,14 +89,16 @@ public class AuditController {
      * Récupère un log spécifique par ID
      */
     @GetMapping("/{id}")
-    public ResponseEntity<AuditLog> getLogById(@PathVariable Long id, HttpServletRequest request) {
-        Role role = (Role) request.getAttribute("userRole");
+    public ResponseEntity<AuditLog> getLogById(
+            @PathVariable Long id,
+            @RequestHeader(value = "X-User-Role", required = false, defaultValue = "VIEWER") String roleHeader) {
+        Role role = roleGuard.resolveRole(roleHeader);
         roleGuard.requirePermission(role, Permission.VIEW_AUDIT_LOGS);
         
-        AuditLog log = auditLogRepository.findById(id)
+        AuditLog auditLog = auditLogRepository.findById(id)
             .orElseThrow(() -> new RuntimeException("Log non trouvé"));
         
-        return ResponseEntity.ok(log);
+        return ResponseEntity.ok(auditLog);
     }
 
     /**
@@ -104,11 +107,11 @@ public class AuditController {
     @GetMapping("/user/{email}")
     public ResponseEntity<Page<AuditLog>> getLogsByUser(
             @PathVariable String email,
+            @RequestHeader(value = "X-User-Role", required = false, defaultValue = "VIEWER") String roleHeader,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "50") int size,
-            HttpServletRequest request) {
+            @RequestParam(defaultValue = "50") int size) {
         
-        Role role = (Role) request.getAttribute("userRole");
+        Role role = roleGuard.resolveRole(roleHeader);
         roleGuard.requirePermission(role, Permission.VIEW_AUDIT_LOGS);
         
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
@@ -122,12 +125,12 @@ public class AuditController {
      */
     @GetMapping("/stats")
     public ResponseEntity<?> getAuditStats(
-            @RequestParam(defaultValue = "week") String period,
-            HttpServletRequest request) {
+            @RequestHeader(value = "X-User-Role", required = false, defaultValue = "VIEWER") String roleHeader,
+            @RequestParam(defaultValue = "week") String period) {
         
         log.info("Récupération des statistiques d'audit pour la période: {}", period);
         
-        Role role = (Role) request.getAttribute("userRole");
+        Role role = roleGuard.resolveRole(roleHeader);
         roleGuard.requirePermission(role, Permission.VIEW_AUDIT_LOGS);
         
         LocalDateTime startDate = switch (period) {
@@ -138,10 +141,8 @@ public class AuditController {
         
         List<AuditLog> logs = auditLogRepository.findByCreatedAtAfter(startDate);
         
-        // Statistiques basiques
         long totalActions = logs.size();
         
-        // Actions par type
         var actionsByType = logs.stream()
                 .collect(java.util.stream.Collectors.groupingBy(
                         AuditLog::getAction,
@@ -154,9 +155,8 @@ public class AuditController {
                 ))
                 .toList();
         
-        // Actions par utilisateur
         var actionsByUser = logs.stream()
-                .filter(log -> log.getUserEmail() != null)
+                .filter(auditLog -> auditLog.getUserEmail() != null)
                 .collect(java.util.stream.Collectors.groupingBy(
                         AuditLog::getUserEmail,
                         java.util.stream.Collectors.counting()
@@ -169,10 +169,9 @@ public class AuditController {
                 ))
                 .toList();
         
-        // Actions par jour
         var actionsByDay = logs.stream()
                 .collect(java.util.stream.Collectors.groupingBy(
-                        log -> log.getCreatedAt().toLocalDate().toString(),
+                        auditLog -> auditLog.getCreatedAt().toLocalDate().toString(),
                         java.util.stream.Collectors.counting()
                 ))
                 .entrySet().stream()
@@ -182,7 +181,6 @@ public class AuditController {
                 ))
                 .toList();
         
-        // Taux d'échec (exemple simplifié)
         double failureRate = 0.0;
         
         var stats = java.util.Map.of(
