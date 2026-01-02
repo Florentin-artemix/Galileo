@@ -61,6 +61,17 @@ public class ReadingHistoryController {
     }
     
     /**
+     * Récupérer les lectures en cours (non terminées)
+     */
+    @GetMapping("/{firebaseUid}/history/in-progress")
+    public ResponseEntity<List<ReadingHistoryDTO>> getInProgressReadings(
+            @PathVariable String firebaseUid) {
+        log.info("Récupération des lectures en cours pour: {}", firebaseUid);
+        List<ReadingHistoryDTO> inProgress = readingHistoryService.getInProgressReadings(firebaseUid);
+        return ResponseEntity.ok(inProgress);
+    }
+    
+    /**
      * Enregistrer une lecture
      */
     @PostMapping("/{firebaseUid}/history")

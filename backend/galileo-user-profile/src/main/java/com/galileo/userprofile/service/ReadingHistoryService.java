@@ -42,6 +42,16 @@ public class ReadingHistoryService {
                 .collect(Collectors.toList());
     }
     
+    public List<ReadingHistoryDTO> getInProgressReadings(String firebaseUid) {
+        // Récupérer les lectures récentes (dernières 24h) qui ne sont pas terminées (< 100%)
+        LocalDateTime since = LocalDateTime.now().minusDays(1);
+        return readingHistoryRepository.findRecentHistory(firebaseUid, since)
+                .stream()
+                .filter(h -> h.getProgressPercentage() != null && h.getProgressPercentage() < 100)
+                .map(this::toDTO)
+                .collect(Collectors.toList());
+    }
+    
     @Transactional
     public ReadingHistoryDTO recordReading(String firebaseUid, RecordReadingDTO recordDTO) {
         ReadingHistory history = ReadingHistory.builder()

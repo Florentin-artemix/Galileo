@@ -22,7 +22,6 @@ public class UserProfileDTO {
     private String fieldOfStudy;
     private String preferredLanguage;
     private Boolean darkModeEnabled;
-    private Boolean emailNotificationsEnabled;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     

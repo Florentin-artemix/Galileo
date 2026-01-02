@@ -23,13 +23,9 @@ public class NotificationPreference {
     @Indexed(unique = true)
     private String userId;
     
-    private boolean emailEnabled;
-    
     private boolean inAppEnabled;
     
     private Set<Notification.NotificationType> mutedTypes;
-    
-    private String email;
     
     private String preferredLanguage;
 }

@@ -34,8 +34,6 @@ public class Notification {
     
     private boolean read;
     
-    private boolean emailSent;
-    
     private LocalDateTime createdAt;
     
     private LocalDateTime readAt;

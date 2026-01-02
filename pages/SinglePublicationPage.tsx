@@ -2,7 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { useParams, NavLink } from 'react-router-dom';
 import { useLanguage } from '../contexts/LanguageContext';
 import { usePublications } from '../contexts/PublicationsContext';
+import { useAuth } from '../contexts/AuthContext';
 import { publicationsService } from '../src/services/publicationsService';
+import { favoritesService } from '../src/services/favoritesService';
+import { readingHistoryService } from '../src/services/readingHistoryService';
 import type { Publication } from '../types';
 import PdfViewer from '../components/PdfViewer';
 
@@ -51,9 +54,12 @@ const SinglePublicationPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const { language, translations } = useLanguage();
   const { publications } = usePublications();
+  const { user } = useAuth();
   const [publication, setPublication] = useState<Publication | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isFavorite, setIsFavorite] = useState(false);
+  const [favoriteLoading, setFavoriteLoading] = useState(false);
 
   useEffect(() => {
     const loadPublication = async () => {
@@ -83,6 +89,68 @@ const SinglePublicationPage: React.FC = () => {
 
     loadPublication();
   }, [id, publications]);
+
+  // Vérifier si la publication est en favori
+  useEffect(() => {
+    const checkFavorite = async () => {
+      if (!user || !id) return;
+      
+      try {
+        const favorites = await favoritesService.getFavorites(user.uid);
+        setIsFavorite(favorites.some(fav => fav.publicationId === parseInt(id)));
+      } catch (err) {
+        console.error('Erreur lors de la vérification des favoris:', err);
+      }
+    };
+
+    checkFavorite();
+  }, [user, id]);
+
+  // Enregistrer la lecture dans l'historique
+  useEffect(() => {
+    const recordReading = async () => {
+      if (!user || !id || !publication) return;
+      
+      try {
+        await readingHistoryService.recordReading(
+          user.uid, 
+          parseInt(id),
+          publication.title[language],
+          publication.domain[language]
+        );
+        console.log('Lecture enregistrée dans l\'historique');
+      } catch (err) {
+        console.error('Erreur lors de l\'enregistrement de la lecture:', err);
+      }
+    };
+
+    // Enregistrer après 5 secondes de lecture (pour éviter les lectures accidentelles)
+    const timer = setTimeout(() => {
+      recordReading();
+    }, 5000);
+
+    return () => clearTimeout(timer);
+  }, [user, id, publication, language]);
+
+  const handleToggleFavorite = async () => {
+    if (!user || !id) return;
+    
+    setFavoriteLoading(true);
+    try {
+      if (isFavorite) {
+        await favoritesService.removeFavorite(user.uid, parseInt(id));
+        setIsFavorite(false);
+      } else {
+        await favoritesService.addFavorite(user.uid, parseInt(id));
+        setIsFavorite(true);
+      }
+    } catch (err) {
+      console.error('Erreur lors de la gestion des favoris:', err);
+      alert('Erreur lors de la gestion des favoris');
+    } finally {
+      setFavoriteLoading(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -129,6 +197,24 @@ const SinglePublicationPage: React.FC = () => {
               <h2 className="text-2xl font-poppins font-bold border-b border-light-border dark:border-dark-border pb-2 mb-4">Résumé</h2>
               <p className="break-words whitespace-pre-wrap">{publication.summary[language]}</p>
           </div>
+
+          {/* Bouton Ajouter aux favoris */}
+          {user && (
+            <div className="mt-6">
+              <button
+                onClick={handleToggleFavorite}
+                disabled={favoriteLoading}
+                className={`inline-flex items-center gap-2 px-6 py-3 rounded-full font-bold transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed ${
+                  isFavorite
+                    ? 'bg-red-500 text-white hover:bg-red-600'
+                    : 'bg-light-accent dark:bg-teal text-white dark:text-navy hover:bg-light-accent-hover dark:hover:bg-opacity-80'
+                }`}
+              >
+                <span className="text-xl">{isFavorite ? '❤️' : '🤍'}</span>
+                <span>{isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}</span>
+              </button>
+            </div>
+          )}
 
           <div className="mt-12 border-t border-light-border dark:border-dark-border pt-8">
               <h2 className="text-2xl font-poppins font-bold mb-6 text-light-text dark:text-off-white">{translations.publications_page.consult_article}</h2>

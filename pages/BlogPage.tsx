@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { NavLink } from 'react-router-dom';
 import { useLanguage } from '../contexts/LanguageContext';
 import { blogService, type ArticleBlogDTO } from '../src/services/blogService';
@@ -102,26 +102,26 @@ const BlogPage: React.FC = () => {
         });
     }, [articles, selectedCategory, searchTerm]);
 
-    const handleSearch = async (e: React.FormEvent) => {
-        e.preventDefault();
+    const handleSearch = async () => {
         if (searchTerm.trim().length >= 2) {
             try {
                 setLoading(true);
                 const results = await searchService.searchBlog(searchTerm, 0, 20);
                 // Convertir les résultats en ArticleBlogDTO
-                setArticles(results.content.map((r: any) => ({
-                    id: r.publicationId || r.id,
-                    titre: r.titre,
+                const mappedResults = (results.content || []).map((r: any) => ({
+                    id: r.publicationId || r.id || Math.random(),
+                    titre: r.titre || '',
                     contenu: '',
-                    resume: r.resume,
+                    resume: r.resume || '',
                     auteur: r.auteurPrincipal || 'Inconnu',
-                    categorie: r.domaine,
-                    motsCles: r.motsCles?.join(', '),
+                    categorie: r.domaine || null,
+                    motsCles: Array.isArray(r.motsCles) ? r.motsCles.join(', ') : r.motsCles,
                     urlImagePrincipale: null,
                     tempsLecture: 5,
                     nombreVues: r.nombreVues || 0,
-                    datePublication: r.datePublication
-                })));
+                    datePublication: r.datePublication || new Date().toISOString()
+                }));
+                setArticles(mappedResults);
             } catch (err) {
                 console.error('Erreur de recherche:', err);
             } finally {
@@ -185,7 +185,7 @@ const BlogPage: React.FC = () => {
 
             {/* Barre de filtres */}
             <div className="mb-8 bg-light-card dark:bg-navy/50 border border-light-border dark:border-dark-border rounded-xl p-4 sm:p-6">
-                <form onSubmit={handleSearch} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                     {/* Recherche */}
                     <div className="sm:col-span-2">
                         <label className="block text-sm font-medium text-light-text-secondary dark:text-gray-400 mb-1">
@@ -195,11 +195,36 @@ const BlogPage: React.FC = () => {
                             <input
                                 type="text"
                                 value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
+                                onChange={(e) => {
+                                    e.stopPropagation();
+                                    setSearchTerm(e.target.value);
+                                }}
+                                onPaste={(e) => {
+                                    e.stopPropagation();
+                                    const text = e.clipboardData.getData('text');
+                                    setSearchTerm(text);
+                                }}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        if (searchTerm.trim().length >= 2) {
+                                            handleSearch(e as unknown as React.FormEvent);
+                                        }
+                                    }
+                                }}
                                 placeholder="Titre, auteur, contenu..."
                                 className="w-full bg-light-bg dark:bg-navy-dark border border-light-border dark:border-dark-border rounded-lg py-2 px-4 pr-10 text-light-text dark:text-off-white focus:outline-none focus:ring-2 focus:ring-light-accent dark:focus:ring-teal"
                             />
-                            <button type="submit" className="absolute right-2 top-1/2 -translate-y-1/2 text-light-accent dark:text-teal">
+                            <button 
+                                type="button" 
+                                onClick={() => {
+                                    if (searchTerm.trim().length >= 2) {
+                                        handleSearch({ preventDefault: () => {} } as React.FormEvent);
+                                    }
+                                }}
+                                className="absolute right-2 top-1/2 -translate-y-1/2 text-light-accent dark:text-teal hover:opacity-70"
+                            >
                                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                                 </svg>
@@ -237,7 +262,7 @@ const BlogPage: React.FC = () => {
                             <option value="popular">Plus populaires</option>
                         </select>
                     </div>
-                </form>
+                </div>
 
                 {/* Bouton reset */}
                 {(searchTerm || selectedCategory !== 'Tous' || sortBy !== 'recent') && (

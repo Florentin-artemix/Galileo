@@ -4,6 +4,8 @@ import { eventService } from '../src/services/eventService';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import ProfileCard from '../components/ProfileCard';
+import { moderationService, ModerationItemDTO, ModerationStatsDTO } from '../src/services/moderationService';
+import { notificationService, NotificationDTO } from '../src/services/notificationService';
 
 interface Soumission {
   id: number;
@@ -28,9 +30,11 @@ interface Stats {
   totalPublications: number;
   totalEvents: number;
   pendingSubmissions: number;
+  moderationPending: number;
+  approvedToday: number;
 }
 
-type TabType = 'dashboard' | 'profile' | 'pending' | 'publications' | 'events';
+type TabType = 'dashboard' | 'profile' | 'pending' | 'publications' | 'events' | 'moderation';
 
 const StaffDashboard: React.FC = () => {
   const { user } = useAuth();
@@ -38,6 +42,8 @@ const StaffDashboard: React.FC = () => {
   const [pending, setPending] = useState<Soumission[]>([]);
   const [publications, setPublications] = useState<PublicationDTO[]>([]);
   const [events, setEvents] = useState<Event[]>([]);
+  const [moderationQueue, setModerationQueue] = useState<ModerationItemDTO[]>([]);
+  const [moderationStats, setModerationStats] = useState<ModerationStatsDTO | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -45,7 +51,9 @@ const StaffDashboard: React.FC = () => {
   const [stats, setStats] = useState<Stats>({
     totalPublications: 0,
     totalEvents: 0,
-    pendingSubmissions: 0
+    pendingSubmissions: 0,
+    moderationPending: 0,
+    approvedToday: 0
   });
 
   useEffect(() => {
@@ -56,26 +64,73 @@ const StaffDashboard: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const [pendingData, pubData, eventsData] = await Promise.all([
+      const [pendingData, pubData, eventsData, modQueueData, modStatsData] = await Promise.all([
         soumissionsService.getSoumissionsEnAttente().catch(() => []),
         publicationsService.getPublications(0, 100).catch(() => ({ content: [] })),
-        eventService.getAllEventsNoPagination().catch(() => [])
+        eventService.getAllEventsNoPagination().catch(() => []),
+        moderationService.getPendingItems().catch(() => []),
+        moderationService.getStats().catch(() => null)
       ]);
 
       setPending(pendingData || []);
       setPublications(pubData.content || []);
       setEvents(eventsData || []);
+      setModerationQueue(modQueueData || []);
+      setModerationStats(modStatsData);
 
       setStats({
         totalPublications: pubData.content?.length || 0,
         totalEvents: eventsData?.length || 0,
-        pendingSubmissions: pendingData?.length || 0
+        pendingSubmissions: pendingData?.length || 0,
+        moderationPending: modStatsData?.pendingCount || modQueueData?.length || 0,
+        approvedToday: modStatsData?.approvedToday || 0
       });
     } catch (e: any) {
       setError("Impossible de charger les données");
       console.error(e);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleModerationApprove = async (itemId: number, feedback?: string) => {
+    try {
+      await moderationService.approve(itemId, feedback);
+      setModerationQueue(prev => prev.filter(item => item.id !== itemId));
+      setStats(prev => ({ 
+        ...prev, 
+        moderationPending: prev.moderationPending - 1,
+        approvedToday: prev.approvedToday + 1 
+      }));
+      setSuccess('Élément approuvé avec succès');
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (e) {
+      setError('Erreur lors de l\'approbation');
+    }
+  };
+
+  const handleModerationReject = async (itemId: number, feedback: string) => {
+    try {
+      await moderationService.reject(itemId, feedback);
+      setModerationQueue(prev => prev.filter(item => item.id !== itemId));
+      setStats(prev => ({ ...prev, moderationPending: prev.moderationPending - 1 }));
+      setSuccess('Élément rejeté');
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (e) {
+      setError('Erreur lors du rejet');
+    }
+  };
+
+  const handleRequestRevision = async (itemId: number, feedback: string) => {
+    try {
+      await moderationService.requestRevision(itemId, feedback);
+      setModerationQueue(prev => prev.map(item => 
+        item.id === itemId ? { ...item, status: 'NEEDS_REVISION' } : item
+      ));
+      setSuccess('Révision demandée');
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (e) {
+      setError('Erreur lors de la demande de révision');
     }
   };
 
@@ -163,6 +218,9 @@ const StaffDashboard: React.FC = () => {
           <TabButton active={tab === 'pending'} onClick={() => setTab('pending')} icon="⏳" badge={pending.length}>
             Soumissions
           </TabButton>
+          <TabButton active={tab === 'moderation'} onClick={() => setTab('moderation')} icon="🛡️" badge={stats.moderationPending}>
+            Modération
+          </TabButton>
           <TabButton active={tab === 'publications'} onClick={() => setTab('publications')} icon="📚">
             Publications
           </TabButton>
@@ -174,7 +232,7 @@ const StaffDashboard: React.FC = () => {
         {/* Tab Content */}
         <div className="animate-fade-in">
           {tab === 'dashboard' && (
-            <DashboardView stats={stats} pending={pending} publications={publications} events={events} />
+            <DashboardView stats={stats} pending={pending} publications={publications} events={events} moderationQueue={moderationQueue} />
           )}
 
           {tab === 'profile' && (
@@ -185,6 +243,16 @@ const StaffDashboard: React.FC = () => {
 
           {tab === 'pending' && (
             <PendingSubmissionsView pending={pending} onUpdateStatut={updateStatut} />
+          )}
+
+          {tab === 'moderation' && (
+            <ModerationView 
+              queue={moderationQueue} 
+              stats={moderationStats}
+              onApprove={handleModerationApprove}
+              onReject={handleModerationReject}
+              onRequestRevision={handleRequestRevision}
+            />
           )}
 
           {tab === 'publications' && (
@@ -232,13 +300,15 @@ const TabButton = ({ active, onClick, icon, badge, children }: any) => (
   </button>
 );
 
-const DashboardView = ({ stats, pending, publications, events }: any) => (
+const DashboardView = ({ stats, pending, publications, events, moderationQueue }: any) => (
   <div>
     {/* Stats Cards */}
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+    <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-6 mb-8">
       <StatCard title="Publications" value={stats.totalPublications} icon="📚" color="border-green-500" />
       <StatCard title="Événements" value={stats.totalEvents} icon="🎯" color="border-purple-500" />
-      <StatCard title="En attente" value={stats.pendingSubmissions} icon="⏳" color="border-orange-500" />
+      <StatCard title="Soumissions" value={stats.pendingSubmissions} icon="⏳" color="border-orange-500" />
+      <StatCard title="Modération" value={stats.moderationPending} icon="🛡️" color="border-red-500" />
+      <StatCard title="Approuvés aujourd'hui" value={stats.approvedToday} icon="✅" color="border-teal" />
     </div>
 
     {/* Recent Activity */}
@@ -437,5 +507,154 @@ const EventsView = ({ events, language, onDelete }: any) => (
     )}
   </div>
 );
+
+// ========== MODERATION VIEW ==========
+const ModerationView = ({ queue, stats, onApprove, onReject, onRequestRevision }: {
+  queue: ModerationItemDTO[];
+  stats: ModerationStatsDTO | null;
+  onApprove: (id: number, feedback?: string) => void;
+  onReject: (id: number, feedback: string) => void;
+  onRequestRevision: (id: number, feedback: string) => void;
+}) => {
+  const [feedbackModal, setFeedbackModal] = useState<{ id: number; action: 'reject' | 'revision' } | null>(null);
+  const [feedback, setFeedback] = useState('');
+
+  const priorityColors: Record<string, string> = {
+    'LOW': 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300',
+    'NORMAL': 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-300',
+    'HIGH': 'bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-300',
+    'URGENT': 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-300'
+  };
+
+  const handleSubmitFeedback = () => {
+    if (!feedbackModal || !feedback.trim()) return;
+    if (feedbackModal.action === 'reject') {
+      onReject(feedbackModal.id, feedback);
+    } else {
+      onRequestRevision(feedbackModal.id, feedback);
+    }
+    setFeedbackModal(null);
+    setFeedback('');
+  };
+
+  return (
+    <div>
+      {/* Stats de modération */}
+      {stats && (
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-4 border-l-4 border-yellow-500">
+            <p className="text-sm text-gray-500 dark:text-gray-400">En attente</p>
+            <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.pendingCount}</p>
+          </div>
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-4 border-l-4 border-green-500">
+            <p className="text-sm text-gray-500 dark:text-gray-400">Approuvés aujourd'hui</p>
+            <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.approvedToday}</p>
+          </div>
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-4 border-l-4 border-red-500">
+            <p className="text-sm text-gray-500 dark:text-gray-400">Rejetés aujourd'hui</p>
+            <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.rejectedToday}</p>
+          </div>
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-4 border-l-4 border-blue-500">
+            <p className="text-sm text-gray-500 dark:text-gray-400">Temps moyen</p>
+            <p className="text-2xl font-bold text-gray-900 dark:text-white">{Math.round(stats.averageProcessingTime / 60)}min</p>
+          </div>
+        </div>
+      )}
+
+      <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">🛡️ File de modération ({queue.length})</h2>
+      
+      {queue.length === 0 ? (
+        <div className="text-center py-16 bg-white dark:bg-gray-800 rounded-xl shadow-lg">
+          <div className="text-6xl mb-4">✅</div>
+          <p className="text-lg text-gray-500 dark:text-gray-400">Aucun élément en attente de modération</p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {queue.map((item) => (
+            <div key={item.id} className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
+              <div className="flex items-start justify-between mb-4">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-2">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                      {item.title}
+                    </h3>
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${priorityColors[item.priority]}`}>
+                      {item.priority}
+                    </span>
+                  </div>
+                  <p className="text-gray-600 dark:text-gray-400 text-sm mb-2 line-clamp-2">{item.content}</p>
+                  <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-500">
+                    <span>👤 {item.authorName}</span>
+                    <span>📧 {item.authorEmail}</span>
+                    <span>📅 {new Date(item.submittedAt).toLocaleDateString('fr-FR')}</span>
+                    {item.category && <span className="px-2 py-0.5 bg-gray-100 dark:bg-gray-700 rounded">{item.category}</span>}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => onApprove(item.id)}
+                  className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors font-medium"
+                >
+                  ✓ Approuver
+                </button>
+                <button
+                  onClick={() => { setFeedbackModal({ id: item.id, action: 'revision' }); setFeedback(''); }}
+                  className="flex-1 px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg transition-colors font-medium"
+                >
+                  ✏️ Révision
+                </button>
+                <button
+                  onClick={() => { setFeedbackModal({ id: item.id, action: 'reject' }); setFeedback(''); }}
+                  className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors font-medium"
+                >
+                  ✗ Rejeter
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Feedback Modal */}
+      {feedbackModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-6 max-w-md w-full mx-4">
+            <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
+              {feedbackModal.action === 'reject' ? '❌ Rejeter' : '✏️ Demander une révision'}
+            </h3>
+            <textarea
+              value={feedback}
+              onChange={(e) => setFeedback(e.target.value)}
+              placeholder="Expliquez la raison..."
+              className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white mb-4"
+              rows={4}
+            />
+            <div className="flex gap-3">
+              <button
+                onClick={() => setFeedbackModal(null)}
+                className="flex-1 px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-lg transition-colors"
+              >
+                Annuler
+              </button>
+              <button
+                onClick={handleSubmitFeedback}
+                disabled={!feedback.trim()}
+                className={`flex-1 px-4 py-2 text-white rounded-lg transition-colors ${
+                  feedbackModal.action === 'reject' 
+                    ? 'bg-red-600 hover:bg-red-700 disabled:bg-red-400' 
+                    : 'bg-orange-600 hover:bg-orange-700 disabled:bg-orange-400'
+                }`}
+              >
+                Confirmer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 export default StaffDashboard;

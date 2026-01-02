@@ -15,10 +15,8 @@ import java.util.Set;
 public class NotificationPreferenceDTO {
     
     private String userId;
-    private boolean emailEnabled;
     private boolean inAppEnabled;
     private Set<Notification.NotificationType> mutedTypes;
-    private String email;
     private String preferredLanguage;
 }
 

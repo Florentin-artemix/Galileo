@@ -16,4 +16,5 @@ public interface AuditLogRepository extends JpaRepository<AuditLog, Long> {
     Page<AuditLog> findByResourceType(String resourceType, Pageable pageable);
     Page<AuditLog> findByCreatedAtBetween(LocalDateTime start, LocalDateTime end, Pageable pageable);
     List<AuditLog> findTop100ByOrderByCreatedAtDesc();
+    List<AuditLog> findByCreatedAtAfter(LocalDateTime startDate);
 }

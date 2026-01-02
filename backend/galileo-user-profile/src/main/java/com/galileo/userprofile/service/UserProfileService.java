@@ -53,9 +53,6 @@ public class UserProfileService {
         if (updateDTO.getDarkModeEnabled() != null) {
             profile.setDarkModeEnabled(updateDTO.getDarkModeEnabled());
         }
-        if (updateDTO.getEmailNotificationsEnabled() != null) {
-            profile.setEmailNotificationsEnabled(updateDTO.getEmailNotificationsEnabled());
-        }
         
         profile = userProfileRepository.save(profile);
         log.info("Profil mis à jour pour l'utilisateur: {}", firebaseUid);
@@ -73,7 +70,6 @@ public class UserProfileService {
                 .firebaseUid(firebaseUid)
                 .preferredLanguage("fr")
                 .darkModeEnabled(false)
-                .emailNotificationsEnabled(true)
                 .build();
         
         newProfile = userProfileRepository.save(newProfile);
@@ -97,7 +93,6 @@ public class UserProfileService {
                 .fieldOfStudy(profile.getFieldOfStudy())
                 .preferredLanguage(profile.getPreferredLanguage())
                 .darkModeEnabled(profile.getDarkModeEnabled())
-                .emailNotificationsEnabled(profile.getEmailNotificationsEnabled())
                 .createdAt(profile.getCreatedAt())
                 .updatedAt(profile.getUpdatedAt())
                 .favoritesCount(favoritesCount)

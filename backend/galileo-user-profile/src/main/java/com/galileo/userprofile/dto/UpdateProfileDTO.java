@@ -29,7 +29,5 @@ public class UpdateProfileDTO {
     private String preferredLanguage;
     
     private Boolean darkModeEnabled;
-    
-    private Boolean emailNotificationsEnabled;
 }
 

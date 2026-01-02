@@ -116,4 +116,83 @@ public class AuditController {
         
         return ResponseEntity.ok(logs);
     }
+
+    /**
+     * Récupère les statistiques d'audit
+     */
+    @GetMapping("/stats")
+    public ResponseEntity<?> getAuditStats(
+            @RequestParam(defaultValue = "week") String period,
+            HttpServletRequest request) {
+        
+        log.info("Récupération des statistiques d'audit pour la période: {}", period);
+        
+        Role role = (Role) request.getAttribute("userRole");
+        roleGuard.requirePermission(role, Permission.VIEW_AUDIT_LOGS);
+        
+        LocalDateTime startDate = switch (period) {
+            case "day" -> LocalDateTime.now().minusDays(1);
+            case "month" -> LocalDateTime.now().minusMonths(1);
+            default -> LocalDateTime.now().minusWeeks(1);
+        };
+        
+        List<AuditLog> logs = auditLogRepository.findByCreatedAtAfter(startDate);
+        
+        // Statistiques basiques
+        long totalActions = logs.size();
+        
+        // Actions par type
+        var actionsByType = logs.stream()
+                .collect(java.util.stream.Collectors.groupingBy(
+                        AuditLog::getAction,
+                        java.util.stream.Collectors.counting()
+                ))
+                .entrySet().stream()
+                .map(entry -> java.util.Map.of(
+                        "action", entry.getKey(),
+                        "count", entry.getValue()
+                ))
+                .toList();
+        
+        // Actions par utilisateur
+        var actionsByUser = logs.stream()
+                .filter(log -> log.getUserEmail() != null)
+                .collect(java.util.stream.Collectors.groupingBy(
+                        AuditLog::getUserEmail,
+                        java.util.stream.Collectors.counting()
+                ))
+                .entrySet().stream()
+                .map(entry -> java.util.Map.of(
+                        "userId", entry.getKey(),
+                        "userName", entry.getKey(),
+                        "count", entry.getValue()
+                ))
+                .toList();
+        
+        // Actions par jour
+        var actionsByDay = logs.stream()
+                .collect(java.util.stream.Collectors.groupingBy(
+                        log -> log.getCreatedAt().toLocalDate().toString(),
+                        java.util.stream.Collectors.counting()
+                ))
+                .entrySet().stream()
+                .map(entry -> java.util.Map.of(
+                        "date", entry.getKey(),
+                        "count", entry.getValue()
+                ))
+                .toList();
+        
+        // Taux d'échec (exemple simplifié)
+        double failureRate = 0.0;
+        
+        var stats = java.util.Map.of(
+                "totalActions", totalActions,
+                "actionsByType", actionsByType,
+                "actionsByUser", actionsByUser,
+                "actionsByDay", actionsByDay,
+                "failureRate", failureRate
+        );
+        
+        return ResponseEntity.ok(stats);
+    }
 }

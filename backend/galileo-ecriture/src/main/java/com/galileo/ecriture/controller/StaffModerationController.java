@@ -1,5 +1,6 @@
 package com.galileo.ecriture.controller;
 
+import com.galileo.ecriture.client.NotificationClient;
 import com.galileo.ecriture.dto.FeedbackDTO;
 import com.galileo.ecriture.dto.SoumissionResponseDTO;
 import com.galileo.ecriture.entity.Feedback;
@@ -35,6 +36,7 @@ public class StaffModerationController {
     private final SoumissionRepository soumissionRepository;
     private final FeedbackRepository feedbackRepository;
     private final RoleGuard roleGuard;
+    private final NotificationClient notificationClient;
 
     /**
      * Récupère la file de modération (soumissions en attente)
@@ -142,6 +144,17 @@ public class StaffModerationController {
         
         feedbackRepository.save(feedback);
         
+        // Envoyer une notification à l'auteur
+        try {
+            notificationClient.sendSubmissionApprovedNotification(
+                soumission.getUserId(),
+                soumission.getId(),
+                soumission.getTitre()
+            );
+        } catch (Exception e) {
+            log.warn("Erreur lors de l'envoi de la notification d'approbation: {}", e.getMessage());
+        }
+        
         log.info("Soumission {} approuvée par {}", id, email);
         
         return ResponseEntity.ok(convertToDTO(soumission));
@@ -182,6 +195,18 @@ public class StaffModerationController {
         
         feedbackRepository.save(feedback);
         
+        // Envoyer une notification à l'auteur
+        try {
+            notificationClient.sendSubmissionRejectedNotification(
+                soumission.getUserId(),
+                soumission.getId(),
+                soumission.getTitre(),
+                feedbackRequest.getCommentaire()
+            );
+        } catch (Exception e) {
+            log.warn("Erreur lors de l'envoi de la notification de rejet: {}", e.getMessage());
+        }
+        
         log.info("Soumission {} rejetée par {}", id, email);
         
         return ResponseEntity.ok(convertToDTO(soumission));
@@ -219,6 +244,18 @@ public class StaffModerationController {
             .build();
         
         feedbackRepository.save(feedback);
+        
+        // Envoyer une notification à l'auteur
+        try {
+            notificationClient.sendRevisionRequestedNotification(
+                soumission.getUserId(),
+                soumission.getId(),
+                soumission.getTitre(),
+                feedbackRequest.getCommentaire()
+            );
+        } catch (Exception e) {
+            log.warn("Erreur lors de l'envoi de la notification de révision: {}", e.getMessage());
+        }
         
         log.info("Révision demandée pour soumission {} par {}", id, email);
         

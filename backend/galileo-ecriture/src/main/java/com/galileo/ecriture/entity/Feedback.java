@@ -42,6 +42,7 @@ public class Feedback {
     @Column(name = "created_at")
     private LocalDateTime createdAt;
     
+    @Builder.Default
     @Column(name = "is_internal")
     private boolean internal = false; // true = visible seulement par STAFF/ADMIN
     

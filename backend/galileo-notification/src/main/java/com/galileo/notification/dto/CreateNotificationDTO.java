@@ -29,7 +29,5 @@ public class CreateNotificationDTO {
     private String message;
     
     private Map<String, Object> data;
-    
-    private boolean sendEmail;
 }
 

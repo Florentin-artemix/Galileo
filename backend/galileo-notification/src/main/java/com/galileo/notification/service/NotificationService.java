@@ -11,7 +11,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -25,7 +24,6 @@ public class NotificationService {
     
     private final NotificationRepository notificationRepository;
     private final NotificationPreferenceRepository preferenceRepository;
-    private final EmailService emailService;
     
     public NotificationDTO createNotification(CreateNotificationDTO createDTO) {
         // Vérifier les préférences utilisateur
@@ -47,17 +45,11 @@ public class NotificationService {
                 .message(createDTO.getMessage())
                 .data(createDTO.getData())
                 .read(false)
-                .emailSent(false)
                 .createdAt(LocalDateTime.now())
                 .build();
         
         notification = notificationRepository.save(notification);
         log.info("Notification créée pour l'utilisateur {}: {}", createDTO.getUserId(), createDTO.getTitle());
-        
-        // Envoyer email si demandé et activé
-        if (createDTO.isSendEmail() && preferences.isEmailEnabled() && preferences.getEmail() != null) {
-            sendEmailAsync(preferences.getEmail(), notification);
-        }
         
         return toDTO(notification);
     }
@@ -122,21 +114,9 @@ public class NotificationService {
         notificationRepository.deleteById(notificationId);
     }
     
-    @Async
-    protected void sendEmailAsync(String email, Notification notification) {
-        try {
-            emailService.sendNotificationEmail(email, notification);
-            notification.setEmailSent(true);
-            notificationRepository.save(notification);
-        } catch (Exception e) {
-            log.error("Erreur lors de l'envoi de l'email de notification", e);
-        }
-    }
-    
     private NotificationPreference getDefaultPreferences(String userId) {
         return NotificationPreference.builder()
                 .userId(userId)
-                .emailEnabled(true)
                 .inAppEnabled(true)
                 .preferredLanguage("fr")
                 .build();

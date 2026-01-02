@@ -113,18 +113,92 @@ spring:
             - StripPrefix=1
             - name: FirebaseAuthenticationFilter
 
-        # Service Écriture - Profil utilisateur (rôle, motivation, etc.)
-        - id: ecriture-users
-          uri: ${ECRITURE_SERVICE_URL:http://localhost:8082}
-          predicates:
-            - Path=/api/users/**
-          filters:
-            - StripPrefix=1
-            - name: FirebaseAuthenticationFilter
-        
         # ============================================
         # NOUVEAUX SERVICES - Extension Architecture
+        # Les routes spécifiques DOIVENT être avant /api/users/**
         # ============================================
+        
+        # Service Notification - Notifications utilisateur
+        - id: notification-service
+          uri: ${NOTIFICATION_SERVICE_URL:http://localhost:8084}
+          predicates:
+            - Path=/api/notifications/**
+          filters:
+            - StripPrefix=0
+            - name: FirebaseAuthenticationFilter
+        
+        # Service Analytics - Dashboard stats (admin)
+        - id: analytics-dashboard
+          uri: ${ANALYTICS_SERVICE_URL:http://localhost:8085}
+          predicates:
+            - Path=/api/analytics/**
+            - Method=GET
+          filters:
+            - StripPrefix=0
+            - name: FirebaseAuthenticationFilter
+        
+        # Service Analytics - Tracking (public)
+        - id: analytics-tracking
+          uri: ${ANALYTICS_SERVICE_URL:http://localhost:8085}
+          predicates:
+            - Path=/api/analytics/**
+            - Method=POST
+          filters:
+            - StripPrefix=0
+        
+        # Service User Profile - Favoris
+        - id: userprofile-favorites
+          uri: ${USERPROFILE_SERVICE_URL:http://localhost:8083}
+          predicates:
+            - Path=/api/users/*/favorites/**
+          filters:
+            - StripPrefix=0
+            - name: FirebaseAuthenticationFilter
+        
+        # Service User Profile - Favoris (sans slash final)
+        - id: userprofile-favorites-root
+          uri: ${USERPROFILE_SERVICE_URL:http://localhost:8083}
+          predicates:
+            - Path=/api/users/*/favorites
+          filters:
+            - StripPrefix=0
+            - name: FirebaseAuthenticationFilter
+        
+        # Service User Profile - Historique
+        - id: userprofile-history
+          uri: ${USERPROFILE_SERVICE_URL:http://localhost:8083}
+          predicates:
+            - Path=/api/users/*/history/**
+          filters:
+            - StripPrefix=0
+            - name: FirebaseAuthenticationFilter
+        
+        # Service User Profile - Historique (sans slash final)
+        - id: userprofile-history-root
+          uri: ${USERPROFILE_SERVICE_URL:http://localhost:8083}
+          predicates:
+            - Path=/api/users/*/history
+          filters:
+            - StripPrefix=0
+            - name: FirebaseAuthenticationFilter
+        
+        # Service User Profile - Profil
+        - id: userprofile-profile
+          uri: ${USERPROFILE_SERVICE_URL:http://localhost:8083}
+          predicates:
+            - Path=/api/users/*/profile/**
+          filters:
+            - StripPrefix=0
+            - name: FirebaseAuthenticationFilter
+        
+        # Service User Profile - Profil (sans slash final)
+        - id: userprofile-profile-root
+          uri: ${USERPROFILE_SERVICE_URL:http://localhost:8083}
+          predicates:
+            - Path=/api/users/*/profile
+          filters:
+            - StripPrefix=0
+            - name: FirebaseAuthenticationFilter
         
         # Service User Profile - Profils enrichis, Favoris, Historique
         - id: userprofile-service
@@ -136,30 +210,12 @@ spring:
             - RewritePath=/api/userprofile/(?<segment>.*), /api/users/${segment}
             - name: FirebaseAuthenticationFilter
         
-        # Service Notification - Notifications utilisateur
-        - id: notification-service
-          uri: ${NOTIFICATION_SERVICE_URL:http://localhost:8084}
+        # Service Écriture - Profil utilisateur de base (rôle, motivation, etc.)
+        # DOIT être en DERNIER car /api/users/** matche tout
+        - id: ecriture-users
+          uri: ${ECRITURE_SERVICE_URL:http://localhost:8082}
           predicates:
-            - Path=/api/notifications/**
-          filters:
-            - StripPrefix=1
-            - name: FirebaseAuthenticationFilter
-        
-        # Service Analytics - Tracking (public)
-        - id: analytics-tracking
-          uri: ${ANALYTICS_SERVICE_URL:http://localhost:8085}
-          predicates:
-            - Path=/api/analytics/track/**
-            - Method=POST
-          filters:
-            - StripPrefix=1
-        
-        # Service Analytics - Dashboard stats (admin)
-        - id: analytics-dashboard
-          uri: ${ANALYTICS_SERVICE_URL:http://localhost:8085}
-          predicates:
-            - Path=/api/analytics/dashboard,/api/analytics/publications/**
-            - Method=GET
+            - Path=/api/users/**
           filters:
             - StripPrefix=1
             - name: FirebaseAuthenticationFilter

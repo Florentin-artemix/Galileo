@@ -9,6 +9,8 @@ import { UserRole } from '../src/services/authService';
 import { ROLE_LABELS } from '../src/constants/roles';
 import RoleBadge from '../components/RoleBadge';
 import ProfileCard from '../components/ProfileCard';
+import { analyticsService, DashboardStatsDTO } from '../src/services/analyticsService';
+import { auditService, AuditLogDTO, AuditStatsDTO } from '../src/services/auditService';
 
 interface Soumission {
   id: number;
@@ -34,9 +36,11 @@ interface Stats {
   totalPublications: number;
   totalEvents: number;
   pendingSubmissions: number;
+  totalPageViews: number;
+  totalDownloads: number;
 }
 
-type TabType = 'dashboard' | 'profile' | 'users' | 'events' | 'publications' | 'pending' | 'blog';
+type TabType = 'dashboard' | 'profile' | 'users' | 'events' | 'publications' | 'pending' | 'blog' | 'analytics' | 'audit';
 
 const AdminDashboard: React.FC = () => {
   const { user, role } = useAuth();
@@ -56,7 +60,9 @@ const AdminDashboard: React.FC = () => {
     totalUsers: 0,
     totalPublications: 0,
     totalEvents: 0,
-    pendingSubmissions: 0
+    pendingSubmissions: 0,
+    totalPageViews: 0,
+    totalDownloads: 0
   });
   const [showEventModal, setShowEventModal] = useState(false);
   const [showBlogModal, setShowBlogModal] = useState(false);
@@ -89,6 +95,10 @@ const AdminDashboard: React.FC = () => {
   const [blogImageFile, setBlogImageFile] = useState<File | null>(null);
   const [blogImagePreview, setBlogImagePreview] = useState<string | null>(null);
   const [uploadingBlogImage, setUploadingBlogImage] = useState(false);
+  const [analyticsStats, setAnalyticsStats] = useState<DashboardStatsDTO | null>(null);
+  const [auditLogs, setAuditLogs] = useState<AuditLogDTO[]>([]);
+  const [auditStats, setAuditStats] = useState<AuditStatsDTO | null>(null);
+  const [analyticsPeriod, setAnalyticsPeriod] = useState<'day' | 'week' | 'month' | 'year'>('month');
 
   // Charger les données initiales
   useEffect(() => {
@@ -113,7 +123,7 @@ const AdminDashboard: React.FC = () => {
           if (role === 'ADMIN') {
             setLoadingUsers(true);
           }
-          const [usersData, eventsData, blogData] = await Promise.all([
+          const [usersData, eventsData, blogData, analyticsData, auditLogsData, auditStatsData] = await Promise.all([
             role === 'ADMIN' ? usersService.getUsers().catch((err) => {
               console.error('Erreur lors de la récupération des utilisateurs:', err);
               const errorMsg = err.response?.data?.message || err.response?.data?.erreur || err.message || 'Erreur inconnue';
@@ -128,12 +138,24 @@ const AdminDashboard: React.FC = () => {
             blogService.getArticles().catch((err) => {
               console.error('Erreur lors de la récupération des articles de blog:', err);
               return [];
-            })
+            }),
+            // Analytics - ADMIN seulement
+            role === 'ADMIN' ? analyticsService.getDashboardStats('month').catch((err) => {
+              console.error('Erreur lors de la récupération des analytics:', err);
+              return null;
+            }) : Promise.resolve(null),
+            // Audit logs - ADMIN seulement (endpoints non implémentés - silencieux)
+            role === 'ADMIN' ? auditService.getRecentLogs(50).catch(() => []) : Promise.resolve([]),
+            // Audit stats - ADMIN seulement (endpoints non implémentés - silencieux)
+            role === 'ADMIN' ? auditService.getStats('week').catch(() => null) : Promise.resolve(null)
           ]);
           if (role === 'ADMIN') {
             setUsers(usersData || []);
             setLoadingUsers(false);
             console.log(`✅ ${usersData?.length || 0} utilisateurs chargés`);
+            setAnalyticsStats(analyticsData);
+            setAuditLogs(auditLogsData || []);
+            setAuditStats(auditStatsData);
           }
           setEvents(eventsData || []);
           setBlogArticles(blogData || []);
@@ -143,7 +165,9 @@ const AdminDashboard: React.FC = () => {
             totalUsers: role === 'ADMIN' ? (usersData?.length || 0) : 0,
             totalPublications: pubData.content?.length || 0,
             totalEvents: eventsData?.length || 0,
-            pendingSubmissions: pendingData?.length || 0
+            pendingSubmissions: pendingData?.length || 0,
+            totalPageViews: analyticsData?.totalPageViews || 0,
+            totalDownloads: analyticsData?.totalDownloads || 0
           });
         } catch (e) {
           console.error('Erreur chargement données admin:', e);
@@ -442,6 +466,12 @@ const AdminDashboard: React.FC = () => {
               <TabButton active={tab === 'users'} onClick={() => setTab('users')} icon="👥" badge={users.length}>
                 Utilisateurs
               </TabButton>
+              <TabButton active={tab === 'analytics'} onClick={() => setTab('analytics')} icon="📈">
+                Analytics
+              </TabButton>
+              <TabButton active={tab === 'audit'} onClick={() => setTab('audit')} icon="🔍">
+                Audit
+              </TabButton>
             </>
           )}
         </div>
@@ -575,6 +605,26 @@ const AdminDashboard: React.FC = () => {
                 </div>
               )}
             </div>
+          )}
+
+          {tab === 'analytics' && role === 'ADMIN' && (
+            <AnalyticsView 
+              stats={analyticsStats} 
+              period={analyticsPeriod}
+              onPeriodChange={async (newPeriod) => {
+                setAnalyticsPeriod(newPeriod);
+                try {
+                  const newStats = await analyticsService.getDashboardStats(newPeriod);
+                  setAnalyticsStats(newStats);
+                } catch (e) {
+                  console.error('Erreur lors du changement de période:', e);
+                }
+              }}
+            />
+          )}
+
+          {tab === 'audit' && role === 'ADMIN' && (
+            <AuditView logs={auditLogs} stats={auditStats} />
           )}
         </div>
       </div>
@@ -1334,5 +1384,249 @@ const UsersView = ({ users, currentUserEmail, updatingUser, onUpdateRole, loadin
     )}
   </div>
 );
+
+// ========== ANALYTICS VIEW ==========
+const AnalyticsView = ({ stats, period, onPeriodChange }: {
+  stats: DashboardStatsDTO | null;
+  period: 'day' | 'week' | 'month' | 'year';
+  onPeriodChange: (period: 'day' | 'week' | 'month' | 'year') => void;
+}) => {
+  const periodLabels = {
+    day: "Aujourd'hui",
+    week: 'Cette semaine',
+    month: 'Ce mois',
+    year: 'Cette année'
+  };
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">📈 Analytics</h2>
+        <div className="flex gap-2">
+          {(['day', 'week', 'month', 'year'] as const).map((p) => (
+            <button
+              key={p}
+              onClick={() => onPeriodChange(p)}
+              className={`px-4 py-2 rounded-lg transition-colors ${
+                period === p
+                  ? 'bg-teal text-white'
+                  : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
+              }`}
+            >
+              {periodLabels[p]}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {!stats ? (
+        <div className="text-center py-16 bg-white dark:bg-gray-800 rounded-xl shadow-lg">
+          <div className="text-6xl mb-4">📊</div>
+          <p className="text-lg text-gray-500 dark:text-gray-400">Chargement des analytics...</p>
+        </div>
+      ) : (
+        <>
+          {/* Stats principales */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border-l-4 border-blue-500">
+              <p className="text-gray-600 dark:text-gray-400 text-sm">Pages vues</p>
+              <p className="text-3xl font-bold text-gray-900 dark:text-white mt-2">{stats.totalPageViews?.toLocaleString() || 0}</p>
+            </div>
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border-l-4 border-green-500">
+              <p className="text-gray-600 dark:text-gray-400 text-sm">Visiteurs uniques</p>
+              <p className="text-3xl font-bold text-gray-900 dark:text-white mt-2">{stats.uniqueVisitors?.toLocaleString() || 0}</p>
+            </div>
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border-l-4 border-purple-500">
+              <p className="text-gray-600 dark:text-gray-400 text-sm">Vues publications</p>
+              <p className="text-3xl font-bold text-gray-900 dark:text-white mt-2">{stats.totalPublicationViews?.toLocaleString() || 0}</p>
+            </div>
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border-l-4 border-orange-500">
+              <p className="text-gray-600 dark:text-gray-400 text-sm">Téléchargements</p>
+              <p className="text-3xl font-bold text-gray-900 dark:text-white mt-2">{stats.totalDownloads?.toLocaleString() || 0}</p>
+            </div>
+          </div>
+
+          {/* Top Publications */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">🏆 Top Publications</h3>
+              {stats.topPublications && stats.topPublications.length > 0 ? (
+                <div className="space-y-3">
+                  {stats.topPublications.slice(0, 5).map((pub, index) => (
+                    <div key={pub.publicationId} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <span className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${
+                          index === 0 ? 'bg-yellow-400 text-yellow-900' :
+                          index === 1 ? 'bg-gray-300 text-gray-700' :
+                          index === 2 ? 'bg-orange-400 text-orange-900' :
+                          'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300'
+                        }`}>
+                          {index + 1}
+                        </span>
+                        <span className="text-gray-900 dark:text-white font-medium truncate max-w-[200px]">{pub.title}</span>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-teal font-bold">{pub.viewCount}</span>
+                        <span className="text-gray-500 dark:text-gray-400 text-sm ml-1">vues</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-gray-500 dark:text-gray-400 text-center py-8">Aucune donnée disponible</p>
+              )}
+            </div>
+
+            {/* Vues par catégorie */}
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">📂 Par catégorie</h3>
+              {stats.viewsByCategory && stats.viewsByCategory.length > 0 ? (
+                <div className="space-y-3">
+                  {stats.viewsByCategory.map((cat) => (
+                    <div key={cat.category} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                      <span className="text-gray-900 dark:text-white font-medium">{cat.category}</span>
+                      <span className="text-teal font-bold">{cat.count}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-gray-500 dark:text-gray-400 text-center py-8">Aucune donnée disponible</p>
+              )}
+            </div>
+          </div>
+
+          {/* Activité récente */}
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+            <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">🕐 Activité récente</h3>
+            {stats.recentActivity && stats.recentActivity.length > 0 ? (
+              <div className="space-y-2 max-h-64 overflow-y-auto">
+                {stats.recentActivity.map((activity, index) => (
+                  <div key={index} className="flex items-center justify-between p-2 hover:bg-gray-50 dark:hover:bg-gray-700 rounded">
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">
+                        {activity.type === 'pageview' ? '👁️' : 
+                         activity.type === 'download' ? '⬇️' : 
+                         activity.type === 'publication_view' ? '📖' : '📌'}
+                      </span>
+                      <span className="text-gray-700 dark:text-gray-300 text-sm">{activity.description}</span>
+                    </div>
+                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                      {new Date(activity.timestamp).toLocaleString('fr-FR')}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-gray-500 dark:text-gray-400 text-center py-8">Aucune activité récente</p>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
+
+// ========== AUDIT VIEW ==========
+const AuditView = ({ logs, stats }: { logs: AuditLogDTO[]; stats: AuditStatsDTO | null }) => {
+  const actionIcons: Record<string, string> = {
+    'CREATE': '➕',
+    'UPDATE': '✏️',
+    'DELETE': '🗑️',
+    'LOGIN': '🔐',
+    'LOGOUT': '🚪',
+    'ROLE_CHANGE': '👥',
+    'APPROVE': '✅',
+    'REJECT': '❌'
+  };
+
+  const statusColors: Record<string, string> = {
+    'SUCCESS': 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300',
+    'FAILURE': 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300',
+    'WARNING': 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300'
+  };
+
+  return (
+    <div>
+      <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">🔍 Logs d'audit</h2>
+
+      {/* Stats d'audit */}
+      {stats && (
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-4 border-l-4 border-blue-500">
+            <p className="text-sm text-gray-500 dark:text-gray-400">Total actions</p>
+            <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.totalActions}</p>
+          </div>
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-4 border-l-4 border-red-500">
+            <p className="text-sm text-gray-500 dark:text-gray-400">Taux d'échec</p>
+            <p className="text-2xl font-bold text-gray-900 dark:text-white">{(stats.failureRate * 100).toFixed(1)}%</p>
+          </div>
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-4 border-l-4 border-green-500">
+            <p className="text-sm text-gray-500 dark:text-gray-400">Actions par type</p>
+            <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.actionsByType?.length || 0}</p>
+          </div>
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-4 border-l-4 border-purple-500">
+            <p className="text-sm text-gray-500 dark:text-gray-400">Utilisateurs actifs</p>
+            <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.actionsByUser?.length || 0}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Table des logs */}
+      {logs.length === 0 ? (
+        <div className="text-center py-16 bg-white dark:bg-gray-800 rounded-xl shadow-lg">
+          <div className="text-6xl mb-4">📋</div>
+          <p className="text-lg text-gray-500 dark:text-gray-400">Aucun log d'audit disponible</p>
+        </div>
+      ) : (
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden">
+          <div className="overflow-x-auto max-h-[500px] overflow-y-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 sticky top-0">
+                <tr>
+                  <th className="px-4 py-3 text-left font-semibold">Action</th>
+                  <th className="px-4 py-3 text-left font-semibold">Utilisateur</th>
+                  <th className="px-4 py-3 text-left font-semibold">Entité</th>
+                  <th className="px-4 py-3 text-left font-semibold">Statut</th>
+                  <th className="px-4 py-3 text-left font-semibold">Date</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                {logs.map((log) => (
+                  <tr key={log.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <span>{actionIcons[log.action] || '📌'}</span>
+                        <span className="font-medium text-gray-900 dark:text-white">{log.action}</span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div>
+                        <p className="text-gray-900 dark:text-white">{log.userName}</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">{log.userRole}</p>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className="px-2 py-1 bg-gray-100 dark:bg-gray-600 rounded text-xs">
+                        {log.entityType} #{log.entityId}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColors[log.status] || ''}`}>
+                        {log.status}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-gray-500 dark:text-gray-400 text-xs">
+                      {new Date(log.timestamp).toLocaleString('fr-FR')}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 export default AdminDashboard;

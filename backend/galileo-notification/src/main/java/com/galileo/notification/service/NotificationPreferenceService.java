@@ -29,17 +29,11 @@ public class NotificationPreferenceService {
         NotificationPreference preferences = preferenceRepository.findByUserId(userId)
                 .orElseGet(() -> createDefaultPreferences(userId));
         
-        if (updateDTO.isEmailEnabled() != preferences.isEmailEnabled()) {
-            preferences.setEmailEnabled(updateDTO.isEmailEnabled());
-        }
         if (updateDTO.isInAppEnabled() != preferences.isInAppEnabled()) {
             preferences.setInAppEnabled(updateDTO.isInAppEnabled());
         }
         if (updateDTO.getMutedTypes() != null) {
             preferences.setMutedTypes(updateDTO.getMutedTypes());
-        }
-        if (updateDTO.getEmail() != null) {
-            preferences.setEmail(updateDTO.getEmail());
         }
         if (updateDTO.getPreferredLanguage() != null) {
             preferences.setPreferredLanguage(updateDTO.getPreferredLanguage());
@@ -80,7 +74,6 @@ public class NotificationPreferenceService {
     private NotificationPreference createDefaultPreferences(String userId) {
         NotificationPreference preferences = NotificationPreference.builder()
                 .userId(userId)
-                .emailEnabled(true)
                 .inAppEnabled(true)
                 .mutedTypes(new HashSet<>())
                 .preferredLanguage("fr")
@@ -95,10 +88,8 @@ public class NotificationPreferenceService {
     private NotificationPreferenceDTO toDTO(NotificationPreference preferences) {
         return NotificationPreferenceDTO.builder()
                 .userId(preferences.getUserId())
-                .emailEnabled(preferences.isEmailEnabled())
                 .inAppEnabled(preferences.isInAppEnabled())
                 .mutedTypes(preferences.getMutedTypes())
-                .email(preferences.getEmail())
                 .preferredLanguage(preferences.getPreferredLanguage())
                 .build();
     }

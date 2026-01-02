@@ -2,14 +2,8 @@ spring:
   data:
     mongodb:
       uri: mongodb://mongodb:27017/galileo_notifications
-  mail:
-    host: ${MAIL_HOST:smtp.gmail.com}
-    port: ${MAIL_PORT:587}
-    username: ${MAIL_USERNAME:}
-    password: ${MAIL_PASSWORD:}
 
 notification:
-  email:
-    enabled: ${EMAIL_NOTIFICATIONS_ENABLED:true}
-    from: ${MAIL_FROM:noreply@galileo-revue.com}
+  retention:
+    days: 90
 
