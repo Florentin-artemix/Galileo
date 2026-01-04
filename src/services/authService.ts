@@ -15,9 +15,12 @@ const ROLE_STORAGE_KEY = 'galileo_user_role';
 let cachedRole: UserRole = 'VIEWER';
 let cachedUid: string | null = null;
 
-const apiBase = (API_BASE_URL && API_BASE_URL.trim().length > 0)
-  ? API_BASE_URL
-  : `${window.location.origin.replace(/\/$/, '')}/api`;
+// URL de base pour les appels API
+// En développement: utiliser directement le backend (port 8080)
+// En production: utiliser le proxy nginx (/api)
+const apiBase = import.meta.env.DEV 
+  ? (import.meta.env.VITE_API_URL || 'http://localhost:8080/api')
+  : '/api';
 
 /**
  * Service d'authentification Firebase

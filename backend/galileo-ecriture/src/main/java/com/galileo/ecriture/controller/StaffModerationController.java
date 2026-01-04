@@ -16,7 +16,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import jakarta.servlet.http.HttpServletRequest;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
@@ -42,10 +41,11 @@ public class StaffModerationController {
      * Récupère la file de modération (soumissions en attente)
      */
     @GetMapping("/queue")
-    public ResponseEntity<List<SoumissionResponseDTO>> getModerationQueue(HttpServletRequest request) {
+    public ResponseEntity<List<SoumissionResponseDTO>> getModerationQueue(
+            @RequestHeader(value = "X-User-Role", required = false, defaultValue = "VIEWER") String roleHeader) {
         log.info("Récupération de la file de modération");
         
-        Role role = (Role) request.getAttribute("userRole");
+        Role role = roleGuard.resolveRole(roleHeader);
         roleGuard.requirePermission(role, Permission.MODERATE);
         
         List<Soumission> soumissions = soumissionRepository.findByStatut(Soumission.StatutSoumission.EN_ATTENTE);
@@ -56,15 +56,75 @@ public class StaffModerationController {
     }
 
     /**
+     * Alias pour /queue - Récupère les éléments en attente
+     */
+    @GetMapping("/pending")
+    public ResponseEntity<List<SoumissionResponseDTO>> getPendingItems(
+            @RequestHeader(value = "X-User-Role", required = false, defaultValue = "VIEWER") String roleHeader) {
+        return getModerationQueue(roleHeader);
+    }
+
+    /**
+     * Récupère les statistiques de modération
+     */
+    @GetMapping("/stats")
+    public ResponseEntity<Map<String, Object>> getModerationStats(
+            @RequestHeader(value = "X-User-Role", required = false, defaultValue = "VIEWER") String roleHeader) {
+        log.info("Récupération des statistiques de modération");
+        
+        Role role = roleGuard.resolveRole(roleHeader);
+        roleGuard.requirePermission(role, Permission.VIEW_STATISTICS);
+        
+        List<Soumission> toutes = soumissionRepository.findAll();
+        LocalDateTime today = LocalDateTime.now().withHour(0).withMinute(0).withSecond(0);
+        
+        long pendingCount = toutes.stream()
+            .filter(s -> Soumission.StatutSoumission.EN_ATTENTE.equals(s.getStatut()))
+            .count();
+        
+        long approvedToday = toutes.stream()
+            .filter(s -> Soumission.StatutSoumission.VALIDEE.equals(s.getStatut()))
+            .filter(s -> s.getDateValidation() != null && s.getDateValidation().isAfter(today))
+            .count();
+        
+        long rejectedToday = toutes.stream()
+            .filter(s -> Soumission.StatutSoumission.REJETEE.equals(s.getStatut()))
+            .filter(s -> s.getDateValidation() != null && s.getDateValidation().isAfter(today))
+            .count();
+        
+        Map<String, Object> stats = new HashMap<>();
+        stats.put("pendingCount", pendingCount);
+        stats.put("approvedToday", approvedToday);
+        stats.put("rejectedToday", rejectedToday);
+        stats.put("averageProcessingTime", 0); // TODO: calculer le temps moyen réel
+        stats.put("total", toutes.size());
+        stats.put("en_attente", pendingCount);
+        stats.put("validee", toutes.stream().filter(s -> Soumission.StatutSoumission.VALIDEE.equals(s.getStatut())).count());
+        stats.put("rejetee", toutes.stream().filter(s -> Soumission.StatutSoumission.REJETEE.equals(s.getStatut())).count());
+        stats.put("en_revision", toutes.stream().filter(s -> Soumission.StatutSoumission.EN_REVISION.equals(s.getStatut())).count());
+        
+        return ResponseEntity.ok(stats);
+    }
+
+    /**
+     * Alias pour /stats (ancien endpoint)
+     */
+    @GetMapping("/statistiques")
+    public ResponseEntity<Map<String, Object>> getStatistiquesModeration(
+            @RequestHeader(value = "X-User-Role", required = false, defaultValue = "VIEWER") String roleHeader) {
+        return getModerationStats(roleHeader);
+    }
+
+    /**
      * Récupère toutes les soumissions avec filtres avancés
      */
     @GetMapping("/soumissions")
     public ResponseEntity<List<SoumissionResponseDTO>> getSoumissionsAvecFiltres(
             @RequestParam(required = false) String statut,
             @RequestParam(required = false) String auteurEmail,
-            HttpServletRequest request) {
+            @RequestHeader(value = "X-User-Role", required = false, defaultValue = "VIEWER") String roleHeader) {
         
-        Role role = (Role) request.getAttribute("userRole");
+        Role role = roleGuard.resolveRole(roleHeader);
         roleGuard.requirePermission(role, Permission.VIEW_ALL);
         
         List<Soumission> soumissions;
@@ -88,40 +148,17 @@ public class StaffModerationController {
     }
 
     /**
-     * Récupère les statistiques de modération
-     */
-    @GetMapping("/statistiques")
-    public ResponseEntity<Map<String, Object>> getStatistiquesModeration(HttpServletRequest request) {
-        log.info("Récupération des statistiques de modération");
-        
-        Role role = (Role) request.getAttribute("userRole");
-        roleGuard.requirePermission(role, Permission.VIEW_STATISTICS);
-        
-        List<Soumission> toutes = soumissionRepository.findAll();
-        
-        Map<String, Object> stats = new HashMap<>();
-        stats.put("total", toutes.size());
-        stats.put("en_attente", toutes.stream().filter(s -> Soumission.StatutSoumission.EN_ATTENTE.equals(s.getStatut())).count());
-        stats.put("validee", toutes.stream().filter(s -> Soumission.StatutSoumission.VALIDEE.equals(s.getStatut())).count());
-        stats.put("rejetee", toutes.stream().filter(s -> Soumission.StatutSoumission.REJETEE.equals(s.getStatut())).count());
-        stats.put("en_revision", toutes.stream().filter(s -> Soumission.StatutSoumission.EN_REVISION.equals(s.getStatut())).count());
-        
-        return ResponseEntity.ok(stats);
-    }
-
-    /**
      * Approuve une soumission
      */
     @PostMapping("/approuver/{id}")
     public ResponseEntity<SoumissionResponseDTO> approuverSoumission(
             @PathVariable Long id,
             @RequestBody FeedbackRequest feedbackRequest,
-            HttpServletRequest request) {
+            @RequestHeader(value = "X-User-Role", required = false, defaultValue = "VIEWER") String roleHeader,
+            @RequestHeader(value = "X-User-Email", required = false) String email,
+            @RequestHeader(value = "X-User-Name", required = false) String nom) {
         
-        Role role = (Role) request.getAttribute("userRole");
-        String email = (String) request.getAttribute("userEmail");
-        String nom = (String) request.getAttribute("userName");
-        
+        Role role = roleGuard.resolveRole(roleHeader);
         roleGuard.requirePermission(role, Permission.APPROVE_SUBMISSION);
         
         Soumission soumission = soumissionRepository.findById(id)
@@ -161,18 +198,33 @@ public class StaffModerationController {
     }
 
     /**
+     * Alias pour approuver (nouveau endpoint)
+     */
+    @PostMapping("/{id}/approve")
+    public ResponseEntity<SoumissionResponseDTO> approve(
+            @PathVariable Long id,
+            @RequestBody(required = false) FeedbackRequest feedbackRequest,
+            @RequestHeader(value = "X-User-Role", required = false, defaultValue = "VIEWER") String roleHeader,
+            @RequestHeader(value = "X-User-Email", required = false) String email,
+            @RequestHeader(value = "X-User-Name", required = false) String nom) {
+        if (feedbackRequest == null) {
+            feedbackRequest = new FeedbackRequest();
+        }
+        return approuverSoumission(id, feedbackRequest, roleHeader, email, nom);
+    }
+
+    /**
      * Rejette une soumission
      */
     @PostMapping("/rejeter/{id}")
     public ResponseEntity<SoumissionResponseDTO> rejeterSoumission(
             @PathVariable Long id,
             @RequestBody FeedbackRequest feedbackRequest,
-            HttpServletRequest request) {
+            @RequestHeader(value = "X-User-Role", required = false, defaultValue = "VIEWER") String roleHeader,
+            @RequestHeader(value = "X-User-Email", required = false) String email,
+            @RequestHeader(value = "X-User-Name", required = false) String nom) {
         
-        Role role = (Role) request.getAttribute("userRole");
-        String email = (String) request.getAttribute("userEmail");
-        String nom = (String) request.getAttribute("userName");
-        
+        Role role = roleGuard.resolveRole(roleHeader);
         roleGuard.requirePermission(role, Permission.REJECT_SUBMISSION);
         
         Soumission soumission = soumissionRepository.findById(id)
@@ -213,18 +265,30 @@ public class StaffModerationController {
     }
 
     /**
+     * Alias pour rejeter (nouveau endpoint)
+     */
+    @PostMapping("/{id}/reject")
+    public ResponseEntity<SoumissionResponseDTO> reject(
+            @PathVariable Long id,
+            @RequestBody FeedbackRequest feedbackRequest,
+            @RequestHeader(value = "X-User-Role", required = false, defaultValue = "VIEWER") String roleHeader,
+            @RequestHeader(value = "X-User-Email", required = false) String email,
+            @RequestHeader(value = "X-User-Name", required = false) String nom) {
+        return rejeterSoumission(id, feedbackRequest, roleHeader, email, nom);
+    }
+
+    /**
      * Demande des révisions sur une soumission
      */
     @PostMapping("/demander-revision/{id}")
     public ResponseEntity<SoumissionResponseDTO> demanderRevision(
             @PathVariable Long id,
             @RequestBody FeedbackRequest feedbackRequest,
-            HttpServletRequest request) {
+            @RequestHeader(value = "X-User-Role", required = false, defaultValue = "VIEWER") String roleHeader,
+            @RequestHeader(value = "X-User-Email", required = false) String email,
+            @RequestHeader(value = "X-User-Name", required = false) String nom) {
         
-        Role role = (Role) request.getAttribute("userRole");
-        String email = (String) request.getAttribute("userEmail");
-        String nom = (String) request.getAttribute("userName");
-        
+        Role role = roleGuard.resolveRole(roleHeader);
         roleGuard.requirePermission(role, Permission.REQUEST_REVISION);
         
         Soumission soumission = soumissionRepository.findById(id)
@@ -263,18 +327,30 @@ public class StaffModerationController {
     }
 
     /**
+     * Alias pour demander révision (nouveau endpoint)
+     */
+    @PostMapping("/{id}/request-revision")
+    public ResponseEntity<SoumissionResponseDTO> requestRevision(
+            @PathVariable Long id,
+            @RequestBody FeedbackRequest feedbackRequest,
+            @RequestHeader(value = "X-User-Role", required = false, defaultValue = "VIEWER") String roleHeader,
+            @RequestHeader(value = "X-User-Email", required = false) String email,
+            @RequestHeader(value = "X-User-Name", required = false) String nom) {
+        return demanderRevision(id, feedbackRequest, roleHeader, email, nom);
+    }
+
+    /**
      * Ajoute un commentaire interne (visible seulement par STAFF/ADMIN)
      */
     @PostMapping("/commentaire-interne/{id}")
     public ResponseEntity<FeedbackDTO> ajouterCommentaireInterne(
             @PathVariable Long id,
             @RequestBody FeedbackRequest feedbackRequest,
-            HttpServletRequest request) {
+            @RequestHeader(value = "X-User-Role", required = false, defaultValue = "VIEWER") String roleHeader,
+            @RequestHeader(value = "X-User-Email", required = false) String email,
+            @RequestHeader(value = "X-User-Name", required = false) String nom) {
         
-        Role role = (Role) request.getAttribute("userRole");
-        String email = (String) request.getAttribute("userEmail");
-        String nom = (String) request.getAttribute("userName");
-        
+        Role role = roleGuard.resolveRole(roleHeader);
         roleGuard.requirePermission(role, Permission.MODERATE);
         
         Soumission soumission = soumissionRepository.findById(id)
@@ -302,9 +378,9 @@ public class StaffModerationController {
     @GetMapping("/soumission/{id}/feedbacks")
     public ResponseEntity<List<FeedbackDTO>> getTousFeedbacks(
             @PathVariable Long id,
-            HttpServletRequest request) {
+            @RequestHeader(value = "X-User-Role", required = false, defaultValue = "VIEWER") String roleHeader) {
         
-        Role role = (Role) request.getAttribute("userRole");
+        Role role = roleGuard.resolveRole(roleHeader);
         roleGuard.requirePermission(role, Permission.MODERATE);
         
         List<Feedback> feedbacks = feedbackRepository.findBySoumissionId(id);

@@ -508,10 +508,15 @@ const PublicationsView = ({ publications }: any) => (
   </div>
 );
 
-// ========== FAVORIS VIEW ==========
+// ========== FAVORIS VIEW - Vue enrichie ==========
 const FavoritesView = ({ favorites, onRemove }: { favorites: FavoriteDTO[]; onRemove: (id: number) => void }) => (
   <div>
-    <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">⭐ Mes favoris ({favorites.length})</h2>
+    <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-3">
+      <span className="text-3xl">⭐</span> Mes favoris
+      <span className="text-sm bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 px-3 py-1 rounded-full">
+        {favorites.length} publication{favorites.length > 1 ? 's' : ''}
+      </span>
+    </h2>
     {favorites.length === 0 ? (
       <div className="text-center py-16 bg-white dark:bg-gray-800 rounded-xl shadow-lg">
         <div className="text-6xl mb-4">⭐</div>
@@ -524,48 +529,98 @@ const FavoritesView = ({ favorites, onRemove }: { favorites: FavoriteDTO[]; onRe
         </NavLink>
       </div>
     ) : (
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+      <div className="space-y-4">
         {favorites.map((fav) => (
-          <div key={fav.id} className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700 hover:shadow-xl transition-shadow">
-            <div className="flex items-start justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white line-clamp-2 flex-1">
-                {fav.publicationTitle || 'Publication'}
-              </h3>
-              <span className="ml-2 text-yellow-500 text-xl">⭐</span>
-            </div>
-            
-            <div className="space-y-2 text-sm text-gray-600 dark:text-gray-400 mb-4">
-              {fav.publicationAuthors && (
-                <p className="flex items-center">
-                  <span className="font-medium mr-2">👤</span>
-                  {fav.publicationAuthors.join(', ')}
-                </p>
-              )}
-              {fav.publicationCategory && (
-                <p className="flex items-center">
-                  <span className="font-medium mr-2">🏷️</span>
-                  {fav.publicationCategory}
-                </p>
-              )}
-              <p className="flex items-center">
-                <span className="font-medium mr-2">📅</span>
-                Ajouté le {new Date(fav.createdAt).toLocaleDateString('fr-FR')}
-              </p>
-            </div>
+          <div key={fav.id} className="bg-white dark:bg-gray-800 rounded-xl shadow-lg hover:shadow-xl transition-all border border-gray-200 dark:border-gray-700 overflow-hidden">
+            <div className="flex flex-col md:flex-row">
+              {/* Image de couverture ou placeholder */}
+              <div className="w-full md:w-40 h-28 md:h-auto bg-gradient-to-br from-yellow-100 to-yellow-50 dark:from-yellow-900/20 dark:to-gray-800 flex items-center justify-center flex-shrink-0">
+                {fav.publicationCoverImage ? (
+                  <img src={fav.publicationCoverImage} alt={fav.publicationTitle} className="w-full h-full object-cover" />
+                ) : (
+                  <span className="text-5xl opacity-40">📚</span>
+                )}
+              </div>
+              
+              {/* Contenu principal */}
+              <div className="flex-1 p-5">
+                <div className="flex justify-between items-start mb-2">
+                  <div className="flex-1">
+                    <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-1 line-clamp-2">
+                      {fav.publicationTitle || `📚 Livre #${fav.publicationId}`}
+                    </h3>
+                    
+                    {/* Auteurs */}
+                    {fav.publicationAuthors && fav.publicationAuthors.length > 0 && (
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                        <span className="text-teal">👤</span> {fav.publicationAuthors.join(', ')}
+                      </p>
+                    )}
+                  </div>
+                  
+                  {/* Étoile favori */}
+                  <span className="ml-2 text-yellow-500 text-2xl">⭐</span>
+                </div>
 
-            <div className="flex gap-3">
-              <NavLink
-                to={`/publication/${fav.publicationId}`}
-                className="flex-1 px-4 py-2 bg-teal hover:bg-teal-dark text-white rounded-lg transition-colors font-medium text-center"
-              >
-                📖 Lire
-              </NavLink>
-              <button
-                onClick={() => onRemove(fav.publicationId)}
-                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
-              >
-                🗑️
-              </button>
+                {/* Badges : Domaine, Catégorie, Type, Année, Langue */}
+                <div className="flex flex-wrap gap-2 mb-3">
+                  {fav.publicationDomain && (
+                    <span className="inline-flex items-center text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2 py-1 rounded-full">
+                      🔬 {fav.publicationDomain}
+                    </span>
+                  )}
+                  {fav.publicationCategory && (
+                    <span className="inline-flex items-center text-xs bg-teal/10 text-teal dark:bg-teal/20 px-2 py-1 rounded-full">
+                      📂 {fav.publicationCategory}
+                    </span>
+                  )}
+                  {fav.publicationType && (
+                    <span className="inline-flex items-center text-xs bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 px-2 py-1 rounded-full">
+                      📄 {fav.publicationType}
+                    </span>
+                  )}
+                  {fav.publicationYear && (
+                    <span className="inline-flex items-center text-xs bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 px-2 py-1 rounded-full">
+                      📅 {fav.publicationYear}
+                    </span>
+                  )}
+                  {fav.publicationLanguage && (
+                    <span className="inline-flex items-center text-xs bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-2 py-1 rounded-full">
+                      🌐 {fav.publicationLanguage}
+                    </span>
+                  )}
+                </div>
+
+                {/* Résumé si disponible */}
+                {fav.publicationAbstract && (
+                  <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2 mb-3 italic border-l-2 border-teal/30 pl-3">
+                    {fav.publicationAbstract}
+                  </p>
+                )}
+
+                {/* Footer avec date et actions */}
+                <div className="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-gray-700">
+                  <span className="text-xs text-gray-400 dark:text-gray-500 flex items-center gap-1">
+                    ⭐ Ajouté le {new Date(fav.createdAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}
+                  </span>
+                  
+                  <div className="flex gap-2">
+                    <NavLink
+                      to={`/publication/${fav.publicationId}`}
+                      className="inline-flex items-center gap-1 px-4 py-2 bg-teal hover:bg-teal-dark text-white text-sm rounded-lg transition-colors font-medium"
+                    >
+                      📖 Lire
+                    </NavLink>
+                    <button
+                      onClick={() => onRemove(fav.publicationId)}
+                      className="px-3 py-2 bg-red-100 dark:bg-red-900/30 hover:bg-red-200 dark:hover:bg-red-900/50 text-red-600 dark:text-red-400 rounded-lg transition-colors"
+                      title="Retirer des favoris"
+                    >
+                      🗑️
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         ))}

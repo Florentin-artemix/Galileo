@@ -145,7 +145,8 @@ const AuthPage: React.FC = () => {
         const userRole = await authService.getCurrentUserRole();
         
         // Forcer un rechargement complet pour que AuthContext récupère le rôle
-        const dashboardUrl = (userRole === 'ADMIN' || userRole === 'STAFF') ? '/#/dashboard/admin' :
+        const dashboardUrl = userRole === 'ADMIN' ? '/#/dashboard/admin' :
+                            userRole === 'STAFF' ? '/#/dashboard/staff' :
                             userRole === 'STUDENT' ? '/#/dashboard/student' :
                             '/#/dashboard/viewer';
         

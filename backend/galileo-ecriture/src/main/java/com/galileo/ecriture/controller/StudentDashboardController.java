@@ -14,7 +14,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import jakarta.servlet.http.HttpServletRequest;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -38,11 +37,12 @@ public class StudentDashboardController {
      * Récupère toutes les soumissions de l'étudiant connecté
      */
     @GetMapping("/mes-soumissions")
-    public ResponseEntity<List<SoumissionResponseDTO>> getMesSoumissions(HttpServletRequest request) {
-        log.info("Récupération des soumissions de l'étudiant");
+    public ResponseEntity<List<SoumissionResponseDTO>> getMesSoumissions(
+            @RequestHeader(value = "X-User-Role", required = false, defaultValue = "VIEWER") String roleHeader,
+            @RequestHeader(value = "X-User-Email", required = false) String email) {
+        log.info("Récupération des soumissions de l'étudiant {}", email);
         
-        String email = (String) request.getAttribute("userEmail");
-        Role role = (Role) request.getAttribute("userRole");
+        Role role = roleGuard.resolveRole(roleHeader);
         
         // Vérifier que l'utilisateur a le droit de soumettre (STUDENT, STAFF, ADMIN)
         roleGuard.requirePermission(role, Permission.SUBMIT);
@@ -58,12 +58,12 @@ public class StudentDashboardController {
      * Récupère les statistiques des soumissions de l'étudiant
      */
     @GetMapping("/statistiques")
-    public ResponseEntity<Map<String, Object>> getStatistiques(HttpServletRequest request) {
-        log.info("Récupération des statistiques de l'étudiant");
+    public ResponseEntity<Map<String, Object>> getStatistiques(
+            @RequestHeader(value = "X-User-Role", required = false, defaultValue = "VIEWER") String roleHeader,
+            @RequestHeader(value = "X-User-Email", required = false) String email) {
+        log.info("Récupération des statistiques de l'étudiant {}", email);
         
-        String email = (String) request.getAttribute("userEmail");
-        Role role = (Role) request.getAttribute("userRole");
-        
+        Role role = roleGuard.resolveRole(roleHeader);
         roleGuard.requirePermission(role, Permission.SUBMIT);
         
         List<Soumission> soumissions = soumissionRepository.findByUserEmailOrderByDateSoumissionDesc(email);
@@ -79,16 +79,25 @@ public class StudentDashboardController {
     }
 
     /**
+     * Alias pour statistiques
+     */
+    @GetMapping("/stats")
+    public ResponseEntity<Map<String, Object>> getStats(
+            @RequestHeader(value = "X-User-Role", required = false, defaultValue = "VIEWER") String roleHeader,
+            @RequestHeader(value = "X-User-Email", required = false) String email) {
+        return getStatistiques(roleHeader, email);
+    }
+
+    /**
      * Récupère une soumission spécifique avec ses feedbacks
      */
     @GetMapping("/soumission/{id}")
     public ResponseEntity<Map<String, Object>> getSoumissionAvecFeedbacks(
             @PathVariable Long id,
-            HttpServletRequest request) {
+            @RequestHeader(value = "X-User-Role", required = false, defaultValue = "VIEWER") String roleHeader,
+            @RequestHeader(value = "X-User-Email", required = false) String email) {
         
-        String email = (String) request.getAttribute("userEmail");
-        Role role = (Role) request.getAttribute("userRole");
-        
+        Role role = roleGuard.resolveRole(roleHeader);
         roleGuard.requirePermission(role, Permission.VIEW_OWN);
         
         Soumission soumission = soumissionRepository.findById(id)
@@ -117,11 +126,10 @@ public class StudentDashboardController {
     @GetMapping("/soumissions/statut/{statut}")
     public ResponseEntity<List<SoumissionResponseDTO>> getSoumissionsParStatut(
             @PathVariable String statut,
-            HttpServletRequest request) {
+            @RequestHeader(value = "X-User-Role", required = false, defaultValue = "VIEWER") String roleHeader,
+            @RequestHeader(value = "X-User-Email", required = false) String email) {
         
-        String email = (String) request.getAttribute("userEmail");
-        Role role = (Role) request.getAttribute("userRole");
-        
+        Role role = roleGuard.resolveRole(roleHeader);
         roleGuard.requirePermission(role, Permission.VIEW_OWN);
         
         List<Soumission> soumissions = soumissionRepository.findByUserEmailOrderByDateSoumissionDesc(email).stream()

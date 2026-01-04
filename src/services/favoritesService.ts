@@ -12,6 +12,12 @@ export interface FavoriteDTO {
   publicationTitle?: string;
   publicationAuthors?: string[];
   publicationCategory?: string;
+  publicationDomain?: string;
+  publicationAbstract?: string;
+  publicationYear?: number;
+  publicationCoverImage?: string;
+  publicationLanguage?: string;
+  publicationType?: string;
   createdAt: string;
 }
 
@@ -48,9 +54,16 @@ export const favoritesService = {
   /**
    * Ajouter une publication aux favoris
    */
-  async addFavorite(userId: string, publicationId: number): Promise<FavoriteDTO> {
+  async addFavorite(
+    userId: string, 
+    publicationId: number, 
+    publicationTitle?: string,
+    publicationDomain?: string
+  ): Promise<FavoriteDTO> {
     const response = await apiClient.post(`/users/${userId}/favorites`, {
-      publicationId
+      publicationId,
+      publicationTitle,
+      publicationDomain
     });
     return response.data;
   },
@@ -77,13 +90,18 @@ export const favoritesService = {
   /**
    * Basculer le statut favori d'une publication
    */
-  async toggleFavorite(userId: string, publicationId: number): Promise<{ isFavorite: boolean }> {
+  async toggleFavorite(
+    userId: string, 
+    publicationId: number,
+    publicationTitle?: string,
+    publicationDomain?: string
+  ): Promise<{ isFavorite: boolean }> {
     const isFav = await this.isFavorite(userId, publicationId);
     if (isFav) {
       await this.removeFavorite(userId, publicationId);
       return { isFavorite: false };
     } else {
-      await this.addFavorite(userId, publicationId);
+      await this.addFavorite(userId, publicationId, publicationTitle, publicationDomain);
       return { isFavorite: true };
     }
   },

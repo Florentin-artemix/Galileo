@@ -4,8 +4,12 @@
 
 import type { TeamMember } from '../../types';
 
-// URL de base pour les appels API (en production, nginx proxifie /api vers le gateway)
-const API_BASE = '/api';
+// URL de base pour les appels API
+// En développement: utiliser directement le backend (port 8080)
+// En production: utiliser le proxy nginx (/api)
+const API_BASE = import.meta.env.DEV 
+  ? (import.meta.env.VITE_API_URL || 'http://localhost:8080/api')
+  : '/api';
 
 export interface TeamMemberDTO {
   id: number;

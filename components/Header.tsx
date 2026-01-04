@@ -54,11 +54,13 @@ const Header: React.FC = () => {
   ];
 
   const roleLink =
-    role === 'ADMIN' || role === 'STAFF'
+    role === 'ADMIN'
       ? { to: '/dashboard/admin', text: 'Dashboard' }
-      : role === 'STUDENT'
-        ? { to: '/dashboard/student', text: 'Mon espace' }
-        : null;
+      : role === 'STAFF'
+        ? { to: '/dashboard/staff', text: 'Dashboard' }
+        : role === 'STUDENT'
+          ? { to: '/dashboard/student', text: 'Mon espace' }
+          : null;
 
   const activeLinkClass = 'text-teal dark:text-teal font-semibold';
   const inactiveLinkClass = 'text-gray-600 dark:text-gray-300 hover:text-teal dark:hover:text-teal transition-colors duration-200';

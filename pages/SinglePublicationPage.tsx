@@ -133,7 +133,7 @@ const SinglePublicationPage: React.FC = () => {
   }, [user, id, publication, language]);
 
   const handleToggleFavorite = async () => {
-    if (!user || !id) return;
+    if (!user || !id || !publication) return;
     
     setFavoriteLoading(true);
     try {
@@ -141,7 +141,12 @@ const SinglePublicationPage: React.FC = () => {
         await favoritesService.removeFavorite(user.uid, parseInt(id));
         setIsFavorite(false);
       } else {
-        await favoritesService.addFavorite(user.uid, parseInt(id));
+        await favoritesService.addFavorite(
+          user.uid, 
+          parseInt(id),
+          publication.titre,
+          publication.domaine
+        );
         setIsFavorite(true);
       }
     } catch (err) {
