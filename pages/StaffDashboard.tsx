@@ -127,11 +127,47 @@ const StaffDashboard: React.FC = () => {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <div className="container mx-auto px-4 py-8">
-        {/* Header */}
+        {/* Header - STAFF PROFESSIONNEL */}
         <div className="mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-2">
-            👔 Dashboard Personnel
-          </h1>
+          <div className="relative bg-gradient-to-r from-blue-700 via-blue-600 to-indigo-600 rounded-2xl p-6 mb-4 shadow-xl overflow-hidden">
+            <div className="absolute inset-0 bg-black/5"></div>
+            <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2"></div>
+            <div className="relative z-10">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="flex items-center gap-3 mb-2">
+                    <span className="text-4xl">👔</span>
+                    <h1 className="text-3xl font-bold text-white">
+                      Dashboard Personnel
+                    </h1>
+                  </div>
+                  <p className="text-white/90">
+                    Assistez l'administration dans la gestion de la plateforme
+                  </p>
+                </div>
+                <div className="hidden md:block text-right">
+                  <div className="inline-flex items-center px-4 py-2 bg-indigo-500/90 rounded-full text-white font-bold shadow-lg">
+                    <span className="mr-2">🔧</span>
+                    STAFF
+                  </div>
+                </div>
+              </div>
+              <div className="mt-4 flex flex-wrap gap-3">
+                <span className="inline-flex items-center px-3 py-1 bg-white/20 rounded-full text-white text-sm">
+                  <span className="mr-2">✅</span> Validation soumissions
+                </span>
+                <span className="inline-flex items-center px-3 py-1 bg-white/20 rounded-full text-white text-sm">
+                  <span className="mr-2">✅</span> Gestion événements
+                </span>
+                <span className="inline-flex items-center px-3 py-1 bg-white/20 rounded-full text-white text-sm">
+                  <span className="mr-2">👁️</span> Lecture publications
+                </span>
+                <span className="inline-flex items-center px-3 py-1 bg-white/10 rounded-full text-white/70 text-sm">
+                  <span className="mr-2">🔒</span> Utilisateurs (Admin only)
+                </span>
+              </div>
+            </div>
+          </div>
           <p className="text-gray-600 dark:text-gray-400">
             Connecté en tant que <span className="font-semibold">{user?.email}</span>
           </p>
