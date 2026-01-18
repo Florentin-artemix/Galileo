@@ -36,22 +36,22 @@ public class NotificationController {
     }
     
     /**
-     * Récupérer toutes les notifications d'un utilisateur
+     * Récupérer toutes les notifications d'un utilisateur (path variable)
      */
-    @GetMapping
+    @GetMapping("/{userId}")
     public ResponseEntity<List<NotificationDTO>> getNotifications(
-            @RequestParam String userId) {
+            @PathVariable String userId) {
         log.info("Récupération des notifications pour: {}", userId);
         List<NotificationDTO> notifications = notificationService.getNotifications(userId);
         return ResponseEntity.ok(notifications);
     }
     
     /**
-     * Récupérer les notifications avec pagination
+     * Récupérer les notifications avec pagination (path variable)
      */
-    @GetMapping("/paginated")
+    @GetMapping("/{userId}/paginated")
     public ResponseEntity<Page<NotificationDTO>> getNotificationsPaginated(
-            @RequestParam String userId,
+            @PathVariable String userId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
         log.info("Récupération des notifications paginées pour: {} (page {}, size {})", userId, page, size);
@@ -62,52 +62,56 @@ public class NotificationController {
     }
     
     /**
-     * Récupérer les notifications non lues
+     * Récupérer les notifications non lues (path variable)
      */
-    @GetMapping("/unread")
+    @GetMapping("/{userId}/unread")
     public ResponseEntity<List<NotificationDTO>> getUnreadNotifications(
-            @RequestParam String userId) {
+            @PathVariable String userId) {
         log.info("Récupération des notifications non lues pour: {}", userId);
         List<NotificationDTO> notifications = notificationService.getUnreadNotifications(userId);
         return ResponseEntity.ok(notifications);
     }
     
     /**
-     * Récupérer les statistiques de notifications
+     * Récupérer les statistiques de notifications (path variable)
      */
-    @GetMapping("/stats")
-    public ResponseEntity<NotificationStatsDTO> getStats(@RequestParam String userId) {
+    @GetMapping("/{userId}/stats")
+    public ResponseEntity<NotificationStatsDTO> getStats(@PathVariable String userId) {
         log.info("Récupération des stats de notifications pour: {}", userId);
         NotificationStatsDTO stats = notificationService.getStats(userId);
         return ResponseEntity.ok(stats);
     }
     
     /**
-     * Marquer une notification comme lue
+     * Marquer une notification comme lue (path variable pour notification)
      */
-    @PatchMapping("/{notificationId}/read")
-    public ResponseEntity<NotificationDTO> markAsRead(@PathVariable String notificationId) {
-        log.info("Marquage de la notification {} comme lue", notificationId);
+    @PatchMapping("/{userId}/{notificationId}/read")
+    public ResponseEntity<NotificationDTO> markAsRead(
+            @PathVariable String userId,
+            @PathVariable String notificationId) {
+        log.info("Marquage de la notification {} comme lue pour l'utilisateur {}", notificationId, userId);
         NotificationDTO notification = notificationService.markAsRead(notificationId);
         return ResponseEntity.ok(notification);
     }
     
     /**
-     * Marquer toutes les notifications comme lues
+     * Marquer toutes les notifications comme lues (path variable)
      */
-    @PatchMapping("/read-all")
-    public ResponseEntity<Void> markAllAsRead(@RequestParam String userId) {
+    @PatchMapping("/{userId}/read-all")
+    public ResponseEntity<Void> markAllAsRead(@PathVariable String userId) {
         log.info("Marquage de toutes les notifications comme lues pour: {}", userId);
         notificationService.markAllAsRead(userId);
         return ResponseEntity.noContent().build();
     }
     
     /**
-     * Supprimer une notification
+     * Supprimer une notification (path variable pour user et notification)
      */
-    @DeleteMapping("/{notificationId}")
-    public ResponseEntity<Void> deleteNotification(@PathVariable String notificationId) {
-        log.info("Suppression de la notification {}", notificationId);
+    @DeleteMapping("/{userId}/{notificationId}")
+    public ResponseEntity<Void> deleteNotification(
+            @PathVariable String userId,
+            @PathVariable String notificationId) {
+        log.info("Suppression de la notification {} pour l'utilisateur {}", notificationId, userId);
         notificationService.deleteNotification(notificationId);
         return ResponseEntity.noContent().build();
     }
