@@ -67,35 +67,51 @@ export const notificationService = {
    * Récupérer toutes les notifications de l'utilisateur
    */
   async getMyNotifications(): Promise<Notification[]> {
-    const user = authService.getCurrentUser();
-    if (!user) throw new Error('Utilisateur non connecté');
-    
-    const response = await apiClient.get(`/notifications/${user.uid}`);
-    return response.data;
+    try {
+      const user = authService.getCurrentUser();
+      if (!user) return [];
+      
+      const response = await apiClient.get(`/notifications/${user.uid}`);
+      return response.data;
+    } catch (error: any) {
+      // Retourner un tableau vide en cas d'erreur (404 = pas encore de notifications)
+      console.debug('[Notifications] Aucune notification disponible');
+      return [];
+    }
   },
 
   /**
    * Récupérer les notifications avec pagination
    */
   async getMyNotificationsPaginated(page: number = 0, size: number = 20): Promise<PaginatedNotifications> {
-    const user = authService.getCurrentUser();
-    if (!user) throw new Error('Utilisateur non connecté');
-    
-    const response = await apiClient.get(`/notifications/${user.uid}/paginated`, {
-      params: { page, size }
-    });
-    return response.data;
+    try {
+      const user = authService.getCurrentUser();
+      if (!user) return { content: [], totalElements: 0, totalPages: 0, number: 0, size: 0 };
+      
+      const response = await apiClient.get(`/notifications/${user.uid}/paginated`, {
+        params: { page, size }
+      });
+      return response.data;
+    } catch (error: any) {
+      console.debug('[Notifications] Aucune notification paginée disponible');
+      return { content: [], totalElements: 0, totalPages: 0, number: 0, size: 0 };
+    }
   },
 
   /**
    * Récupérer les notifications non lues
    */
   async getUnreadNotifications(): Promise<Notification[]> {
-    const user = authService.getCurrentUser();
-    if (!user) throw new Error('Utilisateur non connecté');
-    
-    const response = await apiClient.get(`/notifications/${user.uid}/unread`);
-    return response.data;
+    try {
+      const user = authService.getCurrentUser();
+      if (!user) return [];
+      
+      const response = await apiClient.get(`/notifications/${user.uid}/unread`);
+      return response.data;
+    } catch (error: any) {
+      console.debug('[Notifications] Aucune notification non lue');
+      return [];
+    }
   },
 
   /**
