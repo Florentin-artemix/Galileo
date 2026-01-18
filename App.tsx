@@ -24,6 +24,10 @@ import StaffDashboard from './pages/StaffDashboard';
 import StudentDashboard from './pages/StudentDashboard';
 import ViewerDashboard from './pages/ViewerDashboard';
 import TestRolesPage from './pages/TestRolesPage';
+import FavoritesPage from './pages/FavoritesPage';
+import ReadingHistoryPage from './pages/ReadingHistoryPage';
+import NotificationsPage from './pages/NotificationsPage';
+import AnalyticsDashboardPage from './pages/AnalyticsDashboardPage';
 import RequireRole from './components/RequireRole';
 
 const ScrollToTop: React.FC = () => {
@@ -106,6 +110,39 @@ const AppContent: React.FC = () => {
             />
             <Route path="/contact" element={<ContactPage />} />
             <Route path="/resources" element={<ResourcesPage />} />
+            {/* Nouvelles pages - Exploitation microservices */}
+            <Route
+              path="/favorites"
+              element={
+                <RequireRole allowed={['VIEWER', 'STUDENT', 'STAFF', 'ADMIN']}>
+                  <FavoritesPage />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="/history"
+              element={
+                <RequireRole allowed={['VIEWER', 'STUDENT', 'STAFF', 'ADMIN']}>
+                  <ReadingHistoryPage />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="/notifications"
+              element={
+                <RequireRole allowed={['VIEWER', 'STUDENT', 'STAFF', 'ADMIN']}>
+                  <NotificationsPage />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="/analytics"
+              element={
+                <RequireRole allowed={['ADMIN', 'STAFF']}>
+                  <AnalyticsDashboardPage />
+                </RequireRole>
+              }
+            />
             {/* Page de test - à supprimer en production */}
             <Route path="/test-roles" element={<TestRolesPage />} />
           </Routes>

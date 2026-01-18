@@ -122,6 +122,47 @@ export const searchService = {
       publications: pubResponse.content,
       blog: (blogResponse as SearchResponse).content || []
     };
+  },
+
+  /**
+   * Recherche par auteur (Elasticsearch)
+   */
+  async searchByAuthor(author: string, page: number = 0, size: number = 10): Promise<SearchResponse> {
+    const response = await apiClient.get(`/search/publications/author/${encodeURIComponent(author)}`, {
+      params: { page, size }
+    });
+    return response.data;
+  },
+
+  /**
+   * Recherche blog par catégorie (Elasticsearch)
+   */
+  async searchBlogByCategory(category: string, page: number = 0, size: number = 10): Promise<SearchResponse> {
+    const response = await apiClient.get(`/search/blog/category/${encodeURIComponent(category)}`, {
+      params: { page, size }
+    });
+    return response.data;
+  },
+
+  /**
+   * Déclencher la réindexation complète (ADMIN uniquement)
+   */
+  async reindexAll(): Promise<void> {
+    await apiClient.post('/search/reindex');
+  },
+
+  /**
+   * Indexer une publication spécifique
+   */
+  async indexPublication(publicationId: number): Promise<void> {
+    await apiClient.post(`/search/publications/${publicationId}/index`);
+  },
+
+  /**
+   * Indexer un article de blog spécifique
+   */
+  async indexBlogArticle(articleId: number): Promise<void> {
+    await apiClient.post(`/search/blog/${articleId}/index`);
   }
 };
 

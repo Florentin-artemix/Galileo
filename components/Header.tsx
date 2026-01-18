@@ -4,6 +4,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import SearchBar from './SearchBar';
+import NotificationCenter from './NotificationCenter';
 
 const SunIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -79,6 +80,9 @@ const Header: React.FC = () => {
 
           {/* Actions de droite */}
           <div className="flex items-center gap-2">
+            {/* Notifications - pour utilisateurs connectés */}
+            {isAuthenticated && <NotificationCenter />}
+
             {/* Thème */}
             <button
               onClick={toggleTheme}
