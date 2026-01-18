@@ -9,6 +9,9 @@ import { UserRole } from '../src/services/authService';
 import { ROLE_LABELS } from '../src/constants/roles';
 import RoleBadge from '../components/RoleBadge';
 import ProfileCard from '../components/ProfileCard';
+import QuickStats from '../components/QuickStats';
+import ReadingHistoryWidget from '../components/ReadingHistoryWidget';
+import FavoritesWidget from '../components/FavoritesWidget';
 
 interface Soumission {
   id: number;
@@ -1059,52 +1062,95 @@ const TabButton = ({ active, onClick, icon, badge, children }: any) => (
   </button>
 );
 
-const DashboardView = ({ stats, pending, publications, events }: any) => (
-  <div>
-    {/* Stats Cards */}
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-      <StatCard title="Total Utilisateurs" value={stats.totalUsers} icon="👥" color="border-blue-500" />
-      <StatCard title="Publications" value={stats.totalPublications} icon="📚" color="border-green-500" />
-      <StatCard title="Événements" value={stats.totalEvents} icon="🎯" color="border-purple-500" />
-      <StatCard title="En attente" value={stats.pendingSubmissions} icon="⏳" color="border-orange-500" />
-    </div>
+const DashboardView = ({ stats, pending, publications, events }: any) => {
+  const { user, role } = useAuth();
+  
+  return (
+    <div className="space-y-6">
+      {/* Stats Cards Modernes */}
+      <QuickStats userId={user?.uid} role={role} />
 
-    {/* Recent Activity */}
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
-        <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">📝 Soumissions récentes</h3>
-        {pending.length === 0 ? (
-          <p className="text-gray-500 dark:text-gray-400 text-center py-8">Aucune soumission en attente</p>
-        ) : (
-          <div className="space-y-3">
-            {pending.slice(0, 5).map((s: any) => (
-              <div key={s.id} className="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition">
-                <p className="font-medium text-gray-900 dark:text-white truncate">{s.titre}</p>
-                <p className="text-sm text-gray-600 dark:text-gray-400">{s.auteurPrincipal}</p>
-              </div>
-            ))}
-          </div>
-        )}
+      {/* Widgets Lecture et Favoris */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <ReadingHistoryWidget />
+        <FavoritesWidget />
       </div>
 
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
-        <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">🎯 Événements à venir</h3>
-        {events.length === 0 ? (
-          <p className="text-gray-500 dark:text-gray-400 text-center py-8">Aucun événement</p>
-        ) : (
-          <div className="space-y-3">
-            {events.slice(0, 5).map((e: any) => (
-              <div key={e.id} className="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition">
-                <p className="font-medium text-gray-900 dark:text-white truncate">{e.title?.fr || 'Sans titre'}</p>
-                <p className="text-sm text-gray-600 dark:text-gray-400">{e.date}</p>
-              </div>
-            ))}
+      {/* Recent Activity */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="p-2 bg-orange-100 dark:bg-orange-900/30 rounded-lg">
+              <svg className="w-6 h-6 text-orange-600 dark:text-orange-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+            </div>
+            <div>
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white">Soumissions récentes</h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400">{pending.length} en attente</p>
+            </div>
           </div>
-        )}
+          {pending.length === 0 ? (
+            <div className="text-center py-8">
+              <svg className="w-16 h-16 mx-auto text-gray-300 dark:text-gray-600 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              <p className="text-gray-500 dark:text-gray-400 text-sm">Aucune soumission en attente</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {pending.slice(0, 5).map((s: any) => (
+                <div key={s.id} className="p-3 bg-gray-50 dark:bg-gray-700/30 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700/50 transition border border-transparent hover:border-orange-200 dark:hover:border-orange-800 cursor-pointer">
+                  <p className="font-medium text-gray-900 dark:text-white truncate">{s.titre}</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">{s.auteurPrincipal}</p>
+                  <span className="inline-block mt-2 px-2 py-0.5 text-xs bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 rounded-full">
+                    {s.statut || 'EN_ATTENTE'}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="p-2 bg-teal-100 dark:bg-teal-900/30 rounded-lg">
+              <svg className="w-6 h-6 text-teal-600 dark:text-teal-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+            </div>
+            <div>
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white">Événements à venir</h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400">{events.length} événements</p>
+            </div>
+          </div>
+          {events.length === 0 ? (
+            <div className="text-center py-8">
+              <svg className="w-16 h-16 mx-auto text-gray-300 dark:text-gray-600 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              <p className="text-gray-500 dark:text-gray-400 text-sm">Aucun événement</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {events.slice(0, 5).map((e: any) => (
+                <div key={e.id} className="p-3 bg-gray-50 dark:bg-gray-700/30 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700/50 transition border border-transparent hover:border-teal-200 dark:hover:border-teal-800 cursor-pointer">
+                  <p className="font-medium text-gray-900 dark:text-white truncate">{e.title?.fr || 'Sans titre'}</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">{e.date}</p>
+                  {e.type?.fr && (
+                    <span className="inline-block mt-2 px-2 py-0.5 text-xs bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 rounded-full">
+                      {e.type.fr}
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
-  </div>
-);
+  );
+};
 
 const PendingSubmissionsView = ({ pending, onUpdateStatut }: any) => (
   <div>
