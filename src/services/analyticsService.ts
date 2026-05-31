@@ -1,4 +1,16 @@
 import apiClient from './apiService';
+import { favoritesService } from './favoritesService';
+import { readingHistoryService } from './readingHistoryService';
+
+/**
+ * Résumé d'analytics simplifié pour les widgets (QuickStats)
+ */
+export interface AnalyticsSummary {
+  totalPublications: number;
+  totalReads: number;
+  totalDownloads: number;
+  totalFavorites: number;
+}
 
 /**
  * Interface pour les statistiques du dashboard
@@ -112,6 +124,36 @@ export const analyticsService = {
   async getPublicationAnalytics(publicationId: number): Promise<PublicationAnalytics> {
     const response = await apiClient.get(`/analytics/publications/${publicationId}`);
     return response.data;
+  },
+
+  /**
+   * Résumé global pour les widgets admin/staff (mappe /analytics/dashboard)
+   */
+  async getGlobalAnalytics(): Promise<AnalyticsSummary> {
+    const stats = await this.getDashboardStats();
+    return {
+      totalPublications: stats.totalPublications || 0,
+      totalReads: stats.totalViews || 0,
+      totalDownloads: stats.totalDownloads || 0,
+      totalFavorites: 0, // non exposé par le dashboard global
+    };
+  },
+
+  /**
+   * Résumé personnel d'un utilisateur (agrège favoris + historique de lecture)
+   * Pas d'endpoint analytics dédié par utilisateur : on agrège les services existants.
+   */
+  async getUserAnalytics(_userId?: string): Promise<AnalyticsSummary> {
+    const [favorites, history] = await Promise.all([
+      favoritesService.getMyFavorites().catch(() => []),
+      readingHistoryService.getMyHistory().catch(() => []),
+    ]);
+    return {
+      totalPublications: 0,
+      totalReads: history.length,
+      totalDownloads: 0,
+      totalFavorites: favorites.length,
+    };
   },
 
   // ============ HELPERS ============

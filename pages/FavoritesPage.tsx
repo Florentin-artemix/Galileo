@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { favoritesService, Favorite } from '../src/services/favoritesService';
 import FavoriteButton from '../components/FavoriteButton';
@@ -46,16 +47,16 @@ const FavoritesPage: React.FC = () => {
 
   // Filtrage et tri
   const filteredFavorites = favorites
-    .filter(f => filterType === 'all' || f.publicationType === filterType)
+    .filter(f => filterType === 'all' || f.publicationDomain === filterType)
     .sort((a, b) => {
       if (sortBy === 'addedAt') {
-        return new Date(b.addedAt).getTime() - new Date(a.addedAt).getTime();
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
       }
       return (a.publicationTitle || '').localeCompare(b.publicationTitle || '');
     });
 
   // Types uniques pour le filtre
-  const uniqueTypes = [...new Set(favorites.map(f => f.publicationType).filter(Boolean))];
+  const uniqueTypes = [...new Set(favorites.map(f => f.publicationDomain).filter(Boolean))];
 
   if (!user) {
     return (
@@ -67,9 +68,9 @@ const FavoritesPage: React.FC = () => {
           <h2 className="mt-4 text-xl font-semibold text-gray-700 dark:text-gray-300">
             Connectez-vous pour voir vos favoris
           </h2>
-          <a href="/auth" className="mt-4 inline-block px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+          <Link to="/auth" className="mt-4 inline-block px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
             Se connecter
-          </a>
+          </Link>
         </div>
       </div>
     );
@@ -109,7 +110,7 @@ const FavoritesPage: React.FC = () => {
           
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Type
+              Domaine
             </label>
             <select
               value={filterType}
@@ -173,25 +174,32 @@ const FavoritesPage: React.FC = () => {
                 <div className="p-6">
                   <div className="flex justify-between items-start mb-3">
                     <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200">
-                      {favorite.publicationType || 'Publication'}
+                      {favorite.publicationDomain || 'Publication'}
                     </span>
                     <FavoriteButton
                       publicationId={favorite.publicationId}
-                      onToggle={(isFav) => !isFav && handleRemove(favorite.publicationId)}
+                      publicationTitle={favorite.publicationTitle}
+                      publicationAuthors={favorite.publicationAuthors}
+                      publicationDomain={favorite.publicationDomain}
+                      onToggle={(isFav) => {
+                        if (!isFav) {
+                          setFavorites(prev => prev.filter(f => f.publicationId !== favorite.publicationId));
+                        }
+                      }}
                     />
                   </div>
                   
-                  <a
-                    href={`/publications/${favorite.publicationId}`}
+                  <Link
+                    to={`/publication/${favorite.publicationId}`}
                     className="block"
                   >
                     <h3 className="text-lg font-semibold text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 line-clamp-2">
                       {favorite.publicationTitle || `Publication #${favorite.publicationId}`}
                     </h3>
-                  </a>
+                  </Link>
                   
                   <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-                    Ajouté le {new Date(favorite.addedAt).toLocaleDateString('fr-FR', {
+                    Ajouté le {new Date(favorite.createdAt).toLocaleDateString('fr-FR', {
                       day: 'numeric',
                       month: 'long',
                       year: 'numeric'
@@ -200,12 +208,12 @@ const FavoritesPage: React.FC = () => {
                 </div>
                 
                 <div className="px-6 py-3 bg-gray-50 dark:bg-gray-700/50 flex justify-between items-center">
-                  <a
-                    href={`/publications/${favorite.publicationId}`}
+                  <Link
+                    to={`/publication/${favorite.publicationId}`}
                     className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
                   >
                     Voir la publication →
-                  </a>
+                  </Link>
                   
                   <button
                     onClick={() => handleRemove(favorite.publicationId)}

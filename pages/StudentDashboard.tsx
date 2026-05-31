@@ -441,7 +441,7 @@ const PublicationsView = ({ publications }: any) => (
               {publications.map((pub: any) => (
                 <tr key={pub.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                   <td className="px-6 py-4 font-medium text-gray-900 dark:text-white max-w-md">
-                    <NavLink to={`/publications/${pub.id}`} className="hover:text-teal underline">
+                    <NavLink to={`/publication/${pub.id}`} className="hover:text-teal underline">
                       {pub.titre}
                     </NavLink>
                   </td>

@@ -42,9 +42,15 @@ services:
       - SPRING_PROFILES_ACTIVE=docker
       - LECTURE_SERVICE_URL=http://service-lecture:8081
       - ECRITURE_SERVICE_URL=http://service-ecriture:8082
+      - USERPROFILE_SERVICE_URL=http://userprofile:8083
+      - NOTIFICATION_SERVICE_URL=http://notification:8084
+      - ANALYTICS_SERVICE_URL=http://analytics:8085
     depends_on:
       - service-lecture
       - service-ecriture
+      - userprofile
+      - notification
+      - analytics
     volumes:
       - ./backend/galileo-gateway/config:/app/config:ro
     networks:
@@ -122,6 +128,87 @@ services:
       retries: 5
 
   # ==========================================
+  # BACKEND - Service User Profile (Favoris / Historique)
+  # ==========================================
+  userprofile:
+    build:
+      context: ./backend/galileo-user-profile
+      dockerfile: Dockerfile
+    container_name: galileo-userprofile
+    ports:
+      - "8083:8083"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://db-userprofile:5432/db_galileo_userprofile
+      - SPRING_DATASOURCE_USERNAME=galileo_user
+      - SPRING_DATASOURCE_PASSWORD=galileo_pass_2025
+      - SERVICES_LECTURE_URL=http://service-lecture:8081
+    depends_on:
+      db-userprofile:
+        condition: service_healthy
+    networks:
+      - galileo-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8083/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # ==========================================
+  # BACKEND - Service Notification
+  # ==========================================
+  notification:
+    build:
+      context: ./backend/galileo-notification
+      dockerfile: Dockerfile
+    container_name: galileo-notification
+    ports:
+      - "8084:8084"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - SPRING_DATA_MONGODB_URI=mongodb://mongodb:27017/galileo_notifications
+    depends_on:
+      - mongodb
+    networks:
+      - galileo-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8084/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # ==========================================
+  # BACKEND - Service Analytics
+  # ==========================================
+  analytics:
+    build:
+      context: ./backend/galileo-analytics
+      dockerfile: Dockerfile
+    container_name: galileo-analytics
+    ports:
+      - "8085:8085"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://db-analytics:5432/db_galileo_analytics
+      - SPRING_DATASOURCE_USERNAME=galileo_user
+      - SPRING_DATASOURCE_PASSWORD=galileo_pass_2025
+      - SERVICES_LECTURE_URL=http://service-lecture:8081
+      - SERVICES_ECRITURE_URL=http://service-ecriture:8082
+    depends_on:
+      db-analytics:
+        condition: service_healthy
+    networks:
+      - galileo-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8085/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # ==========================================
   # DATABASE - Service Lecture
   # ==========================================
   db-lecture:
@@ -168,6 +255,71 @@ services:
       retries: 5
 
   # ==========================================
+  # DATABASE - Service User Profile
+  # ==========================================
+  db-userprofile:
+    image: postgres:16-alpine
+    container_name: galileo-db-userprofile
+    environment:
+      POSTGRES_DB: db_galileo_userprofile
+      POSTGRES_USER: galileo_user
+      POSTGRES_PASSWORD: galileo_pass_2025
+    ports:
+      - "5434:5432"
+    volumes:
+      - postgres-userprofile-data:/var/lib/postgresql/data
+    networks:
+      - galileo-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U galileo_user -d db_galileo_userprofile"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ==========================================
+  # DATABASE - Service Analytics
+  # ==========================================
+  db-analytics:
+    image: postgres:16-alpine
+    container_name: galileo-db-analytics
+    environment:
+      POSTGRES_DB: db_galileo_analytics
+      POSTGRES_USER: galileo_user
+      POSTGRES_PASSWORD: galileo_pass_2025
+    ports:
+      - "5435:5432"
+    volumes:
+      - postgres-analytics-data:/var/lib/postgresql/data
+    networks:
+      - galileo-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U galileo_user -d db_galileo_analytics"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ==========================================
+  # DATABASE - MongoDB (Notifications)
+  # ==========================================
+  mongodb:
+    image: mongo:7
+    container_name: galileo-mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb-data:/data/db
+    networks:
+      - galileo-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+
+  # ==========================================
   # ELASTICSEARCH - Recherche Avancée
   # ==========================================
   elasticsearch:
@@ -199,6 +351,12 @@ volumes:
     name: galileo-postgres-lecture
   postgres-ecriture-data:
     name: galileo-postgres-ecriture
+  postgres-userprofile-data:
+    name: galileo-postgres-userprofile
+  postgres-analytics-data:
+    name: galileo-postgres-analytics
+  mongodb-data:
+    name: galileo-mongodb
   elasticsearch-data:
     name: galileo-elasticsearch
 

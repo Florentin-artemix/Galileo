@@ -1,17 +1,18 @@
 import React, { useEffect, useState } from 'react';
-import { lectureService, type FavoritePublication } from '../src/services/lectureService';
+import { Link } from 'react-router-dom';
+import { favoritesService, type Favorite } from '../src/services/favoritesService';
 import { useAuth } from '../contexts/AuthContext';
 
 const FavoritesWidget: React.FC = () => {
   const { user } = useAuth();
-  const [favorites, setFavorites] = useState<FavoritePublication[]>([]);
+  const [favorites, setFavorites] = useState<Favorite[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const loadFavorites = async () => {
       if (!user) return;
       try {
-        const data = await lectureService.getUserFavorites(user.uid);
+        const data = await favoritesService.getMyFavorites();
         setFavorites(data.slice(0, 4)); // Top 4
       } catch (error) {
         console.debug('[Favorites] Pas de favoris disponibles');
@@ -76,7 +77,7 @@ const FavoritesWidget: React.FC = () => {
                   {item.publicationTitle || 'Publication'}
                 </h4>
                 <span className="text-xs text-gray-500 dark:text-gray-400">
-                  {new Date(item.addedAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+                  {new Date(item.createdAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
                 </span>
               </div>
             </div>
@@ -85,9 +86,9 @@ const FavoritesWidget: React.FC = () => {
       )}
 
       {favorites.length > 0 && (
-        <button className="w-full mt-4 py-2 text-sm text-rose-600 dark:text-rose-400 hover:text-rose-700 dark:hover:text-rose-300 font-medium hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg transition-colors">
+        <Link to="/favorites" className="block w-full mt-4 py-2 text-center text-sm text-rose-600 dark:text-rose-400 hover:text-rose-700 dark:hover:text-rose-300 font-medium hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg transition-colors">
           Gérer les favoris →
-        </button>
+        </Link>
       )}
     </div>
   );

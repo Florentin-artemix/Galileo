@@ -103,8 +103,10 @@ const SinglePublicationPage: React.FC = () => {
   const trackView = async (pubId: number, title: string) => {
     try {
       await Promise.all([
-        analyticsService.trackPublicationView(pubId, title),
-        isAuthenticated ? readingHistoryService.recordReading(pubId) : Promise.resolve()
+        analyticsService.trackPublicationView(pubId),
+        isAuthenticated
+          ? readingHistoryService.recordReading({ publicationId: pubId, publicationTitle: title })
+          : Promise.resolve()
       ]);
     } catch (err) {
       console.debug('Tracking error:', err);
@@ -144,7 +146,13 @@ const SinglePublicationPage: React.FC = () => {
                 <p className="text-light-accent dark:text-teal font-bold">{publication.domain[language]}</p>
                 {/* Bouton Favori */}
                 {isAuthenticated && (
-                  <FavoriteButton publicationId={publication.id} size="lg" />
+                  <FavoriteButton
+                    publicationId={publication.id}
+                    publicationTitle={publication.title[language]}
+                    publicationAuthors={publication.authors.join(', ')}
+                    publicationDomain={publication.domain[language]}
+                    size="lg"
+                  />
                 )}
               </div>
               <h1 className="text-3xl md:text-4xl font-poppins font-bold mb-4 text-light-text dark:text-off-white break-words">{publication.title[language]}</h1>
@@ -173,7 +181,13 @@ const SinglePublicationPage: React.FC = () => {
                           <div className="mb-6 flex flex-wrap gap-4 items-center">
                               <DownloadButton publicationId={publication.id} />
                               {isAuthenticated && (
-                                <FavoriteButton publicationId={publication.id} showLabel />
+                                <FavoriteButton
+                                  publicationId={publication.id}
+                                  publicationTitle={publication.title[language]}
+                                  publicationAuthors={publication.authors.join(', ')}
+                                  publicationDomain={publication.domain[language]}
+                                  showLabel
+                                />
                               )}
                           </div>
                           {/* Progression de lecture */}
@@ -203,7 +217,15 @@ const SinglePublicationPage: React.FC = () => {
                 <NavLink key={pub.id} to={`/publication/${pub.id}`} className="block bg-light-card dark:bg-navy/50 p-4 rounded-lg border border-light-border dark:border-dark-border transform hover:-translate-y-1 transition-transform duration-300 shadow-lg hover:shadow-xl dark:hover:shadow-teal/20">
                   <div className="flex justify-between items-start mb-2">
                     <h3 className="font-poppins font-bold text-base line-clamp-2 text-light-text dark:text-off-white">{pub.title[language]}</h3>
-                    {isAuthenticated && <FavoriteButton publicationId={pub.id} size="sm" />}
+                    {isAuthenticated && (
+                      <FavoriteButton
+                        publicationId={pub.id}
+                        publicationTitle={pub.title[language]}
+                        publicationAuthors={pub.authors.join(', ')}
+                        publicationDomain={pub.domain[language]}
+                        size="sm"
+                      />
+                    )}
                   </div>
                   <p className="text-xs text-light-accent dark:text-teal">{pub.authors.join(', ')}</p>
                 </NavLink>

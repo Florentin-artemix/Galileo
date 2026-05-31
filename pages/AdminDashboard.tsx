@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { soumissionsService, publicationsService, PublicationDTO } from '../src/services/publicationsService';
 import { usersService, UserDTO } from '../src/services/usersService';
 import { eventService } from '../src/services/eventService';
@@ -1075,6 +1076,27 @@ const DashboardView = ({ stats, pending, publications, events }: any) => {
         <ReadingHistoryWidget />
         <FavoritesWidget />
       </div>
+
+      {/* Accès aux analytics avancées */}
+      <Link
+        to="/analytics"
+        className="flex items-center justify-between bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-shadow"
+      >
+        <div className="flex items-center gap-4">
+          <div className="p-3 bg-white/20 rounded-lg">
+            <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+            </svg>
+          </div>
+          <div>
+            <h3 className="text-lg font-bold">Analytics avancées</h3>
+            <p className="text-sm text-white/80">Vues, téléchargements et tendances détaillées</p>
+          </div>
+        </div>
+        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+        </svg>
+      </Link>
 
       {/* Recent Activity */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
