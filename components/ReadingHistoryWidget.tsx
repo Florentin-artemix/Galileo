@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { lectureService, type ReadingHistoryItem } from '../src/services/lectureService';
+import { Link } from 'react-router-dom';
+import { readingHistoryService, type ReadingHistoryItem } from '../src/services/readingHistoryService';
 import { useAuth } from '../contexts/AuthContext';
 
 const ReadingHistoryWidget: React.FC = () => {
@@ -11,7 +12,7 @@ const ReadingHistoryWidget: React.FC = () => {
     const loadHistory = async () => {
       if (!user) return;
       try {
-        const data = await lectureService.getUserReadingHistory(user.uid);
+        const data = await readingHistoryService.getMyHistory();
         setHistory(data.slice(0, 5)); // Top 5 récents
       } catch (error) {
         console.debug('[ReadingHistory] Pas d\'historique disponible');
@@ -75,16 +76,16 @@ const ReadingHistoryWidget: React.FC = () => {
                 </h4>
                 <div className="flex items-center gap-2 mt-1">
                   <span className="text-xs text-gray-500 dark:text-gray-400">
-                    {new Date(item.lastReadAt).toLocaleDateString('fr-FR', { 
+                    {new Date(item.readAt).toLocaleDateString('fr-FR', { 
                       day: 'numeric', 
                       month: 'short',
                       hour: '2-digit',
                       minute: '2-digit'
                     })}
                   </span>
-                  {item.progress && item.progress > 0 && (
+                  {item.readProgress && item.readProgress > 0 && (
                     <span className="px-2 py-0.5 bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 text-xs rounded-full font-medium">
-                      {Math.round(item.progress)}%
+                      {Math.round(item.readProgress)}%
                     </span>
                   )}
                 </div>
@@ -95,9 +96,9 @@ const ReadingHistoryWidget: React.FC = () => {
       )}
 
       {history.length > 0 && (
-        <button className="w-full mt-4 py-2 text-sm text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 font-medium hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-lg transition-colors">
+        <Link to="/history" className="block w-full mt-4 py-2 text-center text-sm text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 font-medium hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-lg transition-colors">
           Voir tout l'historique →
-        </button>
+        </Link>
       )}
     </div>
   );

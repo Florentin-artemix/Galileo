@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { notificationService, Notification, NotificationType } from '../src/services/notificationService';
 
@@ -240,12 +241,13 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ className = '' 
             {/* Footer */}
             {notifications.length > 0 && (
               <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-700">
-                <a
-                  href="/notifications"
+                <Link
+                  to="/notifications"
                   className="block text-center text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400"
+                  onClick={() => setIsOpen(false)}
                 >
                   Voir toutes les notifications
-                </a>
+                </Link>
               </div>
             )}
           </div>

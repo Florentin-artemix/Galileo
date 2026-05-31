@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { analyticsService, DashboardStats } from '../src/services/analyticsService';
 import { useRole } from '../hooks/useRole';
@@ -17,7 +18,7 @@ const AnalyticsDashboardPage: React.FC = () => {
   const [topPublications, setTopPublications] = useState<any[]>([]);
   const [recentActivity, setRecentActivity] = useState<any[]>([]);
 
-  const isAdmin = role === 'admin' || role === 'staff';
+  const isAdmin = role === 'ADMIN' || role === 'STAFF';
 
   useEffect(() => {
     if (user && isAdmin) {
@@ -74,9 +75,9 @@ const AnalyticsDashboardPage: React.FC = () => {
           <h2 className="text-xl font-semibold text-gray-700 dark:text-gray-300">
             Connectez-vous pour accéder aux analytics
           </h2>
-          <a href="/auth" className="mt-4 inline-block px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+          <Link to="/auth" className="mt-4 inline-block px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
             Se connecter
-          </a>
+          </Link>
         </div>
       </div>
     );

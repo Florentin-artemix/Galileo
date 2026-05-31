@@ -3,79 +3,97 @@ import { useAuth } from '../contexts/AuthContext';
 import { favoritesService } from '../src/services/favoritesService';
 
 interface FavoriteButtonProps {
-  publication: {
-    id: number;
-    titre: string;
-    auteurs: string;
-    domaine: string;
-  };
-  size?: 'small' | 'medium' | 'large';
-  showCount?: boolean;
+  /** Identifiant de la publication */
+  publicationId: number;
+  /** Métadonnées optionnelles enregistrées avec le favori */
+  publicationTitle?: string;
+  publicationAuthors?: string;
+  publicationDomain?: string;
+  /** Taille du bouton */
+  size?: 'sm' | 'md' | 'lg';
+  /** Afficher un libellé textuel à côté de l'icône */
+  showLabel?: boolean;
+  /** Callback appelé après bascule, avec le nouvel état favori */
+  onToggle?: (isFavorite: boolean) => void;
   className?: string;
 }
 
 /**
- * Bouton favori pour ajouter/retirer une publication des favoris
+ * Bouton favori pour ajouter/retirer une publication des favoris.
+ * Exploite le microservice galileo-user-profile via favoritesService.
  */
 const FavoriteButton: React.FC<FavoriteButtonProps> = ({
-  publication,
-  size = 'medium',
-  showCount = false,
-  className = ''
+  publicationId,
+  publicationTitle,
+  publicationAuthors,
+  publicationDomain,
+  size = 'md',
+  showLabel = false,
+  onToggle,
+  className = '',
 }) => {
   const { user } = useAuth();
   const [isFavorite, setIsFavorite] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [count, setCount] = useState(0);
 
-  // Vérifier si c'est un favori au chargement
+  // Vérifier le statut favori au chargement
   useEffect(() => {
-    if (user) {
-      checkFavoriteStatus();
-    }
-  }, [user, publication.id]);
-
-  const checkFavoriteStatus = async () => {
-    try {
-      const status = await favoritesService.isFavorite(publication.id);
-      setIsFavorite(status);
-    } catch (error) {
-      console.warn('Failed to check favorite status:', error);
-    }
-  };
+    let cancelled = false;
+    const check = async () => {
+      if (!user) {
+        setIsFavorite(false);
+        return;
+      }
+      try {
+        const status = await favoritesService.isFavorite(publicationId);
+        if (!cancelled) setIsFavorite(status);
+      } catch (error) {
+        console.warn('[FavoriteButton] Échec de la vérification du favori:', error);
+      }
+    };
+    check();
+    return () => {
+      cancelled = true;
+    };
+  }, [user, publicationId]);
 
   const handleToggle = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
 
     if (!user) {
-      // Rediriger vers la page de connexion ou afficher un message
       alert('Vous devez être connecté pour ajouter aux favoris');
       return;
     }
 
     setIsLoading(true);
     try {
-      const newStatus = await favoritesService.toggleFavorite(publication);
+      let newStatus: boolean;
+      if (isFavorite) {
+        await favoritesService.removeFavorite(publicationId);
+        newStatus = false;
+      } else {
+        await favoritesService.addFavorite({
+          publicationId,
+          publicationTitle,
+          publicationAuthors,
+          publicationDomain,
+        });
+        newStatus = true;
+      }
       setIsFavorite(newStatus);
-      setCount(prev => newStatus ? prev + 1 : Math.max(0, prev - 1));
+      onToggle?.(newStatus);
     } catch (error) {
-      console.error('Failed to toggle favorite:', error);
+      console.error('[FavoriteButton] Échec de la bascule du favori:', error);
     } finally {
       setIsLoading(false);
     }
   };
 
   const sizeClasses = {
-    small: 'w-6 h-6',
-    medium: 'w-8 h-8',
-    large: 'w-10 h-10'
-  };
-
-  const iconSize = {
-    small: 16,
-    medium: 20,
-    large: 24
+    sm: 'w-5 h-5',
+    md: 'w-6 h-6',
+    lg: 'w-7 h-7',
   };
 
   return (
@@ -83,7 +101,7 @@ const FavoriteButton: React.FC<FavoriteButtonProps> = ({
       onClick={handleToggle}
       disabled={isLoading}
       className={`
-        inline-flex items-center gap-1 p-2 rounded-full
+        inline-flex items-center gap-2 p-2 rounded-full
         transition-all duration-200 ease-in-out
         ${isFavorite
           ? 'text-red-500 bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/30'
@@ -94,6 +112,7 @@ const FavoriteButton: React.FC<FavoriteButtonProps> = ({
       `}
       title={isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
       aria-label={isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
+      aria-pressed={isFavorite}
     >
       <svg
         xmlns="http://www.w3.org/2000/svg"
@@ -109,8 +128,10 @@ const FavoriteButton: React.FC<FavoriteButtonProps> = ({
           d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
         />
       </svg>
-      {showCount && count > 0 && (
-        <span className="text-sm font-medium">{count}</span>
+      {showLabel && (
+        <span className="text-sm font-medium">
+          {isFavorite ? 'Dans vos favoris' : 'Ajouter aux favoris'}
+        </span>
       )}
     </button>
   );

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { searchService, SearchResult } from '../src/services/searchService';
 
 interface SimilarPublicationsProps {
@@ -78,8 +79,8 @@ const SimilarPublications: React.FC<SimilarPublicationsProps> = ({
       <ul className="space-y-3">
         {publications.map((pub) => (
           <li key={pub.id}>
-            <a
-              href={`/publications/${pub.publicationId}`}
+            <Link
+              to={`/publication/${pub.publicationId}`}
               className="block group hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg p-2 -m-2 transition-colors"
             >
               <h4 className="text-sm font-medium text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 line-clamp-2">
@@ -102,17 +103,17 @@ const SimilarPublications: React.FC<SimilarPublicationsProps> = ({
                   <span>{new Date(pub.datePublication).getFullYear()}</span>
                 )}
               </div>
-            </a>
+            </Link>
           </li>
         ))}
       </ul>
       
-      <a
-        href={`/publications?similar=${publicationId}`}
+      <Link
+        to={`/publications?similar=${publicationId}`}
         className="mt-4 block text-center text-sm text-blue-600 dark:text-blue-400 hover:underline"
       >
         Voir plus →
-      </a>
+      </Link>
     </div>
   );
 };

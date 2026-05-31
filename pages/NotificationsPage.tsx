@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { notificationService, Notification, NotificationPreferences, NotificationType, PaginatedNotifications } from '../src/services/notificationService';
 
@@ -192,9 +193,9 @@ const NotificationsPage: React.FC = () => {
           <h2 className="mt-4 text-xl font-semibold text-gray-700 dark:text-gray-300">
             Connectez-vous pour voir vos notifications
           </h2>
-          <a href="/auth" className="mt-4 inline-block px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+          <Link to="/auth" className="mt-4 inline-block px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
             Se connecter
-          </a>
+          </Link>
         </div>
       </div>
     );
