@@ -5,7 +5,7 @@ import { useRole } from '../hooks/useRole';
 
 /**
  * Dashboard Analytics pour administrateurs
- * Exploite galileo-analytics: tous les endpoints
+ * Exploite le backend: tous les endpoints
  */
 const AnalyticsDashboardPage: React.FC = () => {
   const { user } = useAuth();

@@ -1,20 +1,41 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# GALILEO
 
-# Run and deploy your AI Studio app
+Galileo est une plateforme permettant la gestion de ressources et d'innovations pour la Faculté Polytechnique (Université Mapon). 
 
-This contains everything you need to run your app locally.
+## Architecture (Galileo v3)
+L'application suit une architecture de monolithe modulaire :
+- **Frontend** : React + TypeScript + Vite
+- **Backend** : Spring Boot 3.3.4 (Java 21), Maven
+- **Base de données** : PostgreSQL + pgvector + Flyway
+- **Stockage** : Cloudflare R2
+- **IA** : DeepSeek API (LLM) et Qwen text-embedding-v4 (Embeddings)
+- **Sécurité** : Spring Security + JWT
+- **Déploiement** : Java/JAR sur Heroku
 
-View your app in AI Studio: https://ai.studio/apps/drive/1W2M3GsFToDzaY3ZksOyFuDubixdvJ-eb
+## Installation et Utilisation
 
-## Run Locally
+### Variables d'environnement
+Copiez le fichier `.env.example` en `.env` à la racine du projet et configurez les variables nécessaires (Frontend, Base de données, JWT, Cloudflare R2, DeepSeek, Qwen). Ne commitez jamais vos clés secrètes.
 
-**Prerequisites:**  Node.js
+### Frontend
+1. Assurez-vous d'avoir Node.js installé (version 20+ recommandée).
+2. Installez les dépendances :
+   ```bash
+   npm install
+   ```
+3. Lancez le serveur de développement :
+   ```bash
+   npm run dev
+   ```
 
-
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+### Backend
+1. Assurez-vous d'avoir Java 21 d'installé.
+2. Déplacez-vous dans le dossier backend :
+   ```bash
+   cd backend
+   ```
+3. Compilez et exécutez avec Maven Wrapper :
+   ```bash
+   ./mvnw clean package
+   ./mvnw spring-boot:run
+   ```

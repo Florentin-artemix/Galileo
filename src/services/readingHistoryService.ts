@@ -33,7 +33,7 @@ export interface PaginatedHistory {
 
 /**
  * Service pour gérer l'historique de lecture utilisateur
- * Exploite le microservice galileo-user-profile
+ * Exploite le backend
  */
 export const readingHistoryService = {
   /**

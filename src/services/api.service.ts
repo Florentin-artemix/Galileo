@@ -162,7 +162,7 @@ export const eventsApi = {
   },
 };
 
-// Service API pour la recherche Elasticsearch
+// Service API pour la recherche Backend
 export const searchApi = {
   async searchPublications(query: string, page = 0, size = 10) {
     const response = await fetch(

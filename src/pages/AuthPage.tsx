@@ -138,7 +138,7 @@ const AuthPage: React.FC = () => {
 
     try {
       if (isLogin) {
-        // 🔗 POINT D'INTÉGRATION 1: Login avec Firebase
+        // 🔗 POINT D'INTÉGRATION 1: Login avec Spring Security
         await authService.login(email, password);
         
         // Rediriger vers le dashboard approprié selon le rôle
@@ -151,7 +151,7 @@ const AuthPage: React.FC = () => {
         
         window.location.href = dashboardUrl;
       } else {
-        // 🔗 POINT D'INTÉGRATION 2: Inscription avec Firebase + rôle
+        // 🔗 POINT D'INTÉGRATION 2: Inscription avec Spring Security + rôle
         // Le rôle est passé à signup() et stocké dans localStorage
         await authService.signup(email, password, role, {
           displayName: name,
@@ -173,7 +173,7 @@ const AuthPage: React.FC = () => {
     } catch (err: any) {
       console.error('Authentication error:', err);
       
-      // Gestion des erreurs Firebase
+      // Gestion des erreurs
       if (err.code === 'auth/email-already-in-use') {
         setError(t.error_email_exists);
       } else if (err.code === 'auth/invalid-email') {

@@ -10,7 +10,7 @@ interface ReadingProgressProps {
 
 /**
  * Composant de suivi de progression de lecture
- * Utilise galileo-user-profile pour persister la progression
+ * Utilise le backend pour persister la progression
  */
 const ReadingProgress: React.FC<ReadingProgressProps> = ({
   publicationId,

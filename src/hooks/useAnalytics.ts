@@ -5,7 +5,7 @@ import { readingHistoryService, RecordReadingDTO } from '../services/readingHist
 
 /**
  * Hook pour le tracking automatique des analytics
- * Exploite galileo-analytics et galileo-user-profile
+ * Exploite le backend et le backend
  */
 export const useAnalytics = () => {
   const location = useLocation();

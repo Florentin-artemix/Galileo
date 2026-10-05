@@ -31,7 +31,7 @@ export interface PaginatedFavorites {
 
 /**
  * Service pour gérer les favoris utilisateur
- * Exploite le microservice galileo-user-profile
+ * Exploite le backend
  */
 export const favoritesService = {
   /**

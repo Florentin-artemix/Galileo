@@ -12,30 +12,13 @@ const apiClient: AxiosInstance = axios.create({
 });
 
 /**
- * Intercepteur pour ajouter automatiquement le token Firebase à chaque requête
+ * Intercepteur pour ajouter automatiquement le token JWT à chaque requête
  */
 apiClient.interceptors.request.use(
   async (config) => {
     const token = await authService.getIdToken();
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
-      
-      // Ajouter l'UID de l'utilisateur dans un header personnalisé
-      const user = authService.getCurrentUser();
-      if (user) {
-        config.headers['X-User-Id'] = user.uid;
-        config.headers['X-User-Email'] = user.email || '';
-        const role = await authService.getCurrentUserRole();
-        config.headers['X-User-Role'] = role;
-        console.log('[API] Request to:', config.url, '| Role header:', role);
-      }
-    } else {
-      // Même sans token, essayer de récupérer le rôle depuis localStorage
-      const storedRole = localStorage.getItem('galileo_user_role');
-      if (storedRole) {
-        config.headers['X-User-Role'] = storedRole;
-        console.log('[API] Request to:', config.url, '| Role from localStorage:', storedRole);
-      }
     }
     return config;
   },

@@ -4,7 +4,7 @@ import { notificationService, Notification, NotificationPreferences, Notificatio
 
 /**
  * Page Notifications complète
- * Exploite galileo-notification: tous les endpoints
+ * Exploite le backend: tous les endpoints
  */
 const NotificationsPage: React.FC = () => {
   const { user } = useAuth();

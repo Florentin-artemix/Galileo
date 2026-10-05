@@ -4,7 +4,7 @@ import { readingHistoryService, ReadingHistoryItem, PaginatedHistory } from '../
 
 /**
  * Page Historique de Lecture
- * Exploite galileo-user-profile: GET /userprofile/{uid}/history
+ * Exploite le backend: GET /userprofile/{uid}/history
  */
 const ReadingHistoryPage: React.FC = () => {
   const { user } = useAuth();

@@ -5,7 +5,7 @@ import FavoriteButton from '../components/FavoriteButton';
 
 /**
  * Page Mes Favoris
- * Exploite galileo-user-profile: GET /userprofile/{uid}/favorites
+ * Exploite le backend: GET /userprofile/{uid}/favorites
  */
 const FavoritesPage: React.FC = () => {
   const { user } = useAuth();

@@ -38,7 +38,7 @@ export interface UpdateEnrichedProfileDTO {
 
 /**
  * Service pour le profil utilisateur enrichi
- * Exploite le microservice galileo-user-profile
+ * Exploite le backend
  */
 export const userProfileEnrichedService = {
   /**

@@ -46,7 +46,7 @@ export const API_ENDPOINTS = {
     upcoming: `${API_BASE_URL}/evenements/a-venir`,
   },
 
-  // Recherche Elasticsearch
+  // Recherche Globale
   search: {
     publications: `${API_BASE_URL}/search/publications`,
     blog: `${API_BASE_URL}/search/blog`,
@@ -80,7 +80,7 @@ export const API_ENDPOINTS = {
     requestRevision: (id: number) => `${API_BASE_URL}/admin/soumissions/${id}/demander-revisions`,
   },
 
-  // Indexation Elasticsearch (Admin)
+  // Indexation (Admin)
   indexation: {
     publications: `${API_BASE_URL}/indexation/publications`,
     blog: `${API_BASE_URL}/indexation/blog`,

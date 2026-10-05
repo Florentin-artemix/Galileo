@@ -22,7 +22,7 @@ export interface SearchResponse {
 }
 
 /**
- * Service de recherche utilisant Elasticsearch
+ * Service de recherche utilisant Backend
  */
 export const searchService = {
   /**
@@ -125,7 +125,7 @@ export const searchService = {
   },
 
   /**
-   * Recherche par auteur (Elasticsearch)
+   * Recherche par auteur (Backend)
    */
   async searchByAuthor(author: string, page: number = 0, size: number = 10): Promise<SearchResponse> {
     const response = await apiClient.get(`/search/publications/author/${encodeURIComponent(author)}`, {
@@ -135,7 +135,7 @@ export const searchService = {
   },
 
   /**
-   * Recherche blog par catégorie (Elasticsearch)
+   * Recherche blog par catégorie (Backend)
    */
   async searchBlogByCategory(category: string, page: number = 0, size: number = 10): Promise<SearchResponse> {
     const response = await apiClient.get(`/search/blog/category/${encodeURIComponent(category)}`, {

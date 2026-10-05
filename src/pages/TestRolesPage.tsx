@@ -43,7 +43,7 @@ const TestRolesPage: React.FC = () => {
     setSuccess('');
 
     try {
-      // Créer le compte avec Firebase
+      // Créer le compte avec Backend
       await authService.signup(email, password, name);
       
       // Note: En production, l'admin doit changer le rôle via le dashboard

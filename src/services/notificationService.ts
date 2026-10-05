@@ -60,7 +60,7 @@ export interface PaginatedNotifications {
 
 /**
  * Service pour gérer les notifications utilisateur
- * Exploite le microservice galileo-notification
+ * Exploite le backend
  */
 export const notificationService = {
   /**

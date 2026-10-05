@@ -44,7 +44,7 @@ const ProfileCard: React.FC<ProfileCardProps> = ({ className = '' }) => {
             role: existingProfile.role || '',
           });
         } else {
-          // Pré-remplir avec les infos de Firebase
+          // Pré-remplir avec les infos de Backend
           setProfile(prev => ({
             ...prev,
             name: user?.displayName || '',

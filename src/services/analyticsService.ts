@@ -55,7 +55,7 @@ export interface PageViewDTO {
 
 /**
  * Service pour les analytics
- * Exploite le microservice galileo-analytics
+ * Exploite le backend
  */
 export const analyticsService = {
   // ============ TRACKING ============
