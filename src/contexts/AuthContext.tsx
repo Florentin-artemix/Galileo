@@ -5,11 +5,10 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   isAuthenticated: boolean;
-  idToken: string | null;
-  role: UserRole;
+  role: UserRole | null;
   hasRole: (required: UserRole | UserRole[]) => boolean;
   logout: () => Promise<void>;
-  refreshToken: () => Promise<string | null>;
+  setUser: (user: User | null) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -27,66 +26,42 @@ interface AuthProviderProps {
 }
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUserState] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [idToken, setIdToken] = useState<string | null>(null);
-  const [role, setRole] = useState<UserRole>('VIEWER');
 
-  // Observer l'état d'authentification
   useEffect(() => {
-    const unsubscribe = authService.onAuthStateChanged(async (currentUser) => {
-      setUser(currentUser);
-      
-      if (currentUser) {
-        // Récupérer le token JWT pour les appels API
-        const token = await authService.getIdToken();
-        setIdToken(token);
-        const currentRole = await authService.getCurrentUserRole();
-        setRole(currentRole);
-      } else {
-        setIdToken(null);
-        setRole('VIEWER');
+    const initAuth = async () => {
+      try {
+        const currentUser = await authService.fetchCurrentUser();
+        setUserState(currentUser);
+      } catch (error) {
+        console.error("Auth init error:", error);
+      } finally {
+        setLoading(false);
       }
-      
-      setLoading(false);
-    });
-
-    // Cleanup subscription
-    return () => unsubscribe();
+    };
+    initAuth();
   }, []);
 
-  // 🔗 POINT D'INTÉGRATION 4: Rafraîchir le token JWT
-  const refreshToken = async (): Promise<string | null> => {
-    if (user) {
-      const token = await authService.getIdToken(); // Force refresh
-      setIdToken(token);
-      return token;
-    }
-    return null;
-  };
-
   const hasRole = (required: UserRole | UserRole[]) => {
+    if (!user) return false;
     const list = Array.isArray(required) ? required : [required];
-    return list.includes(role);
+    return list.includes(user.role);
   };
 
   const logout = async () => {
     await authService.logout();
-    authService.clearStoredRole(); // Effacer le rôle stocké
-    setUser(null);
-    setIdToken(null);
-    setRole('VIEWER');
+    setUserState(null);
   };
 
   const value: AuthContextType = {
     user,
     loading,
     isAuthenticated: !!user,
-    idToken,
-    role,
+    role: user?.role || null,
     hasRole,
     logout,
-    refreshToken,
+    setUser: setUserState,
   };
 
   return (

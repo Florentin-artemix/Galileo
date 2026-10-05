@@ -92,7 +92,7 @@ const AuthPage: React.FC = () => {
   const [name, setName] = useState('');
   const [program, setProgram] = useState('');
   const [motivation, setMotivation] = useState('');
-  const [role, setRole] = useState<'STUDENT' | 'STAFF' | 'ADMIN' | 'VIEWER'>('STUDENT');
+  const [role, setRole] = useState<'STUDENT' | 'STAFF' | 'ADMIN' | 'STUDENT'>('STUDENT');
 
   const validateForm = (): boolean => {
     setError('');
@@ -456,10 +456,10 @@ const AuthPage: React.FC = () => {
                   <select
                     id="role"
                     value={role}
-                    onChange={(e) => setRole(e.target.value as 'STUDENT' | 'STAFF' | 'ADMIN' | 'VIEWER')}
+                    onChange={(e) => setRole(e.target.value as 'STUDENT' | 'STAFF' | 'ADMIN' | 'STUDENT')}
                     className="block px-3 py-4 w-full text-base text-light-text dark:text-off-white bg-light-bg dark:bg-navy rounded-lg border-2 border-light-border dark:border-dark-border focus:outline-none focus:ring-0 focus:border-light-accent dark:focus:border-teal"
                   >
-                    <option value="VIEWER">Visiteur - Consultation uniquement</option>
+                    <option value="STUDENT">Visiteur - Consultation uniquement</option>
                     <option value="STUDENT">Étudiant - Soumission et suivi de publications</option>
                     <option value="STAFF">Personnel - Modération et gestion du contenu</option>
                     <option value="ADMIN">Administrateur - Gestion complète du système</option>

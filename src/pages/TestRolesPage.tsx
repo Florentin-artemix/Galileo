@@ -21,9 +21,9 @@ const TestRolesPage: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
-  const [selectedRole, setSelectedRole] = useState<UserRole>('VIEWER');
+  const [selectedRole, setSelectedRole] = useState<UserRole>('STUDENT');
 
-  const roles: UserRole[] = ['ADMIN', 'STAFF', 'STUDENT', 'VIEWER'];
+  const roles: UserRole[] = ['ADMIN', 'STAFF', 'TEACHER', 'RESEARCHER', 'STUDENT'];
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -53,7 +53,7 @@ const TestRolesPage: React.FC = () => {
 Email: ${email}
 Rôle demandé: ${ROLE_LABELS[selectedRole]}
 
-⚠️ Note: Le compte a été créé avec le rôle VIEWER par défaut.
+⚠️ Note: Le compte a été créé avec le rôle STUDENT par défaut.
 Pour tester avec le rôle "${ROLE_LABELS[selectedRole]}", un admin doit changer le rôle depuis le dashboard admin.
 
 Vous allez être redirigé vers la page d'accueil...`);
@@ -288,9 +288,9 @@ Rôle demandé: ${ROLE_LABELS[role]}
               <li>Créez un compte admin en premier (utilisez le bouton "Admin")</li>
               <li>Connectez-vous avec ce compte</li>
               <li>Allez dans le Dashboard Admin → onglet "Utilisateurs"</li>
-              <li>Changez le rôle du compte de VIEWER à ADMIN</li>
+              <li>Changez le rôle du compte de STUDENT à ADMIN</li>
               <li>Déconnectez-vous et reconnectez-vous pour que le nouveau rôle prenne effet</li>
-              <li>Créez d'autres comptes de test (Student, Staff, Viewer)</li>
+              <li>Créez d'autres comptes de test (Student, Staff, Teacher, Researcher)</li>
               <li>Utilisez le dashboard admin pour leur attribuer les rôles souhaités</li>
               <li>Testez les différentes fonctionnalités avec chaque rôle</li>
             </ol>
@@ -307,12 +307,14 @@ Rôle demandé: ${ROLE_LABELS[role]}
                     <th className="text-center py-2"><span className={`px-2 py-1 rounded text-xs ${ROLE_COLORS.ADMIN}`}>Admin</span></th>
                     <th className="text-center py-2"><span className={`px-2 py-1 rounded text-xs ${ROLE_COLORS.STAFF}`}>Staff</span></th>
                     <th className="text-center py-2"><span className={`px-2 py-1 rounded text-xs ${ROLE_COLORS.STUDENT}`}>Student</span></th>
-                    <th className="text-center py-2"><span className={`px-2 py-1 rounded text-xs ${ROLE_COLORS.VIEWER}`}>Viewer</span></th>
+                    <th className="text-center py-2"><span className={`px-2 py-1 rounded text-xs ${ROLE_COLORS.TEACHER}`}>Teacher</span></th>
+                    <th className="text-center py-2"><span className={`px-2 py-1 rounded text-xs ${ROLE_COLORS.RESEARCHER}`}>Researcher</span></th>
                   </tr>
                 </thead>
                 <tbody className="text-light-text-secondary dark:text-gray-400">
                   <tr className="border-b border-light-border/50 dark:border-dark-border/50">
                     <td className="py-2">Voir les publications</td>
+                    <td className="text-center">✅</td>
                     <td className="text-center">✅</td>
                     <td className="text-center">✅</td>
                     <td className="text-center">✅</td>
@@ -324,6 +326,7 @@ Rôle demandé: ${ROLE_LABELS[role]}
                     <td className="text-center">✅</td>
                     <td className="text-center">✅</td>
                     <td className="text-center">❌</td>
+                    <td className="text-center">✅</td>
                   </tr>
                   <tr className="border-b border-light-border/50 dark:border-dark-border/50">
                     <td className="py-2">Dashboard personnel</td>
@@ -331,6 +334,7 @@ Rôle demandé: ${ROLE_LABELS[role]}
                     <td className="text-center">✅</td>
                     <td className="text-center">✅</td>
                     <td className="text-center">❌</td>
+                    <td className="text-center">✅</td>
                   </tr>
                   <tr className="border-b border-light-border/50 dark:border-dark-border/50">
                     <td className="py-2">Modérer les soumissions</td>
@@ -338,6 +342,7 @@ Rôle demandé: ${ROLE_LABELS[role]}
                     <td className="text-center">✅</td>
                     <td className="text-center">❌</td>
                     <td className="text-center">❌</td>
+                    <td className="text-center">✅</td>
                   </tr>
                   <tr>
                     <td className="py-2">Gérer les utilisateurs</td>
@@ -345,6 +350,7 @@ Rôle demandé: ${ROLE_LABELS[role]}
                     <td className="text-center">❌</td>
                     <td className="text-center">❌</td>
                     <td className="text-center">❌</td>
+                    <td className="text-center">✅</td>
                   </tr>
                 </tbody>
               </table>

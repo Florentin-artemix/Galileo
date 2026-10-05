@@ -9,19 +9,21 @@ export const useRole = () => {
 
   const isAdmin = role === 'ADMIN';
   const isStaff = role === 'STAFF';
+  const isTeacher = role === 'TEACHER';
+  const isResearcher = role === 'RESEARCHER';
   const isStudent = role === 'STUDENT';
-  const isViewer = role === 'VIEWER';
 
-  const canSubmit = hasRole(['ADMIN', 'STAFF', 'STUDENT']);
-  const canModerate = hasRole(['ADMIN', 'STAFF']);
+  const canSubmit = hasRole(['ADMIN', 'STAFF', 'TEACHER', 'RESEARCHER', 'STUDENT']);
+  const canModerate = hasRole(['ADMIN', 'STAFF', 'TEACHER']);
   const canManageUsers = isAdmin;
 
   return {
     role,
     isAdmin,
     isStaff,
+    isTeacher,
+    isResearcher,
     isStudent,
-    isViewer,
     canSubmit,
     canModerate,
     canManageUsers,

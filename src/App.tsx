@@ -22,7 +22,7 @@ import AuthPage from './pages/AuthPage';
 import AdminDashboard from './pages/AdminDashboard';
 import StaffDashboard from './pages/StaffDashboard';
 import StudentDashboard from './pages/StudentDashboard';
-import ViewerDashboard from './pages/ViewerDashboard';
+
 import TestRolesPage from './pages/TestRolesPage';
 import FavoritesPage from './pages/FavoritesPage';
 import ReadingHistoryPage from './pages/ReadingHistoryPage';
@@ -71,7 +71,7 @@ const AppContent: React.FC = () => {
             <Route
               path="/submit"
               element={
-                <RequireRole allowed={['STUDENT', 'ADMIN', 'STAFF']}>
+                <RequireRole allowed={['STUDENT', 'RESEARCHER', 'TEACHER', 'STAFF', 'ADMIN']}>
                   <SubmissionPage />
                 </RequireRole>
               }
@@ -87,7 +87,7 @@ const AppContent: React.FC = () => {
             <Route
               path="/dashboard/student"
               element={
-                <RequireRole allowed={['STUDENT', 'ADMIN', 'STAFF']}>
+                <RequireRole allowed={['STUDENT', 'RESEARCHER', 'TEACHER', 'STAFF', 'ADMIN']}>
                   <StudentDashboard />
                 </RequireRole>
               }
@@ -100,21 +100,14 @@ const AppContent: React.FC = () => {
                 </RequireRole>
               }
             />
-            <Route
-              path="/dashboard/viewer"
-              element={
-                <RequireRole allowed={['VIEWER', 'STUDENT', 'STAFF', 'ADMIN']}>
-                  <ViewerDashboard />
-                </RequireRole>
-              }
-            />
+            
             <Route path="/contact" element={<ContactPage />} />
             <Route path="/resources" element={<ResourcesPage />} />
             {/* Nouvelles pages - Exploitation microservices */}
             <Route
               path="/favorites"
               element={
-                <RequireRole allowed={['VIEWER', 'STUDENT', 'STAFF', 'ADMIN']}>
+                <RequireRole allowed={['STUDENT', 'RESEARCHER', 'TEACHER', 'STAFF', 'ADMIN']}>
                   <FavoritesPage />
                 </RequireRole>
               }
@@ -122,7 +115,7 @@ const AppContent: React.FC = () => {
             <Route
               path="/history"
               element={
-                <RequireRole allowed={['VIEWER', 'STUDENT', 'STAFF', 'ADMIN']}>
+                <RequireRole allowed={['STUDENT', 'RESEARCHER', 'TEACHER', 'STAFF', 'ADMIN']}>
                   <ReadingHistoryPage />
                 </RequireRole>
               }
@@ -130,7 +123,7 @@ const AppContent: React.FC = () => {
             <Route
               path="/notifications"
               element={
-                <RequireRole allowed={['VIEWER', 'STUDENT', 'STAFF', 'ADMIN']}>
+                <RequireRole allowed={['STUDENT', 'RESEARCHER', 'TEACHER', 'STAFF', 'ADMIN']}>
                   <NotificationsPage />
                 </RequireRole>
               }

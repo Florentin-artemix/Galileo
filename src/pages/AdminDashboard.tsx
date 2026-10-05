@@ -1393,7 +1393,9 @@ const UsersView = ({ users, currentUserEmail, updatingUser, onUpdateRole, loadin
                       disabled={updatingUser === u.uid || u.email === currentUserEmail}
                       className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      <option value="VIEWER">{ROLE_LABELS.VIEWER}</option>
+                      <option value="STUDENT">{ROLE_LABELS.STUDENT}</option>
+                      <option value="RESEARCHER">{ROLE_LABELS.RESEARCHER}</option>
+                      <option value="TEACHER">{ROLE_LABELS.TEACHER}</option>
                       <option value="STUDENT">{ROLE_LABELS.STUDENT}</option>
                       <option value="STAFF">{ROLE_LABELS.STAFF}</option>
                       <option value="ADMIN">{ROLE_LABELS.ADMIN}</option>
