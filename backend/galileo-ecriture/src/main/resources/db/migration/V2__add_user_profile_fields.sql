@@ -1,4 +1,0 @@
-ALTER TABLE users
-    ADD COLUMN IF NOT EXISTS program VARCHAR(255),
-    ADD COLUMN IF NOT EXISTS motivation TEXT;
-
