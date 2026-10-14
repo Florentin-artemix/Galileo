@@ -2,7 +2,7 @@
  * Service pour gérer les membres de l'équipe via l'API backend
  */
 
-import type { TeamMember } from '../../types';
+import type { TeamMember } from '../types';
 
 // URL de base pour les appels API (en production, nginx proxifie /api vers le gateway)
 const API_BASE = '/api';

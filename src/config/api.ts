@@ -4,13 +4,7 @@
 
 // Base URL de l'API selon l'environnement
 const getApiBaseUrl = (): string => {
-  // En production Docker, utiliser le proxy nginx (pas de /api car apiClient a déjà baseURL)
-  if (import.meta.env.PROD) {
-    return '';
-  }
-  
-  // En développement local, apiClient a déjà baseURL avec /api
-  return '';
+  return import.meta.env.VITE_API_URL || '/api';
 };
 
 export const API_BASE_URL = getApiBaseUrl();

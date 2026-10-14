@@ -76,11 +76,15 @@ export const readingHistoryService = {
   /**
    * Enregistrer une lecture de publication
    */
-  async recordReading(reading: RecordReadingDTO): Promise<ReadingHistoryItem> {
+  async recordReading(reading: number | RecordReadingDTO): Promise<ReadingHistoryItem> {
     const user = authService.getCurrentUser();
     if (!user) throw new Error('Utilisateur non connecté');
     
-    const response = await apiClient.post(`/userprofile/${user.uid}/history`, reading);
+    const payload: RecordReadingDTO = typeof reading === 'number'
+      ? { publicationId: reading }
+      : reading;
+    const userId = user.id ?? user.uid;
+    const response = await apiClient.post(`/userprofile/${userId}/history`, payload);
     return response.data;
   },
 

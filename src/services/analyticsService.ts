@@ -1,6 +1,16 @@
 import apiClient from './apiService';
 
 /**
+ * Interface pour les statistiques résumées (utilisée par QuickStats)
+ */
+export interface AnalyticsSummary {
+  totalPublications: number;
+  totalReads: number;
+  totalDownloads: number;
+  totalFavorites: number;
+}
+
+/**
  * Interface pour les statistiques du dashboard
  */
 export interface DashboardStats {
@@ -55,7 +65,6 @@ export interface PageViewDTO {
 
 /**
  * Service pour les analytics
- * Exploite le microservice galileo-analytics
  */
 export const analyticsService = {
   // ============ TRACKING ============
@@ -68,38 +77,70 @@ export const analyticsService = {
       await apiClient.post('/analytics/track/pageview', pageView);
     } catch (error) {
       console.warn('[Analytics] Failed to track page view:', error);
-      // Silencieux - ne pas bloquer l'UX
     }
   },
 
   /**
    * Tracker une vue de publication
    */
-  async trackPublicationView(publicationId: number): Promise<void> {
+  async trackPublicationView(publicationId: number, title?: string): Promise<void> {
     try {
-      await apiClient.post(`/analytics/track/publication/${publicationId}/view`);
+      await apiClient.post(`/analytics/track/publication/${publicationId}/view`, { title });
     } catch (error) {
       console.warn('[Analytics] Failed to track publication view:', error);
-      // Silencieux - ne pas bloquer l'UX
     }
   },
 
   /**
    * Tracker un téléchargement de publication
    */
-  async trackDownload(publicationId: number): Promise<void> {
+  async trackDownload(publicationId: number, title?: string, format?: string): Promise<void> {
     try {
-      await apiClient.post(`/analytics/track/publication/${publicationId}/download`);
+      await apiClient.post(`/analytics/track/publication/${publicationId}/download`, { title, format });
     } catch (error) {
       console.warn('[Analytics] Failed to track download:', error);
-      // Silencieux - ne pas bloquer l'UX
     }
   },
 
-  // ============ DASHBOARD (ADMIN) ============
+  // ============ DASHBOARD (ADMIN & UTILISATEUR) ============
 
   /**
-   * Récupérer les statistiques du dashboard
+   * Récupérer les statistiques globales résumées
+   */
+  async getGlobalAnalytics(): Promise<AnalyticsSummary> {
+    try {
+      const response = await apiClient.get('/analytics/global');
+      return response.data;
+    } catch {
+      // Fallback vers le dashboard si endpoint global direct
+      try {
+        const stats = await this.getDashboardStats();
+        return {
+          totalPublications: stats.totalPublications || 0,
+          totalReads: stats.totalViews || 0,
+          totalDownloads: stats.totalDownloads || 0,
+          totalFavorites: 0,
+        };
+      } catch {
+        return { totalPublications: 0, totalReads: 0, totalDownloads: 0, totalFavorites: 0 };
+      }
+    }
+  },
+
+  /**
+   * Récupérer les statistiques propres à un utilisateur
+   */
+  async getUserAnalytics(userId: string): Promise<AnalyticsSummary> {
+    try {
+      const response = await apiClient.get(`/analytics/user/${userId}`);
+      return response.data;
+    } catch {
+      return { totalPublications: 0, totalReads: 0, totalDownloads: 0, totalFavorites: 0 };
+    }
+  },
+
+  /**
+   * Récupérer les statistiques détaillées du dashboard
    */
   async getDashboardStats(): Promise<DashboardStats> {
     const response = await apiClient.get('/analytics/dashboard');
@@ -130,7 +171,6 @@ export const analyticsService = {
 
   /**
    * Tracker automatiquement la navigation
-   * À appeler dans un useEffect global ou un router listener
    */
   trackNavigation(pathname: string): void {
     this.trackPageView({

@@ -23,7 +23,6 @@ import AdminDashboard from './pages/AdminDashboard';
 import StaffDashboard from './pages/StaffDashboard';
 import StudentDashboard from './pages/StudentDashboard';
 import ViewerDashboard from './pages/ViewerDashboard';
-import TestRolesPage from './pages/TestRolesPage';
 import FavoritesPage from './pages/FavoritesPage';
 import ReadingHistoryPage from './pages/ReadingHistoryPage';
 import NotificationsPage from './pages/NotificationsPage';
@@ -143,8 +142,6 @@ const AppContent: React.FC = () => {
                 </RequireRole>
               }
             />
-            {/* Page de test - à supprimer en production */}
-            <Route path="/test-roles" element={<TestRolesPage />} />
           </Routes>
         </main>
         <Footer />

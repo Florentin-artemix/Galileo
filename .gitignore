@@ -29,9 +29,12 @@ dist-ssr
 
 # Java
 target/
-.mvn/
+.mvn/timing.properties
+!.mvn/wrapper/
+!.mvn/wrapper/**
 *.class
 *.jar
+!.mvn/wrapper/*.jar
 *.war
 *.ear
 *.iml
