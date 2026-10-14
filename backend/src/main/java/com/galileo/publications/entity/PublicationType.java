@@ -8,5 +8,6 @@ public enum PublicationType {
     INTERNSHIP_REPORT,
     PROJECT,
     CONFERENCE_PAPER,
+    ARTICLE,
     OTHER
 }

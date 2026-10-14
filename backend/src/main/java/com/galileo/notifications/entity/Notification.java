@@ -43,6 +43,9 @@ public class Notification {
     @Column(name = "data", columnDefinition = "JSONB")
     private String data;
 
+    @Transient
+    private LocalDateTime readAt;
+
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 

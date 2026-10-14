@@ -1,0 +1,49 @@
+package com.galileo.storage.service;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Primary;
+import org.springframework.stereotype.Service;
+
+import java.io.InputStream;
+
+@Slf4j
+@Primary
+@Service
+@RequiredArgsConstructor
+public class DelegatingStorageService implements StorageService {
+
+    private final CloudflareR2StorageService r2StorageService;
+    private final LocalStorageService localStorageService;
+
+    @Value("${galileo.storage.type:local}")
+    private String configuredType;
+
+    private StorageService getActiveService() {
+        if ("r2".equalsIgnoreCase(configuredType) && r2StorageService.isConfigured()) {
+            return r2StorageService;
+        }
+        return localStorageService;
+    }
+
+    @Override
+    public String uploadFile(String key, InputStream inputStream, long contentLength, String contentType) {
+        return getActiveService().uploadFile(key, inputStream, contentLength, contentType);
+    }
+
+    @Override
+    public InputStream downloadFile(String key) {
+        return getActiveService().downloadFile(key);
+    }
+
+    @Override
+    public void deleteFile(String key) {
+        getActiveService().deleteFile(key);
+    }
+
+    @Override
+    public String generatePresignedUrl(String key, int expirationMinutes) {
+        return getActiveService().generatePresignedUrl(key, expirationMinutes);
+    }
+}

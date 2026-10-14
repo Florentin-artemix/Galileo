@@ -6,10 +6,13 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 
 @Repository
 public interface ReadingHistoryRepository extends JpaRepository<ReadingHistory, Long> {
+    List<ReadingHistory> findByUserIdOrderByReadAtDesc(Long userId);
     Page<ReadingHistory> findByUserIdOrderByReadAtDesc(Long userId, Pageable pageable);
     Optional<ReadingHistory> findByUserIdAndPublicationId(Long userId, Long publicationId);
+    long countByUserId(Long userId);
 }
