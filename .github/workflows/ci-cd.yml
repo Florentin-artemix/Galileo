@@ -70,6 +70,8 @@ jobs:
       - name: 🧪 Run backend tests
         working-directory: ./backend
         run: ./mvnw test
+        env:
+          JWT_SECRET: "CiCdPipelineTestSecretKeyMustBeAtLeast256BitsLongForHmacShaCompliance12345"
 
       - name: 🔨 Package Spring Boot JAR
         working-directory: ./backend
