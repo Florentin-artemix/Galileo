@@ -48,4 +48,18 @@ public interface PublicationRepository extends JpaRepository<Publication, Long> 
             @Param("author") String author,
             Pageable pageable
     );
+
+    List<Publication> findTop5ByDomainIdAndStatusAndIdNotOrderByViewCountDesc(Long domainId, PublicationStatus status, Long excludeId);
+
+    List<Publication> findTop5ByStatusAndIdNotOrderByViewCountDesc(PublicationStatus status, Long excludeId);
+
+    Page<Publication> findByDomainId(Long domainId, Pageable pageable);
+
+    @Query("SELECT COALESCE(SUM(p.viewCount), 0) FROM Publication p")
+    Long sumTotalViews();
+
+    @Query("SELECT COALESCE(SUM(p.downloadCount), 0) FROM Publication p")
+    Long sumTotalDownloads();
+
+    List<Publication> findTop5ByStatusOrderByViewCountDesc(PublicationStatus status);
 }

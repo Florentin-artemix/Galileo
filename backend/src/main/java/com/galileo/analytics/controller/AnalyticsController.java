@@ -8,9 +8,13 @@ import com.galileo.publications.entity.PublicationStatus;
 import com.galileo.publications.repository.PublicationRepository;
 import com.galileo.recommendations.repository.FavoriteRepository;
 import com.galileo.recommendations.repository.ReadingHistoryRepository;
+import com.galileo.auth.entity.Role;
+import com.galileo.auth.security.CustomUserDetails;
+import com.galileo.common.exception.ForbiddenException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.*;
@@ -69,13 +73,8 @@ public class AnalyticsController {
         long totalUsers = userRepository.count();
         long totalFavs = favoriteRepository.count();
         long totalReads = readingHistoryRepository.count();
-
-        long totalViews = publicationRepository.findAll().stream()
-                .mapToLong(p -> p.getViewCount() != null ? p.getViewCount() : 0)
-                .sum();
-        long totalDownloads = publicationRepository.findAll().stream()
-                .mapToLong(p -> p.getDownloadCount() != null ? p.getDownloadCount() : 0)
-                .sum();
+        long totalViews = publicationRepository.sumTotalViews();
+        long totalDownloads = publicationRepository.sumTotalDownloads();
 
         Map<String, Object> map = new HashMap<>();
         map.put("totalPublications", totalPubs);
@@ -87,10 +86,22 @@ public class AnalyticsController {
     }
 
     @GetMapping("/user/{userId}")
-    public ResponseEntity<Map<String, Object>> getUserStats(@PathVariable String userId) {
+    public ResponseEntity<Map<String, Object>> getUserStats(
+            @PathVariable String userId,
+            @AuthenticationPrincipal CustomUserDetails currentUser
+    ) {
         Long uid = parseLongSafely(userId);
-        long favs = uid != null ? favoriteRepository.countByUserId(uid) : 0;
-        long reads = uid != null ? readingHistoryRepository.countByUserId(uid) : 0;
+        if (uid == null) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        // Contrôle d'accès strict : l'utilisateur ne peut consulter que ses propres statistiques, sauf STAFF / ADMIN
+        if (currentUser == null || (!currentUser.getId().equals(uid) && currentUser.getRole() != Role.ADMIN && currentUser.getRole() != Role.STAFF)) {
+            throw new ForbiddenException("Vous n'êtes pas autorisé à consulter les statistiques d'un autre utilisateur");
+        }
+
+        long favs = favoriteRepository.countByUserId(uid);
+        long reads = readingHistoryRepository.countByUserId(uid);
 
         Map<String, Object> map = new HashMap<>();
         map.put("totalPublications", 0);
@@ -104,14 +115,11 @@ public class AnalyticsController {
     public ResponseEntity<Map<String, Object>> getDashboardStats() {
         long totalPubs = publicationRepository.count();
         long totalUsers = userRepository.count();
+        long totalViews = publicationRepository.sumTotalViews();
+        long totalDownloads = publicationRepository.sumTotalDownloads();
 
-        List<Publication> pubs = publicationRepository.findAll();
-        long totalViews = pubs.stream().mapToLong(p -> p.getViewCount() != null ? p.getViewCount() : 0).sum();
-        long totalDownloads = pubs.stream().mapToLong(p -> p.getDownloadCount() != null ? p.getDownloadCount() : 0).sum();
-
-        List<Map<String, Object>> topPubs = pubs.stream()
-                .sorted(Comparator.comparingInt((Publication p) -> p.getViewCount() != null ? p.getViewCount() : 0).reversed())
-                .limit(5)
+        List<Publication> topList = publicationRepository.findTop5ByStatusOrderByViewCountDesc(PublicationStatus.PUBLISHED);
+        List<Map<String, Object>> topPubs = topList.stream()
                 .map(p -> {
                     Map<String, Object> m = new HashMap<>();
                     m.put("publicationId", p.getId());

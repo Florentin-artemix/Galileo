@@ -28,6 +28,7 @@ public class AdminController {
     private final SubmissionService submissionService;
     private final UserRepository userRepository;
     private final UserProfileRepository userProfileRepository;
+    private final com.galileo.admin.service.AdminService adminService;
 
     // ==========================================
     // MODÉRATION DES SOUMISSIONS (STAFF & ADMIN)
@@ -195,5 +196,75 @@ public class AdminController {
         userRepository.save(targetUser);
 
         return ResponseEntity.ok(ApiResponse.ok("Rôle mis à jour avec succès vers " + newRole.name()));
+    }
+
+    @PutMapping("/users/{id}/status")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<Void>> toggleUserStatus(
+            @PathVariable String id,
+            @RequestBody Map<String, Boolean> body
+    ) {
+        Long targetUserId = Long.parseLong(id);
+        boolean isActive = body.getOrDefault("isActive", true);
+        adminService.toggleUserStatus(targetUserId, isActive);
+        return ResponseEntity.ok(ApiResponse.ok("Statut du compte mis à jour (actif=" + isActive + ")"));
+    }
+
+    // ==========================================
+    // STATISTIQUES GLOBALES & OBSERVABILITÉ
+    // ==========================================
+
+    @GetMapping("/stats")
+    @PreAuthorize("hasAnyRole('STAFF', 'ADMIN')")
+    public ResponseEntity<com.galileo.admin.dto.AdminStatsDTO> getStats() {
+        return ResponseEntity.ok(adminService.getPlatformStats());
+    }
+
+    // ==========================================
+    // GESTION DES DOMAINES ACADÉMIQUES
+    // ==========================================
+
+    @GetMapping("/domains")
+    public ResponseEntity<List<com.galileo.publications.entity.Domain>> listDomains() {
+        return ResponseEntity.ok(adminService.listDomains());
+    }
+
+    @PostMapping("/domains")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<com.galileo.publications.entity.Domain> createDomain(@RequestBody com.galileo.publications.entity.Domain domain) {
+        return ResponseEntity.ok(adminService.createDomain(domain));
+    }
+
+    @PutMapping("/domains/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<com.galileo.publications.entity.Domain> updateDomain(
+            @PathVariable Long id,
+            @RequestBody com.galileo.publications.entity.Domain domain
+    ) {
+        return ResponseEntity.ok(adminService.updateDomain(id, domain));
+    }
+
+    @DeleteMapping("/domains/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<Void>> deleteDomain(@PathVariable Long id) {
+        adminService.deleteDomain(id);
+        return ResponseEntity.ok(ApiResponse.ok("Domaine supprimé avec succès"));
+    }
+
+    // ==========================================
+    // GESTION DES QUOTAS IA
+    // ==========================================
+
+    @GetMapping("/quotas")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Map<String, Object>> getAiQuotas() {
+        return ResponseEntity.ok(adminService.getAiQuotas());
+    }
+
+    @PutMapping("/quotas")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Map<String, Object>> updateAiQuotas(@RequestBody Map<String, Object> quotas) {
+        adminService.updateAiQuotas(quotas);
+        return ResponseEntity.ok(adminService.getAiQuotas());
     }
 }

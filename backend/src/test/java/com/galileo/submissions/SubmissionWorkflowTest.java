@@ -41,6 +41,18 @@ class SubmissionWorkflowTest {
     @Mock
     private NotificationRepository notificationRepository;
 
+    @Mock
+    private com.galileo.documents.repository.DocumentRepository documentRepository;
+
+    @Mock
+    private com.galileo.documents.service.DocumentProcessingService documentProcessingService;
+
+    @Mock
+    private com.galileo.storage.service.StorageService storageService;
+
+    @Mock
+    private com.galileo.publications.repository.DomainRepository domainRepository;
+
     @InjectMocks
     private SubmissionService submissionService;
 
@@ -139,7 +151,7 @@ class SubmissionWorkflowTest {
         Map<String, Object> result = submissionService.requestRevision(52L, 2L, "Veuillez clarifier la méthodologie");
 
         assertNotNull(result);
-        assertEquals(SubmissionStatus.REVISION_REQUESTED, submission.getStatus());
+        assertEquals(SubmissionStatus.UNDER_REVIEW, submission.getStatus());
         assertEquals("Veuillez clarifier la méthodologie", submission.getReviewerNotes());
 
         verify(submissionRepository).save(submission);

@@ -6,6 +6,7 @@ import com.galileo.submissions.service.SubmissionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -73,5 +74,76 @@ public class SubmissionController {
     ) {
         submissionService.deleteSubmission(id, userDetails.getId());
         return ResponseEntity.ok(ApiResponse.ok("Soumission retirée avec succès"));
+    }
+
+    @PostMapping("/{id}/retry")
+    public ResponseEntity<Map<String, Object>> retrySubmissionProcessing(
+            @PathVariable Long id,
+            @AuthenticationPrincipal CustomUserDetails userDetails
+    ) {
+        boolean isAdminOrStaff = userDetails.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN") || a.getAuthority().equals("ROLE_STAFF"));
+        return ResponseEntity.ok(submissionService.retrySubmissionProcessing(id, userDetails.getId(), isAdminOrStaff));
+    }
+
+    @PostMapping("/{id}/valider")
+    @PreAuthorize("hasAnyRole('STAFF', 'ADMIN')")
+    public ResponseEntity<Map<String, Object>> validateSubmission(
+            @PathVariable Long id,
+            @RequestBody(required = false) Map<String, String> body,
+            @AuthenticationPrincipal CustomUserDetails userDetails
+    ) {
+        String commentaire = body != null ? body.get("commentaire") : null;
+        return ResponseEntity.ok(submissionService.validateSubmission(id, userDetails.getId(), commentaire));
+    }
+
+    @PostMapping("/{id}/accept")
+    @PreAuthorize("hasAnyRole('STAFF', 'ADMIN')")
+    public ResponseEntity<Map<String, Object>> acceptSubmission(
+            @PathVariable Long id,
+            @RequestBody(required = false) Map<String, String> body,
+            @AuthenticationPrincipal CustomUserDetails userDetails
+    ) {
+        String commentaire = body != null ? body.get("commentaire") : null;
+        return ResponseEntity.ok(submissionService.validateSubmission(id, userDetails.getId(), commentaire));
+    }
+
+    @PostMapping("/{id}/rejeter")
+    @PreAuthorize("hasAnyRole('STAFF', 'ADMIN')")
+    public ResponseEntity<Map<String, Object>> rejectSubmission(
+            @PathVariable Long id,
+            @RequestBody Map<String, String> body,
+            @AuthenticationPrincipal CustomUserDetails userDetails
+    ) {
+        String motif = body != null ? (body.containsKey("motif") ? body.get("motif") : body.get("commentaire")) : null;
+        return ResponseEntity.ok(submissionService.rejectSubmission(id, userDetails.getId(), motif));
+    }
+
+    @PostMapping("/{id}/reject")
+    @PreAuthorize("hasAnyRole('STAFF', 'ADMIN')")
+    public ResponseEntity<Map<String, Object>> rejectSubmissionAlias(
+            @PathVariable Long id,
+            @RequestBody Map<String, String> body,
+            @AuthenticationPrincipal CustomUserDetails userDetails
+    ) {
+        String motif = body != null ? (body.containsKey("motif") ? body.get("motif") : body.get("commentaire")) : null;
+        return ResponseEntity.ok(submissionService.rejectSubmission(id, userDetails.getId(), motif));
+    }
+
+    @PostMapping("/{id}/demander-revisions")
+    @PreAuthorize("hasAnyRole('STAFF', 'ADMIN')")
+    public ResponseEntity<Map<String, Object>> requestRevision(
+            @PathVariable Long id,
+            @RequestBody Map<String, String> body,
+            @AuthenticationPrincipal CustomUserDetails userDetails
+    ) {
+        String commentaire = body != null ? (body.containsKey("commentaire") ? body.get("commentaire") : body.get("notes")) : "Révisions demandées";
+        return ResponseEntity.ok(submissionService.requestRevision(id, userDetails.getId(), commentaire));
+    }
+
+    @GetMapping("/statistiques")
+    @PreAuthorize("hasAnyRole('STAFF', 'ADMIN')")
+    public ResponseEntity<Map<String, Number>> getStatistics() {
+        return ResponseEntity.ok(submissionService.getStatistics());
     }
 }
