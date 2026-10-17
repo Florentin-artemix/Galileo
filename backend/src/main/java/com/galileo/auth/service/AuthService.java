@@ -130,11 +130,22 @@ public class AuthService {
             throw new BadRequestException("Jeton de rafraîchissement requis");
         }
 
-        RefreshToken refreshToken = refreshTokenRepository.findByTokenHash(request.getRefreshToken())
+        String rawToken = request.getRefreshToken().trim();
+        String tokenHash = tokenProvider.hashToken(rawToken);
+
+        RefreshToken refreshToken = refreshTokenRepository.findByTokenHash(tokenHash)
                 .orElseThrow(() -> new UnauthorizedException("Jeton de rafraîchissement invalide"));
 
+        // Détection de rejeu et d'attaque par vol de refresh token
         if (Boolean.TRUE.equals(refreshToken.getRevoked())) {
-            throw new UnauthorizedException("Ce jeton a été révoqué");
+            log.warn("ALERTE SÉCURITÉ: Tentative de réutilisation d'un refresh token révoqué pour utilisateur #{}",
+                    refreshToken.getUser().getId());
+            // Révoquer immédiatement tous les jetons actifs de cet utilisateur compromis
+            refreshTokenRepository.findByUserId(refreshToken.getUser().getId()).forEach(t -> {
+                t.setRevoked(true);
+                refreshTokenRepository.save(t);
+            });
+            throw new UnauthorizedException("Alerte de sécurité : jeton déjà utilisé ou révoqué");
         }
 
         if (refreshToken.getExpiresAt().isBefore(LocalDateTime.now())) {
@@ -148,11 +159,16 @@ public class AuthService {
             throw new ForbiddenException("Ce compte est désactivé");
         }
 
+        // Invalidation de l'ancien jeton utilisé (Rotation)
+        refreshToken.setRevoked(true);
+        refreshTokenRepository.save(refreshToken);
+
         String newAccessToken = tokenProvider.generateAccessToken(user);
+        String newRefreshToken = createAndSaveRefreshToken(user);
 
         return AuthResponse.builder()
                 .accessToken(newAccessToken)
-                .refreshToken(request.getRefreshToken())
+                .refreshToken(newRefreshToken)
                 .tokenType("Bearer")
                 .userId(user.getId())
                 .email(user.getEmail())
@@ -161,22 +177,33 @@ public class AuthService {
     }
 
     @Transactional
+    public AuthResponse refresh(RefreshTokenRequest request) {
+        return refreshToken(request);
+    }
+
+    @Transactional
     public void logout(String refreshTokenValue) {
-        if (refreshTokenValue != null) {
-            refreshTokenRepository.findByTokenHash(refreshTokenValue).ifPresent(token -> {
-                token.setRevoked(true);
-                refreshTokenRepository.save(token);
-            });
+        if (refreshTokenValue != null && !refreshTokenValue.trim().isEmpty()) {
+            try {
+                String tokenHash = tokenProvider.hashToken(refreshTokenValue.trim());
+                refreshTokenRepository.findByTokenHash(tokenHash).ifPresent(token -> {
+                    token.setRevoked(true);
+                    refreshTokenRepository.save(token);
+                });
+            } catch (Exception e) {
+                log.warn("Impossible de révoquer le refresh token lors de la déconnexion : {}", e.getMessage());
+            }
         }
     }
 
     private String createAndSaveRefreshToken(User user) {
         String tokenValue = tokenProvider.generateRefreshTokenValue();
+        String tokenHash = tokenProvider.hashToken(tokenValue);
         LocalDateTime expiresAt = LocalDateTime.now().plusSeconds(refreshExpirationMs / 1000);
 
         RefreshToken refreshToken = RefreshToken.builder()
                 .user(user)
-                .tokenHash(tokenValue)
+                .tokenHash(tokenHash)
                 .expiresAt(expiresAt)
                 .revoked(false)
                 .build();

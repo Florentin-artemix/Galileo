@@ -25,6 +25,8 @@ galileo:
     secret: "TestSecretKeyForGalileoPreProductionSecurityMustBeAtLeast256BitsLong1234567890"
     expiration-ms: 86400000
     refresh-expiration-ms: 604800000
+  cors:
+    allowed-origins: "http://localhost:5173,http://localhost:3000"
   storage:
     type: local
     local-dir: "./target/test-storage"

@@ -30,12 +30,18 @@ public class JwtTokenProvider {
 
     @PostConstruct
     public void init() {
+        if (jwtSecret == null || jwtSecret.trim().isEmpty()) {
+            throw new IllegalStateException(
+                    "ERREUR DE SÉCURITÉ CRITIQUE : La variable galileo.jwt.secret (JWT_SECRET) est obligatoire. " +
+                    "L'application refuse de démarrer sans secret JWT valide (minimum 32 octets / 256 bits)."
+            );
+        }
         byte[] keyBytes = jwtSecret.getBytes(StandardCharsets.UTF_8);
         if (keyBytes.length < 32) {
-            // S'assurer que la clé fait au moins 256 bits pour HMAC-SHA256
-            byte[] padded = new byte[32];
-            System.arraycopy(keyBytes, 0, padded, 0, Math.min(keyBytes.length, 32));
-            keyBytes = padded;
+            throw new IllegalStateException(
+                    "ERREUR DE SÉCURITÉ CRITIQUE : La clé galileo.jwt.secret (JWT_SECRET) fait " + keyBytes.length +
+                    " octets. Elle doit comporter au moins 32 octets (256 bits) pour l'algorithme HMAC-SHA256."
+            );
         }
         this.key = Keys.hmacShaKeyFor(keyBytes);
     }
@@ -64,6 +70,30 @@ public class JwtTokenProvider {
         byte[] randomBytes = new byte[64];
         secureRandom.nextBytes(randomBytes);
         return Base64.getUrlEncoder().withoutPadding().encodeToString(randomBytes);
+    }
+
+    /**
+     * Calcule le hachage cryptographique SHA-256 d'un jeton pour stockage sécurisé en base
+     */
+    public String hashToken(String rawToken) {
+        if (rawToken == null || rawToken.trim().isEmpty()) {
+            throw new IllegalArgumentException("Le jeton ne peut pas être vide");
+        }
+        try {
+            java.security.MessageDigest digest = java.security.MessageDigest.getInstance("SHA-256");
+            byte[] encodedhash = digest.digest(rawToken.getBytes(StandardCharsets.UTF_8));
+            StringBuilder hexString = new StringBuilder(2 * encodedhash.length);
+            for (byte b : encodedhash) {
+                String hex = Integer.toHexString(0xff & b);
+                if (hex.length() == 1) {
+                    hexString.append('0');
+                }
+                hexString.append(hex);
+            }
+            return hexString.toString();
+        } catch (java.security.NoSuchAlgorithmException e) {
+            throw new IllegalStateException("Algorithme de hachage SHA-256 indisponible", e);
+        }
     }
 
     /**
@@ -104,16 +134,10 @@ public class JwtTokenProvider {
         try {
             Jwts.parser().verifyWith(key).build().parseSignedClaims(token);
             return true;
-        } catch (SecurityException | MalformedJwtException e) {
-            log.warn("Jeton JWT invalide ou signature corrompue");
-        } catch (ExpiredJwtException e) {
-            log.warn("Jeton JWT expiré");
-        } catch (UnsupportedJwtException e) {
-            log.warn("Jeton JWT non supporté");
-        } catch (IllegalArgumentException e) {
-            log.warn("Jeton JWT vide ou non renseigné");
+        } catch (io.jsonwebtoken.JwtException | IllegalArgumentException e) {
+            log.warn("Jeton JWT invalide ou signature corrompue: {}", e.getMessage());
+            return false;
         }
-        return false;
     }
 
     private Claims getClaims(String token) {

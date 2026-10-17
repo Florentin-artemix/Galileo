@@ -58,6 +58,9 @@ class SecurityAccessTest {
     private UserProfileRepository userProfileRepository;
 
     @MockBean
+    private com.galileo.admin.service.AdminService adminService;
+
+    @MockBean
     private JwtTokenProvider jwtTokenProvider;
 
     @MockBean

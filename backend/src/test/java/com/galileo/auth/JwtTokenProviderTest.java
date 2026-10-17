@@ -86,4 +86,29 @@ class JwtTokenProviderTest {
         assertNotEquals(refreshToken1, refreshToken2);
         assertTrue(refreshToken1.length() >= 64);
     }
+
+    @Test
+    @DisplayName("Should strictly reject missing or secret shorter than 32 bytes (256 bits) with IllegalStateException")
+    void shouldRejectMissingOrShortSecret() {
+        JwtTokenProvider missingProvider = new JwtTokenProvider();
+        ReflectionTestUtils.setField(missingProvider, "jwtSecret", "");
+        assertThrows(IllegalStateException.class, missingProvider::init);
+
+        JwtTokenProvider shortProvider = new JwtTokenProvider();
+        ReflectionTestUtils.setField(shortProvider, "jwtSecret", "too-short-secret-under-32-b");
+        assertThrows(IllegalStateException.class, shortProvider::init);
+    }
+
+    @Test
+    @DisplayName("Should hash token with SHA-256 to consistent 64-character hexadecimal format")
+    void shouldProperlyHashTokenWithSha256() {
+        String token = "my-secret-refresh-token-12345";
+        String hash1 = jwtTokenProvider.hashToken(token);
+        String hash2 = jwtTokenProvider.hashToken(token);
+
+        assertNotNull(hash1);
+        assertEquals(64, hash1.length());
+        assertEquals(hash1, hash2);
+        assertNotEquals(token, hash1);
+    }
 }

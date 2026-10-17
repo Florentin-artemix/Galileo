@@ -103,6 +103,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/search/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/blog/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/evenements/**", "/api/events/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/documents/**").permitAll()
+                        .requestMatchers("/api/ai/chat", "/api/ai/summarize", "/api/ai/explain", "/api/ai/compare").permitAll()
 
                         // Tracking public silencieux
                         .requestMatchers(HttpMethod.POST, "/api/analytics/track/**").permitAll()
@@ -120,10 +122,17 @@ public class SecurityConfig {
         return http.build();
     }
 
+    @org.springframework.beans.factory.annotation.Value("${galileo.cors.allowed-origins:http://localhost:5173,http://localhost:3000,http://127.0.0.1:5173,http://127.0.0.1:3000}")
+    private String allowedOrigins;
+
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOriginPatterns(List.of("*"));
+        List<String> origins = Arrays.stream(allowedOrigins.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .toList();
+        configuration.setAllowedOrigins(origins);
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "Accept", "X-Requested-With", "Origin"));
         configuration.setExposedHeaders(List.of("Authorization"));
