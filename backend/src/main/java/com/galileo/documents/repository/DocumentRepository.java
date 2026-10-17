@@ -13,4 +13,5 @@ public interface DocumentRepository extends JpaRepository<Document, Long> {
     List<Document> findByPublicationId(Long publicationId);
     Optional<Document> findByPublicationIdAndVersion(Long publicationId, Integer version);
     List<Document> findByProcessingStatus(DocumentProcessingStatus status);
+    Optional<Document> findByFileKey(String fileKey);
 }

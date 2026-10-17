@@ -2,6 +2,10 @@ package com.galileo.ai.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import okhttp3.*;
 import org.springframework.beans.factory.annotation.Value;
@@ -33,12 +37,27 @@ public class DeepSeekAIService {
         return apiKey != null && !apiKey.trim().isEmpty();
     }
 
-    /**
-     * Interroge l'assistant DeepSeek pour analyser un document ou répondre à une question académique
-     */
-    public String askDocumentAssistant(String systemPrompt, String userMessage) {
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class DeepSeekResult {
+        private String content;
+        private int inputTokens;
+        private int outputTokens;
+        private boolean success;
+        private String error;
+    }
+
+    public DeepSeekResult generateText(String systemPrompt, String userMessage, double temperature, int maxTokens) {
         if (!isConfigured()) {
-            return "L'assistant IA DeepSeek n'est pas encore configuré sur cette instance (clé API absente).";
+            return DeepSeekResult.builder()
+                    .content("L'assistant IA DeepSeek n'est pas encore configuré sur cette instance (clé API absente).")
+                    .inputTokens(0)
+                    .outputTokens(0)
+                    .success(false)
+                    .error("API_KEY_MISSING")
+                    .build();
         }
 
         try {
@@ -52,8 +71,8 @@ public class DeepSeekAIService {
             Map<String, Object> requestMap = Map.of(
                     "model", "deepseek-chat",
                     "messages", messages,
-                    "temperature", 0.3,
-                    "max_tokens", 2048
+                    "temperature", temperature,
+                    "max_tokens", maxTokens
             );
 
             String requestBody = objectMapper.writeValueAsString(requestMap);
@@ -67,21 +86,47 @@ public class DeepSeekAIService {
             try (Response response = httpClient.newCall(request).execute()) {
                 if (!response.isSuccessful()) {
                     log.warn("Erreur API DeepSeek : HTTP {}", response.code());
-                    return "Le service d'assistance IA est temporairement indisponible (erreur " + response.code() + ").";
+                    return DeepSeekResult.builder()
+                            .content("Le service d'assistance IA est temporairement indisponible (erreur HTTP " + response.code() + ").")
+                            .inputTokens(0)
+                            .outputTokens(0)
+                            .success(false)
+                            .error("HTTP_" + response.code())
+                            .build();
                 }
 
                 String responseBody = response.body() != null ? response.body().string() : "{}";
                 JsonNode root = objectMapper.readTree(responseBody);
                 JsonNode choices = root.path("choices");
+                String content = "";
                 if (choices.isArray() && !choices.isEmpty()) {
-                    return choices.get(0).path("message").path("content").asText();
+                    content = choices.get(0).path("message").path("content").asText();
                 }
+
+                JsonNode usage = root.path("usage");
+                int promptTokens = usage.path("prompt_tokens").asInt(userMessage.length() / 4);
+                int completionTokens = usage.path("completion_tokens").asInt(content.length() / 4);
+
+                return DeepSeekResult.builder()
+                        .content(content)
+                        .inputTokens(promptTokens)
+                        .outputTokens(completionTokens)
+                        .success(true)
+                        .build();
             }
         } catch (IOException e) {
             log.error("Erreur de communication avec DeepSeek API : {}", e.getMessage());
-            return "Une erreur réseau est survenue lors de la communication avec l'assistant IA.";
+            return DeepSeekResult.builder()
+                    .content("Une erreur réseau est survenue lors de la communication avec l'assistant IA.")
+                    .inputTokens(0)
+                    .outputTokens(0)
+                    .success(false)
+                    .error(e.getMessage())
+                    .build();
         }
+    }
 
-        return "Aucune réponse reçue de l'assistant IA.";
+    public String askDocumentAssistant(String systemPrompt, String userMessage) {
+        return generateText(systemPrompt, userMessage, 0.3, 2048).getContent();
     }
 }

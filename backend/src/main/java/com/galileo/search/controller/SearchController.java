@@ -1,15 +1,16 @@
 package com.galileo.search.controller;
 
+import com.galileo.auth.security.CustomUserDetails;
+import com.galileo.publications.dto.PublicationDTO;
 import com.galileo.search.dto.SearchRequest;
 import com.galileo.search.dto.SearchResult;
 import com.galileo.search.service.SearchService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 
 @RestController
 @RequestMapping("/api/search")
@@ -21,62 +22,89 @@ public class SearchController {
     @GetMapping("/publications")
     public ResponseEntity<SearchResult> searchPublications(
             @RequestParam(required = false) String q,
+            @RequestParam(required = false) String query,
             @RequestParam(required = false) Long domainId,
+            @RequestParam(required = false) String domain,
+            @RequestParam(required = false) String type,
+            @RequestParam(required = false) String academicYear,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(defaultValue = "publishedAt") String sortBy,
+            @RequestParam(defaultValue = "desc") String direction,
+            @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
         SearchRequest request = SearchRequest.builder()
-                .query(q)
+                .query(query != null ? query : q)
+                .q(q != null ? q : query)
                 .domainId(domainId)
+                .domain(domain)
+                .type(type)
+                .academicYear(academicYear)
                 .page(page)
                 .size(size)
+                .sortBy(sortBy)
+                .direction(direction)
                 .build();
-        return ResponseEntity.ok(searchService.search(request));
+        return ResponseEntity.ok(searchService.search(request, userDetails));
     }
 
     @GetMapping("/publications/advanced")
     public ResponseEntity<SearchResult> advancedSearch(
             @RequestParam(required = false) String q,
+            @RequestParam(required = false) String query,
+            @RequestParam(required = false) String title,
+            @RequestParam(required = false) String author,
             @RequestParam(required = false) Long domainId,
+            @RequestParam(required = false) String domain,
             @RequestParam(required = false) String academicYear,
             @RequestParam(required = false) String type,
+            @RequestParam(required = false) String language,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(defaultValue = "publishedAt") String sortBy,
+            @RequestParam(defaultValue = "desc") String direction,
+            @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
         SearchRequest request = SearchRequest.builder()
-                .query(q)
+                .query(query != null ? query : q)
+                .q(q != null ? q : query)
+                .title(title)
+                .author(author)
                 .domainId(domainId)
+                .domain(domain)
                 .academicYear(academicYear)
                 .type(type)
+                .language(language)
                 .page(page)
                 .size(size)
+                .sortBy(sortBy)
+                .direction(direction)
                 .build();
-        return ResponseEntity.ok(searchService.search(request));
+        return ResponseEntity.ok(searchService.search(request, userDetails));
     }
 
     @GetMapping("/semantic")
     public ResponseEntity<SearchResult> semanticSearch(
-            @RequestParam String q,
-            @RequestParam(defaultValue = "10") int limit
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false) String query,
+            @RequestParam(defaultValue = "10") int limit,
+            @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
-        return ResponseEntity.ok(searchService.semanticSearch(q, limit));
+        String effectiveQuery = query != null ? query : q;
+        return ResponseEntity.ok(searchService.semanticSearch(effectiveQuery, limit, userDetails));
     }
 
-    @GetMapping("/publications/autocomplete")
+    @GetMapping({"/publications/autocomplete", "/suggestions"})
     public ResponseEntity<List<String>> autocomplete(@RequestParam(required = false) String q) {
-        if (q == null || q.trim().isEmpty()) {
-            return ResponseEntity.ok(Collections.emptyList());
-        }
-        SearchResult result = searchService.search(SearchRequest.builder().query(q).page(0).size(5).build());
-        List<String> titles = result.getPublications().stream()
-                .map(p -> p.getTitle())
-                .toList();
-        return ResponseEntity.ok(titles);
+        return ResponseEntity.ok(searchService.getSuggestions(q));
     }
 
     @GetMapping("/publications/{id}/similar")
-    public ResponseEntity<List<Map<String, Object>>> getSimilarPublications(@PathVariable Long id) {
-        // Retourne les publications du même domaine
-        return ResponseEntity.ok(Collections.emptyList());
+    public ResponseEntity<List<PublicationDTO>> getSimilarPublications(
+            @PathVariable Long id,
+            @RequestParam(defaultValue = "5") int limit,
+            @AuthenticationPrincipal CustomUserDetails userDetails
+    ) {
+        return ResponseEntity.ok(searchService.getSimilarPublications(id, limit, userDetails));
     }
 }

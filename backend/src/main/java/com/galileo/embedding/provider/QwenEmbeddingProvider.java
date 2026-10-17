@@ -48,20 +48,23 @@ public class QwenEmbeddingProvider implements EmbeddingProvider {
         return DIMENSION;
     }
 
+    public boolean isConfigured() {
+        return apiKey != null && !apiKey.trim().isEmpty();
+    }
+
     @Override
     public float[] generateEmbedding(String text) {
         if (text == null || text.trim().isEmpty()) {
-            return new float[DIMENSION];
+            throw new IllegalArgumentException("Le texte à vectoriser ne peut pas être vide");
         }
 
-        if (apiKey == null || apiKey.trim().isEmpty()) {
-            log.debug("Clé Qwen API non configurée. Génération d'un vecteur neutre.");
-            return new float[DIMENSION];
+        if (!isConfigured()) {
+            throw new EmbeddingProviderUnavailableException("Fournisseur Qwen non configuré : variable QWEN_API_KEY absente.");
         }
 
         try {
             String url = baseUrl.replaceAll("/$", "") + "/embeddings";
-            String jsonBody = objectMapper.writeValueAsString(new EmbeddingRequest(MODEL_NAME, text, DIMENSION));
+            String jsonBody = objectMapper.writeValueAsString(new EmbeddingRequest(MODEL_NAME, text.trim(), DIMENSION));
 
             RequestBody body = RequestBody.create(jsonBody, MediaType.parse("application/json"));
             Request request = new Request.Builder()
@@ -73,28 +76,44 @@ public class QwenEmbeddingProvider implements EmbeddingProvider {
             try (Response response = httpClient.newCall(request).execute()) {
                 if (!response.isSuccessful()) {
                     log.warn("Erreur API Qwen Embedding (HTTP {})", response.code());
-                    return new float[DIMENSION];
+                    throw new EmbeddingProviderUnavailableException("Erreur API Qwen Embedding (HTTP " + response.code() + ")");
                 }
 
                 String responseBody = response.body() != null ? response.body().string() : "{}";
                 JsonNode root = objectMapper.readTree(responseBody);
                 JsonNode dataNode = root.path("data");
-                if (dataNode.isArray() && !dataNode.isEmpty()) {
-                    JsonNode embeddingNode = dataNode.get(0).path("embedding");
-                    if (embeddingNode.isArray()) {
-                        float[] result = new float[DIMENSION];
-                        for (int i = 0; i < Math.min(embeddingNode.size(), DIMENSION); i++) {
-                            result[i] = (float) embeddingNode.get(i).asDouble();
-                        }
-                        return result;
-                    }
+                if (!dataNode.isArray() || dataNode.isEmpty()) {
+                    throw new EmbeddingProviderUnavailableException("Réponse Qwen invalide : champ 'data' manquant ou vide");
                 }
+
+                JsonNode embeddingNode = dataNode.get(0).path("embedding");
+                if (!embeddingNode.isArray() || embeddingNode.size() != DIMENSION) {
+                    throw new EmbeddingProviderUnavailableException(
+                            "Dimension d'embedding Qwen inattendue : attendu " + DIMENSION + ", reçu " + embeddingNode.size());
+                }
+
+                float[] result = new float[DIMENSION];
+                double sumSq = 0.0;
+                for (int i = 0; i < DIMENSION; i++) {
+                    float val = (float) embeddingNode.get(i).asDouble();
+                    if (Float.isNaN(val) || Float.isInfinite(val)) {
+                        throw new EmbeddingProviderUnavailableException("Valeur non numérique (NaN/Inf) dans le vecteur Qwen");
+                    }
+                    result[i] = val;
+                    sumSq += val * val;
+                }
+
+                // Vérification stricte : refuser formellement tout vecteur nul
+                if (sumSq < 1e-9) {
+                    throw new EmbeddingProviderUnavailableException("Vecteur nul reçu du fournisseur Qwen (norme = 0)");
+                }
+
+                return result;
             }
         } catch (IOException e) {
             log.warn("Impossible de contacter le fournisseur d'embeddings Qwen : {}", e.getMessage());
+            throw new EmbeddingProviderUnavailableException("Impossible de contacter le fournisseur Qwen : " + e.getMessage(), e);
         }
-
-        return new float[DIMENSION];
     }
 
     @Override

@@ -1,6 +1,7 @@
 package com.galileo.ai;
 
 import com.galileo.ai.service.DeepSeekAIService;
+import com.galileo.embedding.provider.EmbeddingProviderUnavailableException;
 import com.galileo.embedding.provider.QwenEmbeddingProvider;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -11,7 +12,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class AIServiceTest {
 
     @Test
-    @DisplayName("QwenEmbeddingProvider should declare 1024 dimensions and handle absent API key safely")
+    @DisplayName("QwenEmbeddingProvider should declare 1024 dimensions and reject missing API key with EmbeddingProviderUnavailableException")
     void testQwenEmbeddingProviderWithoutKey() {
         QwenEmbeddingProvider provider = new QwenEmbeddingProvider();
         ReflectionTestUtils.setField(provider, "apiKey", "");
@@ -20,10 +21,11 @@ class AIServiceTest {
         assertEquals(1024, provider.getDimension());
         assertEquals("text-embedding-v4", provider.getModelName());
         assertEquals("qwen-cloud", provider.getProviderName());
+        assertFalse(provider.isConfigured());
 
-        float[] embedding = provider.generateEmbedding("Introduction à l'intelligence artificielle");
-        assertNotNull(embedding);
-        assertEquals(1024, embedding.length);
+        assertThrows(EmbeddingProviderUnavailableException.class, () ->
+                provider.generateEmbedding("Introduction à l'intelligence artificielle")
+        );
     }
 
     @Test
