@@ -258,14 +258,34 @@ const SubmissionPage: React.FC = () => {
 
                     {step === 3 && publishedArticle && (
                         <div className="text-center py-8">
-                             <h2 className="text-2xl font-poppins font-bold text-light-accent dark:text-teal mb-4">{translations.submission_page.success.title}</h2>
-                             <p className="text-light-text-secondary dark:text-gray-300 mb-4">{translations.submission_page.success.message}</p>
-                             <p className="text-sm text-light-text-secondary dark:text-gray-400 mb-6">{translations.submission_page.success.reference}: <span className="font-mono bg-light-card dark:bg-navy-dark px-2 py-1 rounded">GAL-{new Date().getFullYear()}-{publishedArticle.id}</span></p>
+                             <div className="w-16 h-16 bg-green-500/10 text-green-600 dark:text-teal rounded-full flex items-center justify-center mx-auto mb-4 text-3xl">
+                               ✓
+                             </div>
+                             <h2 className="text-2xl font-poppins font-bold text-light-accent dark:text-teal mb-3">{translations.submission_page.success.title}</h2>
+                             <p className="text-light-text-secondary dark:text-gray-300 mb-2">{translations.submission_page.success.message}</p>
+                             <p className="text-sm text-light-text-secondary dark:text-gray-400 mb-6">{translations.submission_page.success.reference}: <span className="font-mono bg-light-card dark:bg-navy-dark px-2 py-1 rounded font-bold">GAL-{new Date().getFullYear()}-{publishedArticle.id}</span></p>
+
+                             {/* Statut de traitement asynchrone du document */}
+                             <div className="max-w-md mx-auto mb-8 p-4 rounded-xl bg-blue-500/10 border border-blue-500/20 text-left text-xs space-y-1.5">
+                               <div className="font-bold text-blue-700 dark:text-teal flex items-center space-x-1">
+                                 <span>⚙️ Traitement asynchrone du document PDF :</span>
+                               </div>
+                               <p className="text-gray-600 dark:text-gray-300">
+                                 Extraction du texte, découpage par passages (chunks) et vectorisation avec le modèle Qwen text-embedding-v4 (dimension 1024) dans PostgreSQL pgvector.
+                               </p>
+                               <p className="text-light-accent dark:text-teal font-semibold pt-1">
+                                 Statut : En cours d'analyse & vectorisation
+                               </p>
+                             </div>
+
                              <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                                <NavLink to={`/publication/${publishedArticle.id}`} className="bg-light-accent dark:bg-teal text-white dark:text-navy font-bold py-2 px-6 rounded-full hover:bg-light-accent-hover dark:hover:bg-opacity-80 transition-all">
+                                <NavLink to="/dashboard/student" className="bg-light-accent dark:bg-teal text-white dark:text-navy font-bold py-2.5 px-6 rounded-full hover:opacity-90 transition-all shadow-md">
+                                    📊 Suivre dans mon tableau de bord
+                                </NavLink>
+                                <NavLink to={`/publication/${publishedArticle.id}`} className="border border-light-accent dark:border-teal text-light-accent dark:text-teal font-bold py-2.5 px-6 rounded-full hover:bg-light-accent/10 dark:hover:bg-teal/10 transition-all">
                                     {translations.submission_page.success.view_article}
                                 </NavLink>
-                                 <button onClick={resetForm} className="border border-light-accent dark:border-teal text-light-accent dark:text-teal font-bold py-2 px-6 rounded-full hover:bg-light-accent dark:hover:bg-teal hover:text-white dark:hover:text-navy transition-colors">
+                                 <button onClick={resetForm} className="border border-gray-400 text-gray-600 dark:text-gray-300 font-bold py-2.5 px-6 rounded-full hover:bg-gray-100 dark:hover:bg-navy transition-colors">
                                     {translations.submission_page.success.submit_another}
                                 </button>
                             </div>

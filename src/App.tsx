@@ -27,6 +27,9 @@ import FavoritesPage from './pages/FavoritesPage';
 import ReadingHistoryPage from './pages/ReadingHistoryPage';
 import NotificationsPage from './pages/NotificationsPage';
 import AnalyticsDashboardPage from './pages/AnalyticsDashboardPage';
+import AIAssistantPage from './pages/AIAssistantPage';
+import QuizPage from './pages/QuizPage';
+import LearningPathsPage from './pages/LearningPathsPage';
 import RequireRole from './components/RequireRole';
 
 const ScrollToTop: React.FC = () => {
@@ -142,6 +145,11 @@ const AppContent: React.FC = () => {
                 </RequireRole>
               }
             />
+            {/* Assistant IA & Apprentissage Interactif */}
+            <Route path="/ai-assistant" element={<AIAssistantPage />} />
+            <Route path="/quiz" element={<QuizPage />} />
+            <Route path="/quiz/:id" element={<QuizPage />} />
+            <Route path="/learning-paths" element={<LearningPathsPage />} />
           </Routes>
         </main>
         <Footer />
