@@ -19,6 +19,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/ai")
 @RequiredArgsConstructor
+@PreAuthorize("isAuthenticated()")
 public class AIController {
 
     private final AIService aiService;

@@ -190,7 +190,14 @@ public class DocumentProcessingService {
             documentRepository.save(document);
 
             if (submission != null) {
-                submission.setStatus(SubmissionStatus.UNDER_REVIEW);
+                try {
+                    Map<String, Object> errAnalysis = new HashMap<>();
+                    errAnalysis.put("status", "FAILED");
+                    errAnalysis.put("error", e.getMessage());
+                    errAnalysis.put("failedAt", LocalDateTime.now().toString());
+                    submission.setAiAnalysis(objectMapper.writeValueAsString(errAnalysis));
+                } catch (Exception ignored) {}
+                submission.setStatus(SubmissionStatus.PENDING);
                 submissionRepository.save(submission);
             }
         }

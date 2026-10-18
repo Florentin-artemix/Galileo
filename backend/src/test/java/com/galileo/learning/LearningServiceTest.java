@@ -40,6 +40,9 @@ class LearningServiceTest {
     private QuizAttemptRepository attemptRepository;
 
     @Mock
+    private LearningProfileRepository profileRepository;
+
+    @Mock
     private UserRepository userRepository;
 
     @Spy

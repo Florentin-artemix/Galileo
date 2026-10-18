@@ -92,6 +92,8 @@ class AIServiceRAGTest {
         User student = User.builder().id(9L).email("student@mapon.cd").role(Role.STUDENT).build();
         CustomUserDetails userDetails = new CustomUserDetails(student);
 
+        when(userRepository.findById(9L)).thenReturn(Optional.of(student));
+        when(interactionRepository.countByUserIdAndCreatedAtAfter(eq(9L), any())).thenReturn(0L);
         when(publicationRepository.findById(100L)).thenReturn(Optional.of(pub));
         when(publicationService.isAuthorizedToAccess(pub, userDetails)).thenReturn(false);
 
@@ -111,6 +113,9 @@ class AIServiceRAGTest {
     @Test
     @DisplayName("Summary caching must return cached response without calling external DeepSeek LLM")
     void testSummaryReturnedFromCacheWithoutLLMCall() {
+        User user = User.builder().id(1L).email("user@mapon.cd").role(Role.STUDENT).build();
+        CustomUserDetails userDetails = new CustomUserDetails(user);
+
         Publication pub = Publication.builder()
                 .id(200L)
                 .title("Algèbre linéaire appliquée")
@@ -129,8 +134,10 @@ class AIServiceRAGTest {
                 .model("deepseek-chat")
                 .build();
 
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(interactionRepository.countByUserIdAndCreatedAtAfter(eq(1L), any())).thenReturn(5L);
         when(publicationRepository.findById(200L)).thenReturn(Optional.of(pub));
-        when(publicationService.isAuthorizedToAccess(pub, null)).thenReturn(true);
+        when(publicationService.isAuthorizedToAccess(pub, userDetails)).thenReturn(true);
         when(documentRepository.findByPublicationId(200L)).thenReturn(List.of(doc));
         when(summaryCacheRepository.findByPublicationIdAndSummaryType(200L, "RAPIDE"))
                 .thenReturn(Optional.of(cache));
@@ -140,11 +147,68 @@ class AIServiceRAGTest {
                 .summaryType("RAPIDE")
                 .build();
 
-        AISummaryResponse response = aiService.summarize(request, null);
+        AISummaryResponse response = aiService.summarize(request, userDetails);
 
         assertNotNull(response);
         assertEquals("Synthèse pré-calculée stockée en base.", response.getContent());
         assertTrue(response.isCached());
         verify(deepSeekAIService, never()).generateText(any(), any(), anyDouble(), anyInt());
+    }
+
+    @Test
+    @DisplayName("Anonymous AI chat call must throw ForbiddenException")
+    void testAnonymousChatCallThrowsForbiddenException() {
+        AIChatRequest request = AIChatRequest.builder()
+                .message("Question anonyme")
+                .build();
+
+        assertThrows(ForbiddenException.class, () ->
+                aiService.chat(request, null)
+        );
+    }
+
+    @Test
+    @DisplayName("AI chat exceeding daily quota must throw BadRequestException")
+    void testDailyQuotaExceededThrowsBadRequestException() {
+        User user = User.builder().id(5L).email("student5@mapon.cd").role(Role.STUDENT).build();
+        CustomUserDetails userDetails = new CustomUserDetails(user);
+
+        when(userRepository.findById(5L)).thenReturn(Optional.of(user));
+        when(interactionRepository.countByUserIdAndCreatedAtAfter(eq(5L), any())).thenReturn(100L); // quota reached
+
+        AIChatRequest request = AIChatRequest.builder()
+                .message("Question après dépassement de quota")
+                .build();
+
+        assertThrows(com.galileo.common.exception.BadRequestException.class, () ->
+                aiService.chat(request, userDetails)
+        );
+    }
+
+    @Test
+    @DisplayName("Accessing another user's conversation must throw ForbiddenException")
+    void testCrossUserConversationAccessThrowsForbiddenException() {
+        User user = User.builder().id(10L).email("student10@mapon.cd").role(Role.STUDENT).build();
+        User otherUser = User.builder().id(99L).email("other@mapon.cd").role(Role.STUDENT).build();
+        CustomUserDetails userDetails = new CustomUserDetails(user);
+
+        com.galileo.ai.entity.AIConversation otherConv = com.galileo.ai.entity.AIConversation.builder()
+                .id(777L)
+                .user(otherUser)
+                .title("Conversation privée d'un autre utilisateur")
+                .build();
+
+        when(userRepository.findById(10L)).thenReturn(Optional.of(user));
+        when(interactionRepository.countByUserIdAndCreatedAtAfter(eq(10L), any())).thenReturn(0L);
+        when(conversationRepository.findById(777L)).thenReturn(Optional.of(otherConv));
+
+        AIChatRequest request = AIChatRequest.builder()
+                .conversationId(777L)
+                .message("Tentative d'usurpation de conversation")
+                .build();
+
+        assertThrows(ForbiddenException.class, () ->
+                aiService.chat(request, userDetails)
+        );
     }
 }

@@ -18,5 +18,6 @@ public class AIChatRequest {
     private Long publicationId;
     private AIMode mode;
     @NotBlank(message = "Le message est obligatoire")
+    @jakarta.validation.constraints.Size(max = 4000, message = "Le message ne peut dépasser 4000 caractères")
     private String message;
 }

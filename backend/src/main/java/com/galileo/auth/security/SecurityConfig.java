@@ -104,7 +104,6 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/blog/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/evenements/**", "/api/events/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/documents/**").permitAll()
-                        .requestMatchers("/api/ai/chat", "/api/ai/summarize", "/api/ai/explain", "/api/ai/compare").permitAll()
 
                         // Tracking public silencieux
                         .requestMatchers(HttpMethod.POST, "/api/analytics/track/**").permitAll()
@@ -114,6 +113,7 @@ public class SecurityConfig {
 
                         // Administration & Modération éditoriale (ADMIN et STAFF)
                         .requestMatchers("/api/admin/**").hasAnyRole("ADMIN", "STAFF")
+                        .requestMatchers("/api/analytics/dashboard").hasAnyRole("ADMIN", "STAFF")
 
                         // Toutes les autres routes (soumissions, favoris, profil, historique, notifications) nécessitent une authentification
                         .anyRequest().authenticated()
