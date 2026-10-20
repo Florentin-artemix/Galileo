@@ -36,6 +36,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
+@SuppressWarnings("unchecked")
 class SearchServiceTest {
 
     @Mock
@@ -79,8 +80,6 @@ class SearchServiceTest {
 
         PageImpl<Publication> page = new PageImpl<>(List.of(pub));
         when(publicationRepository.findAll(any(Specification.class), any(Pageable.class))).thenReturn(page);
-        when(authorRepository.findByPublicationIdOrderByPositionAsc(1L)).thenReturn(Collections.emptyList());
-        when(keywordRepository.findByPublicationId(1L)).thenReturn(Collections.emptyList());
 
         SearchRequest req = SearchRequest.builder()
                 .query("géotechnique")

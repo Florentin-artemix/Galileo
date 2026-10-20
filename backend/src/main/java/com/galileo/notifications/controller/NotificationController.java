@@ -128,12 +128,15 @@ public class NotificationController {
     ) {
         Long targetId = resolveUserId(userId, userDetails);
         NotificationPreference pref = preferenceRepository.findByUserId(targetId).orElse(null);
-        return ResponseEntity.ok(Map.of(
-                "userId", String.valueOf(targetId),
-                "emailEnabled", true,
-                "pushEnabled", true,
-                "mutedTypes", Collections.emptyList()
-        ));
+        Map<String, Object> map = new HashMap<>();
+        map.put("userId", String.valueOf(targetId));
+        map.put("emailEnabled", true);
+        map.put("pushEnabled", true);
+        map.put("submission", pref == null || Boolean.TRUE.equals(pref.getSubmission()));
+        map.put("validation", pref == null || Boolean.TRUE.equals(pref.getValidation()));
+        map.put("publication", pref == null || Boolean.TRUE.equals(pref.getPublication()));
+        map.put("mutedTypes", Collections.emptyList());
+        return ResponseEntity.ok(map);
     }
 
     @PutMapping("/{userId}/preferences")

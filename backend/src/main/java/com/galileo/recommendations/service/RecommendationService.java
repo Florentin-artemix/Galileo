@@ -127,8 +127,9 @@ public class RecommendationService {
 
     @Transactional
     public List<Map<String, Object>> getPersonalizedRecommendations(Long userId, int limit) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("Utilisateur", "id", userId));
+        if (!userRepository.existsById(userId)) {
+            throw new ResourceNotFoundException("Utilisateur", "id", userId);
+        }
 
         int fetchLimit = limit > 0 ? Math.min(limit, 20) : 10;
 
@@ -290,9 +291,6 @@ public class RecommendationService {
     }
 
     private PublicationDTO toDTO(Publication p) {
-        List<PublicationAuthor> authors = authorRepository.findByPublicationIdOrderByPositionAsc(p.getId());
-        List<PublicationKeyword> pks = keywordRepository.findByPublicationId(p.getId());
-
         return PublicationDTO.builder()
                 .id(p.getId())
                 .title(p.getTitle())

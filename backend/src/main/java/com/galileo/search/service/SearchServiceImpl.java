@@ -366,9 +366,6 @@ public class SearchServiceImpl implements SearchService {
     }
 
     private PublicationDTO toDTO(Publication p) {
-        List<PublicationAuthor> authors = authorRepository.findByPublicationIdOrderByPositionAsc(p.getId());
-        List<PublicationKeyword> pks = keywordRepository.findByPublicationId(p.getId());
-
         return PublicationDTO.builder()
                 .id(p.getId())
                 .title(p.getTitle())
