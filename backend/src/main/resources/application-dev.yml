@@ -1,0 +1,8 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# GALILEO v3.0 - Profil de Développement Local Uniquement (application-dev.yml)
+# ATTENTION : Ne JAMAIS activer ce profil sur une instance de production ou EC2.
+# En production, définir explicitement JWT_SECRET dans l'environnement systemd.
+# ═══════════════════════════════════════════════════════════════════════════════
+galileo:
+  jwt:
+    secret: "dev-only-local-secret-do-not-use-in-production-must-be-at-least-256-bits-long-32-bytes"

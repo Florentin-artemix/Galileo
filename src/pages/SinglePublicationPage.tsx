@@ -11,6 +11,7 @@ import PdfViewer from '../components/PdfViewer';
 import FavoriteButton from '../components/FavoriteButton';
 import SimilarPublications from '../components/SimilarPublications';
 import ReadingProgress from '../components/ReadingProgress';
+import AIAssistantWidget from '../components/AIAssistantWidget';
 
 // Composant pour le bouton de téléchargement avec enregistrement et tracking
 const DownloadButton: React.FC<{ publicationId: number; title?: string }> = ({ publicationId, title }) => {
@@ -65,6 +66,7 @@ const SinglePublicationPage: React.FC = () => {
   const [publication, setPublication] = useState<Publication | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isAIOpen, setIsAIOpen] = useState(false);
 
   useEffect(() => {
     const loadPublication = async () => {
@@ -172,6 +174,18 @@ const SinglePublicationPage: React.FC = () => {
                       <>
                           <div className="mb-6 flex flex-wrap gap-4 items-center">
                               <DownloadButton publicationId={publication.id} />
+                              <button
+                                onClick={() => setIsAIOpen(true)}
+                                className="inline-flex items-center space-x-2 bg-gradient-to-r from-light-accent to-teal text-white dark:text-navy font-bold py-3 px-6 rounded-full hover:opacity-90 shadow-md transition-all duration-300"
+                              >
+                                <span>✨ Assistant IA</span>
+                              </button>
+                              <NavLink
+                                to="/quiz"
+                                className="inline-flex items-center space-x-2 border border-light-accent dark:border-teal text-light-accent dark:text-teal font-bold py-3 px-6 rounded-full hover:bg-light-accent/10 dark:hover:bg-teal/10 transition-all duration-300"
+                              >
+                                <span>📝 Auto-évaluation</span>
+                              </NavLink>
                               {isAuthenticated && (
                                 <FavoriteButton publicationId={publication.id} showLabel />
                               )}
@@ -188,6 +202,14 @@ const SinglePublicationPage: React.FC = () => {
               </div>
             </div>
           </div>
+
+          <AIAssistantWidget
+            publicationId={publication.id}
+            publicationTitle={publication.title[language]}
+            initialMode="DOCUMENT"
+            isOpen={isAIOpen}
+            onClose={() => setIsAIOpen(false)}
+          />
 
           {/* Sidebar - Publications similaires */}
           <div className="lg:w-80 flex-shrink-0">

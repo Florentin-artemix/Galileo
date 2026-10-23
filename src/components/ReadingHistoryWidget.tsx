@@ -1,18 +1,31 @@
 import React, { useEffect, useState } from 'react';
-import { lectureService, type ReadingHistoryItem } from '../services/lectureService';
+import { readingHistoryService } from '../services/readingHistoryService';
 import { useAuth } from '../contexts/AuthContext';
+
+export interface HistoryItem {
+  id: string | number;
+  publicationTitle: string;
+  lastReadAt: string;
+  progress: number;
+}
 
 const ReadingHistoryWidget: React.FC = () => {
   const { user } = useAuth();
-  const [history, setHistory] = useState<ReadingHistoryItem[]>([]);
+  const [history, setHistory] = useState<HistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const loadHistory = async () => {
       if (!user) return;
       try {
-        const data = await lectureService.getUserReadingHistory(user.uid);
-        setHistory(data.slice(0, 5)); // Top 5 récents
+        const data = await readingHistoryService.getMyHistory();
+        const mapped = data.map(h => ({
+          id: h.publicationId,
+          publicationTitle: h.publicationTitle || `Publication #${h.publicationId}`,
+          lastReadAt: h.readAt || new Date().toISOString(),
+          progress: h.readProgress || 100
+        }));
+        setHistory(mapped.slice(0, 5));
       } catch (error) {
         console.debug('[ReadingHistory] Pas d\'historique disponible');
       } finally {

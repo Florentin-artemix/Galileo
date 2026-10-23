@@ -45,12 +45,13 @@ const Header: React.FC = () => {
 
   const navLinks = [
     { to: '/', text: translations.nav.home },
-    { to: '/about', text: translations.nav.about },
-    { to: '/events', text: translations.nav.activities },
     { to: '/publications', text: translations.nav.journal },
+    { to: '/ai-assistant', text: '✨ Assistant IA' },
+    { to: '/learning-paths', text: '🎓 Parcours' },
+    { to: '/quiz', text: '📝 Quiz' },
     { to: '/resources', text: translations.nav.resources },
-    { to: '/team', text: translations.nav.team },
-    { to: '/contact', text: translations.nav.contact },
+    { to: '/events', text: translations.nav.activities },
+    { to: '/about', text: translations.nav.about },
   ];
 
   const roleLink =

@@ -2,10 +2,12 @@ import axios, { AxiosInstance } from 'axios';
 import { authService } from './authService';
 
 /**
- * Instance Axios configurée pour communiquer avec le backend
+ * Instance Axios configurée pour communiquer avec le backend Spring Boot
+ * En production et en développement, utilise par défaut le chemin relatif `/api`
+ * ou la variable d'environnement VITE_API_URL.
  */
 const apiClient: AxiosInstance = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8080/api',
+  baseURL: import.meta.env.VITE_API_URL || '/api',
   headers: {
     'Content-Type': 'application/json'
   }
@@ -25,35 +27,41 @@ const processQueue = (error: any, token: string | null = null) => {
   failedQueue = [];
 };
 
+/**
+ * Intercepteur de requête : attache le jeton JWT Bearer valide
+ */
 apiClient.interceptors.request.use(
   async (config) => {
-    const token = await authService.getAccessToken();
+    const token = authService.getAccessToken();
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
     }
     return config;
   },
-  (error) => {
-    return Promise.reject(error);
-  }
+  (error) => Promise.reject(error)
 );
 
+/**
+ * Intercepteur de réponse : gère les erreurs 401 et rafraîchit automatiquement le jeton
+ */
 apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
     
     // Ignore refresh endpoint itself to avoid loops
-    if (originalRequest.url?.includes('/auth/refresh')) {
-        return Promise.reject(error);
+    if (originalRequest?.url?.includes('/auth/refresh')) {
+      return Promise.reject(error);
     }
 
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    if (error.response?.status === 401 && originalRequest && !originalRequest._retry) {
       if (isRefreshing) {
         return new Promise(function(resolve, reject) {
           failedQueue.push({ resolve, reject });
         }).then(token => {
-          originalRequest.headers.Authorization = 'Bearer ' + token;
+          if (token && originalRequest.headers) {
+            originalRequest.headers.Authorization = 'Bearer ' + token;
+          }
           return apiClient(originalRequest);
         }).catch(err => {
           return Promise.reject(err);
@@ -64,15 +72,16 @@ apiClient.interceptors.response.use(
       isRefreshing = true;
 
       try {
-        const success = await authService.refresh();
-        if (success) {
-            const token = await authService.getAccessToken();
-            processQueue(null, token);
-            originalRequest.headers.Authorization = 'Bearer ' + token;
-            return apiClient(originalRequest);
+        const newToken = await authService.refreshAccessToken();
+        if (newToken) {
+          processQueue(null, newToken);
+          if (originalRequest.headers) {
+            originalRequest.headers.Authorization = 'Bearer ' + newToken;
+          }
+          return apiClient(originalRequest);
         } else {
-            processQueue(new Error('Refresh failed'), null);
-            return Promise.reject(error);
+          processQueue(new Error('Refresh failed'), null);
+          return Promise.reject(error);
         }
       } catch (err) {
         processQueue(err, null);

@@ -92,7 +92,7 @@ const AuthPage: React.FC = () => {
   const [name, setName] = useState('');
   const [program, setProgram] = useState('');
   const [motivation, setMotivation] = useState('');
-  const [role, setRole] = useState<'STUDENT' | 'STAFF' | 'ADMIN' | 'STUDENT'>('STUDENT');
+  const [role, setRole] = useState<'STUDENT' | 'VIEWER'>('STUDENT');
 
   const validateForm = (): boolean => {
     setError('');
@@ -119,8 +119,8 @@ const AuthPage: React.FC = () => {
         setError(t.error_password_mismatch);
         return false;
       }
-      if (password.length < 6) {
-        setError(t.error_password_length);
+      if (password.length < 8) {
+        setError(t.error_password_length || 'Le mot de passe doit contenir au moins 8 caractères.');
         return false;
       }
     }
@@ -138,37 +138,26 @@ const AuthPage: React.FC = () => {
 
     try {
       if (isLogin) {
-        // 🔗 POINT D'INTÉGRATION 1: Login avec Spring Security
-        await authService.login(email, password);
-        
-        // Rediriger vers le dashboard approprié selon le rôle
-        const userRole = await authService.getCurrentUserRole();
-        
-        // Forcer un rechargement complet pour que AuthContext récupère le rôle
-        const dashboardUrl = (userRole === 'ADMIN' || userRole === 'STAFF') ? '/#/dashboard/admin' :
-                            userRole === 'STUDENT' ? '/#/dashboard/student' :
-                            '/#/dashboard/viewer';
-        
-        window.location.href = dashboardUrl;
+        const loggedUser = await authService.login(email, password);
+        const userRole = loggedUser.role;
+
+        if (userRole === 'ADMIN') {
+          navigate('/dashboard/admin');
+        } else if (userRole === 'STAFF') {
+          navigate('/dashboard/staff');
+        } else if (userRole === 'STUDENT' || userRole === 'RESEARCHER' || userRole === 'TEACHER') {
+          navigate('/dashboard/student');
+        } else {
+          navigate('/');
+        }
       } else {
-        // 🔗 POINT D'INTÉGRATION 2: Inscription avec Spring Security + rôle
-        // Le rôle est passé à signup() et stocké dans localStorage
-        await authService.signup(email, password, role, {
+        await authService.signup(email, password, 'STUDENT', {
           displayName: name,
           program,
           motivation
         });
-        
-        console.log('Inscription réussie avec rôle:', role);
-        
-        // Rediriger vers le dashboard approprié selon le rôle choisi
-        const dashboardUrl = role === 'ADMIN' ? '/#/dashboard/admin' :
-                            role === 'STAFF' ? '/#/dashboard/staff' :
-                            role === 'STUDENT' ? '/#/dashboard/student' :
-                            '/#/dashboard/viewer';
-        
-        // Forcer un rechargement complet pour que AuthContext récupère le rôle
-        window.location.href = dashboardUrl;
+        setSuccessMessage('Compte créé avec succès !');
+        navigate('/dashboard/student');
       }
     } catch (err: any) {
       console.error('Authentication error:', err);
@@ -456,16 +445,14 @@ const AuthPage: React.FC = () => {
                   <select
                     id="role"
                     value={role}
-                    onChange={(e) => setRole(e.target.value as 'STUDENT' | 'STAFF' | 'ADMIN' | 'STUDENT')}
+                    onChange={(e) => setRole(e.target.value as 'STUDENT' | 'VIEWER')}
                     className="block px-3 py-4 w-full text-base text-light-text dark:text-off-white bg-light-bg dark:bg-navy rounded-lg border-2 border-light-border dark:border-dark-border focus:outline-none focus:ring-0 focus:border-light-accent dark:focus:border-teal"
                   >
-                    <option value="STUDENT">Visiteur - Consultation uniquement</option>
-                    <option value="STUDENT">Étudiant - Soumission et suivi de publications</option>
-                    <option value="STAFF">Personnel - Modération et gestion du contenu</option>
-                    <option value="ADMIN">Administrateur - Gestion complète du système</option>
+                    <option value="STUDENT">Étudiant / Chercheur - Soumissions et publications</option>
+                    <option value="VIEWER">Lecteur - Consultation et favoris</option>
                   </select>
                   <p className="text-xs text-light-text-secondary dark:text-gray-500 mt-1">
-                    Le rôle sélectionné sera attribué directement à votre compte.
+                    Les accès administratifs sont attribués exclusivement par l'administration.
                   </p>
                 </div>
               )}

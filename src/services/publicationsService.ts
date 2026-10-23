@@ -1,5 +1,5 @@
 import apiClient from './apiService';
-import type { Publication } from '../../types';
+import type { Publication } from '../types';
 
 // DTO correspondant à la réponse réelle du backend
 export interface PublicationDTO {

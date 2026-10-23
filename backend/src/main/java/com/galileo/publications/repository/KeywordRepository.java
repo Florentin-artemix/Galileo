@@ -9,5 +9,6 @@ import java.util.Optional;
 @Repository
 public interface KeywordRepository extends JpaRepository<Keyword, Long> {
     Optional<Keyword> findByLabel(String label);
+    Optional<Keyword> findByLabelIgnoreCase(String label);
     Optional<Keyword> findBySlug(String slug);
 }

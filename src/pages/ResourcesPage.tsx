@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
-import { resourcesData } from '../data/resources';
+import { resourcesService } from '../services/resourcesService';
 import type { ResourceCategory, ResourceItem } from '../types';
 
 const ResourceCard: React.FC<{ item: ResourceItem }> = ({ item }) => {
@@ -41,12 +41,22 @@ const ResourceCard: React.FC<{ item: ResourceItem }> = ({ item }) => {
 const ResourcesPage: React.FC = () => {
     const { translations, language } = useLanguage();
     const t = translations.resources_page;
+    const [categories, setCategories] = useState<ResourceCategory[]>([]);
+    const [loading, setLoading] = useState(true);
 
-    const categories: ResourceCategory[] = resourcesData.map(category => ({
-        title: category.title,
-        description: category.description,
-        items: category.items,
-    }));
+    useEffect(() => {
+        const fetchCategories = async () => {
+            try {
+                const data = await resourcesService.getResources();
+                setCategories(data);
+            } catch (err) {
+                console.error('Failed to load resources:', err);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchCategories();
+    }, []);
 
     return (
         <div className="animate-slide-in-up">
@@ -58,19 +68,27 @@ const ResourcesPage: React.FC = () => {
             </section>
 
             <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-24">
-                {categories.map((category, index) => (
-                    <section key={index} className="mb-16">
-                        <div className="max-w-2xl mb-8">
-                            <h2 className="text-3xl font-poppins font-bold text-light-text dark:text-off-white">{category.title[language]}</h2>
-                            <p className="text-light-text-secondary dark:text-gray-400 mt-2">{category.description[language]}</p>
-                        </div>
-                        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-8">
-                            {category.items.map((item, itemIndex) => (
-                                <ResourceCard key={itemIndex} item={item} />
-                            ))}
-                        </div>
-                    </section>
-                ))}
+                {loading ? (
+                    <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-8">
+                        {[1, 2, 3].map(n => (
+                            <div key={n} className="h-48 bg-gray-200 dark:bg-navy/40 animate-pulse rounded-lg" />
+                        ))}
+                    </div>
+                ) : (
+                    categories.map((category, index) => (
+                        <section key={index} className="mb-16">
+                            <div className="max-w-2xl mb-8">
+                                <h2 className="text-3xl font-poppins font-bold text-light-text dark:text-off-white">{category.title[language]}</h2>
+                                <p className="text-light-text-secondary dark:text-gray-400 mt-2">{category.description[language]}</p>
+                            </div>
+                            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-8">
+                                {category.items.map((item, itemIndex) => (
+                                    <ResourceCard key={itemIndex} item={item} />
+                                ))}
+                            </div>
+                        </section>
+                    ))
+                )}
             </div>
         </div>
     );

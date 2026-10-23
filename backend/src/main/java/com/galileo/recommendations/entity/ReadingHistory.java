@@ -50,4 +50,14 @@ public class ReadingHistory {
             this.progress = 0.0f;
         }
     }
+
+    public Boolean getCompleted() {
+        return progress != null && progress >= 1.0f;
+    }
+
+    public void setCompleted(Boolean completed) {
+        if (Boolean.TRUE.equals(completed)) {
+            this.progress = 1.0f;
+        }
+    }
 }

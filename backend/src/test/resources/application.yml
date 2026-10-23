@@ -1,0 +1,42 @@
+spring:
+  application:
+    name: galileo-test
+  datasource:
+    url: jdbc:h2:mem:galileotest;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE;MODE=PostgreSQL
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: 
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+  flyway:
+    enabled: false
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 50MB
+
+galileo:
+  jwt:
+    secret: "TestSecretKeyForGalileoPreProductionSecurityMustBeAtLeast256BitsLong1234567890"
+    expiration-ms: 86400000
+    refresh-expiration-ms: 604800000
+  cors:
+    allowed-origins: "http://localhost:5173,http://localhost:3000"
+  storage:
+    type: local
+    local-dir: "./target/test-storage"
+  ai:
+    deepseek:
+      api-key: "test-deepseek-key"
+      base-url: "https://api.deepseek.com/v1"
+    qwen:
+      api-key: "test-qwen-key"
+      base-url: "https://dashscope-intl.aliyuncs.com/compatible-mode/v1"
+
+app:
+  url: "http://localhost:3000"

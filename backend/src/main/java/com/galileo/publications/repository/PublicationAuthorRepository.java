@@ -10,4 +10,5 @@ import java.util.List;
 public interface PublicationAuthorRepository extends JpaRepository<PublicationAuthor, Long> {
     List<PublicationAuthor> findByPublicationIdOrderByPositionAsc(Long publicationId);
     List<PublicationAuthor> findByUserId(Long userId);
+    boolean existsByPublicationIdAndUserId(Long publicationId, Long userId);
 }

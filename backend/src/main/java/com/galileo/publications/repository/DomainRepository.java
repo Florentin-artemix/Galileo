@@ -10,6 +10,7 @@ import java.util.Optional;
 @Repository
 public interface DomainRepository extends JpaRepository<Domain, Long> {
     Optional<Domain> findBySlug(String slug);
+    Optional<Domain> findByNameIgnoreCase(String name);
     List<Domain> findByParentIsNull();
     List<Domain> findByParentId(Long parentId);
 }

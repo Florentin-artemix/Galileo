@@ -5,9 +5,11 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   isAuthenticated: boolean;
-  role: UserRole | null;
+  idToken: string | null;
+  role: UserRole;
   hasRole: (required: UserRole | UserRole[]) => boolean;
   logout: () => Promise<void>;
+  refreshToken: () => Promise<string | null>;
   setUser: (user: User | null) => void;
 }
 
@@ -26,41 +28,72 @@ interface AuthProviderProps {
 }
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
-  const [user, setUserState] = useState<User | null>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [idToken, setIdToken] = useState<string | null>(null);
+  const [role, setRole] = useState<UserRole>('VIEWER');
 
   useEffect(() => {
-    const initAuth = async () => {
-      try {
-        const currentUser = await authService.fetchCurrentUser();
-        setUserState(currentUser);
-      } catch (error) {
-        console.error("Auth init error:", error);
-      } finally {
-        setLoading(false);
+    const unsubscribe = authService.onAuthStateChanged(async (currentUser) => {
+      setUser(currentUser);
+      
+      if (currentUser) {
+        const token = await authService.getIdToken();
+        setIdToken(token);
+        const currentRole = await authService.getCurrentUserRole();
+        setRole(currentRole);
+      } else {
+        setIdToken(null);
+        setRole('VIEWER');
       }
-    };
-    initAuth();
+      
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
   }, []);
 
+  const refreshToken = async (): Promise<string | null> => {
+    if (user) {
+      const token = await authService.refreshAccessToken();
+      setIdToken(token);
+      return token;
+    }
+    return null;
+  };
+
   const hasRole = (required: UserRole | UserRole[]) => {
-    if (!user) return false;
     const list = Array.isArray(required) ? required : [required];
-    return list.includes(user.role);
+    return list.includes(role);
   };
 
   const logout = async () => {
     await authService.logout();
-    setUserState(null);
+    authService.clearStoredRole();
+    setUser(null);
+    setIdToken(null);
+    setRole('VIEWER');
+  };
+
+  const setUserState = (newUser: User | null) => {
+    setUser(newUser);
+    if (newUser) {
+      setRole(newUser.role);
+    } else {
+      setIdToken(null);
+      setRole('VIEWER');
+    }
   };
 
   const value: AuthContextType = {
     user,
     loading,
     isAuthenticated: !!user,
-    role: user?.role || null,
+    idToken,
+    role,
     hasRole,
     logout,
+    refreshToken,
     setUser: setUserState,
   };
 

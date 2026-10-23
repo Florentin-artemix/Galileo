@@ -17,4 +17,8 @@ public class SearchResult {
     private long totalHits;
     private int page;
     private int totalPages;
+    @Builder.Default
+    private String searchType = "TEXTUAL";
+    @Builder.Default
+    private boolean fallbackUsed = false;
 }

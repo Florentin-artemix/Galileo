@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { soumissionsService, publicationsService, PublicationDTO } from '../services/publicationsService';
+import { documentsService } from '../services/documentsService';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { NavLink } from 'react-router-dom';
@@ -12,6 +13,13 @@ interface Soumission {
   dateCreation?: string;
   domaineRecherche?: string;
   auteurPrincipal?: string;
+  documentId?: number;
+  publicationId?: number;
+  documentStatus?: string;
+  processingStatus?: string;
+  processingError?: string;
+  reviewerNotes?: string;
+  commentaire?: string;
 }
 
 interface Stats {
@@ -25,14 +33,24 @@ type TabType = 'dashboard' | 'profile' | 'soumissions' | 'publications';
 
 const statusColors: Record<string, string> = {
   'EN_ATTENTE': 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 border-yellow-400',
+  'PENDING': 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 border-yellow-400',
+  'ANALYZING': 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-400',
+  'UNDER_REVIEW': 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border-purple-400',
   'ACCEPTEE': 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 border-green-400',
+  'ACCEPTED': 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 border-green-400',
   'REJETEE': 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 border-red-400',
+  'REJECTED': 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 border-red-400',
 };
 
 const statusIcons: Record<string, string> = {
   'EN_ATTENTE': '⏳',
+  'PENDING': '⏳',
+  'ANALYZING': '⚙️',
+  'UNDER_REVIEW': '🔍',
   'ACCEPTEE': '✅',
+  'ACCEPTED': '✅',
   'REJETEE': '❌',
+  'REJECTED': '❌',
 };
 
 const StudentDashboard: React.FC = () => {
@@ -44,6 +62,7 @@ const StudentDashboard: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [retryingId, setRetryingId] = useState<number | null>(null);
   const [tab, setTab] = useState<TabType>('dashboard');
   const [stats, setStats] = useState<Stats>({
     totalSoumissions: 0,
@@ -101,6 +120,26 @@ const StudentDashboard: React.FC = () => {
       setError("Impossible de retirer cette soumission");
     } finally {
       setDeletingId(null);
+    }
+  };
+
+  const handleRetry = async (documentId?: number, pubId?: number) => {
+    const targetId = documentId || pubId;
+    if (!targetId) return;
+    setRetryingId(targetId);
+    try {
+      if (documentId) {
+        await documentsService.retryDocumentProcessing(documentId);
+      } else if (pubId) {
+        await documentsService.retryPublicationProcessing(pubId);
+      }
+      setSuccess("Analyse et indexation vectorielle du document relancée !");
+      setTimeout(() => setSuccess(null), 3000);
+      await loadData();
+    } catch (e: any) {
+      setError("Erreur lors de la relance du traitement du document");
+    } finally {
+      setRetryingId(null);
     }
   };
 
@@ -208,7 +247,13 @@ const StudentDashboard: React.FC = () => {
           )}
 
           {tab === 'soumissions' && (
-            <SoumissionsView soumissions={soumissions} onDelete={handleDelete} deletingId={deletingId} />
+            <SoumissionsView
+              soumissions={soumissions}
+              onDelete={handleDelete}
+              deletingId={deletingId}
+              onRetry={handleRetry}
+              retryingId={retryingId}
+            />
           )}
 
           {tab === 'publications' && (
@@ -349,7 +394,7 @@ const DashboardView = ({ stats, soumissions, publications }: any) => (
   </div>
 );
 
-const SoumissionsView = ({ soumissions, onDelete, deletingId }: any) => (
+const SoumissionsView = ({ soumissions, onDelete, deletingId, onRetry, retryingId }: any) => (
   <div>
     <div className="flex items-center justify-between mb-6">
       <h2 className="text-2xl font-bold text-gray-900 dark:text-white">📝 Mes soumissions ({soumissions.length})</h2>
@@ -373,45 +418,105 @@ const SoumissionsView = ({ soumissions, onDelete, deletingId }: any) => (
       </div>
     ) : (
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {soumissions.map((soumission: any) => (
-          <div key={soumission.id} className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700 hover:shadow-xl transition-shadow">
-            <div className="flex items-start justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white line-clamp-2 flex-1">
-                {soumission.titre || 'Sans titre'}
-              </h3>
-              <span className={`ml-2 px-2 py-1 text-xs rounded-full border ${statusColors[soumission.statut || 'EN_ATTENTE']}`}>
-                {statusIcons[soumission.statut || 'EN_ATTENTE']}
-              </span>
-            </div>
-            
-            <div className="space-y-2 text-sm text-gray-600 dark:text-gray-400 mb-4">
-              <p className="flex items-center">
-                <span className="font-medium mr-2">🔬</span>
-                {soumission.domaineRecherche || 'Non spécifié'}
-              </p>
-              {soumission.dateCreation && (
-                <p className="flex items-center">
-                  <span className="font-medium mr-2">📅</span>
-                  {new Date(soumission.dateCreation).toLocaleDateString('fr-FR')}
-                </p>
-              )}
-              <p className="flex items-center">
-                <span className="font-medium mr-2">📊</span>
-                Statut: <span className="ml-1 font-semibold">{soumission.statut || 'EN_ATTENTE'}</span>
-              </p>
-            </div>
+        {soumissions.map((soumission: any) => {
+          const docStatus = soumission.documentStatus || soumission.processingStatus || 'COMPLETED';
+          const isDocFailed = docStatus === 'FAILED';
+          const isDocProcessing = docStatus === 'PROCESSING';
 
-            {soumission.statut === 'EN_ATTENTE' && (
-              <button
-                onClick={() => onDelete(soumission.id)}
-                disabled={deletingId === soumission.id}
-                className="w-full px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {deletingId === soumission.id ? '⏳ Retrait...' : '🗑️ Retirer la soumission'}
-              </button>
-            )}
-          </div>
-        ))}
+          return (
+            <div key={soumission.id} className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700 hover:shadow-xl transition-shadow flex flex-col justify-between">
+              <div>
+                <div className="flex items-start justify-between mb-3">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white line-clamp-2 flex-1">
+                    {soumission.titre || 'Sans titre'}
+                  </h3>
+                  <span className={`ml-2 px-2.5 py-1 text-xs font-semibold rounded-full border ${statusColors[soumission.statut || 'EN_ATTENTE']}`}>
+                    {statusIcons[soumission.statut || 'EN_ATTENTE']} {soumission.statut || 'EN_ATTENTE'}
+                  </span>
+                </div>
+
+                <div className="space-y-2 text-sm text-gray-600 dark:text-gray-400 mb-4">
+                  <p className="flex items-center">
+                    <span className="font-medium mr-2">🔬</span>
+                    {soumission.domaineRecherche || 'Non spécifié'}
+                  </p>
+                  {soumission.dateCreation && (
+                    <p className="flex items-center">
+                      <span className="font-medium mr-2">📅</span>
+                      {new Date(soumission.dateCreation).toLocaleDateString('fr-FR')}
+                    </p>
+                  )}
+
+                  {/* Traitement asynchrone du document PDF */}
+                  <div className="pt-2 border-t border-gray-100 dark:border-gray-700">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-gray-500 dark:text-gray-400 font-medium">Indexation PDF :</span>
+                      {docStatus === 'COMPLETED' && (
+                        <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300">
+                          ⚡ Indexé (1024D pgvector)
+                        </span>
+                      )}
+                      {docStatus === 'PROCESSING' && (
+                        <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 animate-pulse">
+                          ⚙️ Vectorisation Qwen en cours...
+                        </span>
+                      )}
+                      {docStatus === 'RECEIVED' && (
+                        <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
+                          📥 Document reçu
+                        </span>
+                      )}
+                      {docStatus === 'FAILED' && (
+                        <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300">
+                          ⚠️ Échec d'analyse
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Motif de révision ou rejet obligatoire */}
+                  {(soumission.commentaire || soumission.reviewerNotes) && (
+                    <div className="mt-3 p-3 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 text-xs">
+                      <strong className="text-amber-800 dark:text-amber-300 block mb-1">
+                        💬 Avis du comité éditorial (STAFF/ADMIN) :
+                      </strong>
+                      <p className="text-amber-900 dark:text-amber-200">
+                        {soumission.commentaire || soumission.reviewerNotes}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="space-y-2 pt-2">
+                {/* Bouton de relance d'analyse en cas d'échec */}
+                {isDocFailed && (
+                  <button
+                    onClick={() => onRetry(soumission.documentId, soumission.publicationId)}
+                    disabled={retryingId === (soumission.documentId || soumission.publicationId || soumission.id)}
+                    className="w-full px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold transition-colors flex items-center justify-center space-x-1 shadow-sm disabled:opacity-50"
+                  >
+                    <span>
+                      {retryingId === (soumission.documentId || soumission.publicationId || soumission.id)
+                        ? '⏳ Relance en cours...'
+                        : '🔄 Relancer l\'analyse du document'}
+                    </span>
+                  </button>
+                )}
+
+                {(soumission.statut === 'EN_ATTENTE' || soumission.statut === 'PENDING') && (
+                  <button
+                    onClick={() => onDelete(soumission.id)}
+                    disabled={deletingId === soumission.id}
+                    className="w-full px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors font-medium text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {deletingId === soumission.id ? '⏳ Retrait...' : '🗑️ Retirer la soumission'}
+                  </button>
+                )}
+              </div>
+            </div>
+          );
+        })}
       </div>
     )}
   </div>

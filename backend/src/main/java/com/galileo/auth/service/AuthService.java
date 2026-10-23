@@ -1,181 +1,223 @@
 package com.galileo.auth.service;
 
-import com.galileo.auth.dto.*;
+import com.galileo.auth.dto.AuthResponse;
+import com.galileo.auth.dto.LoginRequest;
+import com.galileo.auth.dto.RefreshTokenRequest;
+import com.galileo.auth.dto.RegisterRequest;
 import com.galileo.auth.entity.RefreshToken;
 import com.galileo.auth.entity.Role;
 import com.galileo.auth.entity.User;
 import com.galileo.auth.repository.RefreshTokenRepository;
 import com.galileo.auth.repository.UserRepository;
+import com.galileo.auth.security.JwtTokenProvider;
 import com.galileo.common.exception.BadRequestException;
-import com.galileo.common.exception.ResourceNotFoundException;
+import com.galileo.common.exception.ForbiddenException;
 import com.galileo.common.exception.UnauthorizedException;
-import com.galileo.security.JwtTokenProvider;
 import com.galileo.users.entity.UserProfile;
 import com.galileo.users.repository.UserProfileRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.Optional;
-import java.util.UUID;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AuthService {
 
-    private final AuthenticationManager authenticationManager;
     private final UserRepository userRepository;
     private final UserProfileRepository userProfileRepository;
     private final RefreshTokenRepository refreshTokenRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider tokenProvider;
 
+    @Value("${galileo.jwt.refresh-expiration-ms:604800000}")
+    private long refreshExpirationMs;
+
     @Transactional
-    public AuthResponse register(RegisterRequest registerRequest) {
-        if (userRepository.existsByEmail(registerRequest.getEmail())) {
-            throw new BadRequestException("Email Address already in use!");
+    public AuthResponse register(RegisterRequest request) {
+        if (request.getEmail() == null || request.getEmail().trim().isEmpty()) {
+            throw new BadRequestException("L'adresse email est requise");
         }
 
-        // Seule l'inscription STUDENT est autorisée publiquement par défaut (ou RESEARCHER selon les règles).
-        // On force le rôle à STUDENT par mesure de sécurité.
-        Role userRole = Role.STUDENT;
+        String normalizedEmail = request.getEmail().trim().toLowerCase();
+        if (userRepository.existsByEmail(normalizedEmail)) {
+            throw new BadRequestException("Un compte existe déjà avec cette adresse email");
+        }
 
+        if (request.getPassword() == null || request.getPassword().length() < 8) {
+            throw new BadRequestException("Le mot de passe doit contenir au moins 8 caractères");
+        }
+
+        // Sécurité des rôles : L'inscription publique attribue STRICTEMENT le rôle STUDENT
         User user = User.builder()
-                .email(registerRequest.getEmail())
-                .passwordHash(passwordEncoder.encode(registerRequest.getPassword()))
-                .role(userRole)
+                .email(normalizedEmail)
+                .passwordHash(passwordEncoder.encode(request.getPassword()))
+                .role(Role.STUDENT)
                 .isActive(true)
+                .emailVerified(false)
                 .build();
 
-        User result = userRepository.save(user);
+        user = userRepository.save(user);
 
-        // Création du profil utilisateur
+        // Création automatique du profil utilisateur associé
+        String displayName = (request.getFirstName() != null ? request.getFirstName() : "") +
+                (request.getLastName() != null ? " " + request.getLastName() : "");
+        displayName = displayName.trim();
+        if (displayName.isEmpty()) {
+            displayName = normalizedEmail.split("@")[0];
+        }
+
         UserProfile profile = UserProfile.builder()
-                .user(result)
-                .displayName(registerRequest.getDisplayName())
-                .program(registerRequest.getProgram())
-                .bio(registerRequest.getMotivation())
+                .user(user)
+                .firstName(request.getFirstName())
+                .lastName(request.getLastName())
+                .displayName(displayName)
                 .build();
         userProfileRepository.save(profile);
 
-        // Authentifier le nouvel utilisateur
-        Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(
-                        registerRequest.getEmail(),
-                        registerRequest.getPassword()
-                )
-        );
-
-        SecurityContextHolder.getContext().setAuthentication(authentication);
-
-        String jwt = tokenProvider.generateToken(authentication);
-        RefreshToken refreshToken = createRefreshToken(result.getId());
+        String accessToken = tokenProvider.generateAccessToken(user);
+        String refreshTokenValue = createAndSaveRefreshToken(user);
 
         return AuthResponse.builder()
-                .accessToken(jwt)
-                .refreshToken(refreshToken.getTokenHash())
-                .expiresIn(tokenProvider.getExpirationInMs() / 1000) // en secondes
+                .accessToken(accessToken)
+                .refreshToken(refreshTokenValue)
                 .tokenType("Bearer")
-                .user(new UserDTO(result.getId(), result.getEmail(), profile.getDisplayName(), result.getRole()))
-                .build();
-    }
-
-    public AuthResponse login(LoginRequest loginRequest) {
-        Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(
-                        loginRequest.getEmail(),
-                        loginRequest.getPassword()
-                )
-        );
-
-        SecurityContextHolder.getContext().setAuthentication(authentication);
-
-        String jwt = tokenProvider.generateToken(authentication);
-        
-        User user = userRepository.findByEmail(loginRequest.getEmail())
-                .orElseThrow(() -> new ResourceNotFoundException("User", "email", loginRequest.getEmail()));
-                
-        UserProfile profile = userProfileRepository.findByUserId(user.getId()).orElse(null);
-        String displayName = profile != null ? profile.getDisplayName() : null;
-
-        RefreshToken refreshToken = createRefreshToken(user.getId());
-
-        return AuthResponse.builder()
-                .accessToken(jwt)
-                .refreshToken(refreshToken.getTokenHash())
-                .expiresIn(tokenProvider.getExpirationInMs() / 1000)
-                .tokenType("Bearer")
-                .user(new UserDTO(user.getId(), user.getEmail(), displayName, user.getRole()))
+                .userId(user.getId())
+                .email(user.getEmail())
+                .role(user.getRole())
                 .build();
     }
 
     @Transactional
-    public RefreshToken createRefreshToken(Long userId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
-                
-        RefreshToken refreshToken = RefreshToken.builder()
-                .user(user)
-                .tokenHash(UUID.randomUUID().toString()) // En théorie, il faudrait hasher le token, mais UUID est sûr s'il est généré de manière sécurisée
-                .expiresAt(LocalDateTime.now().plusDays(7)) // Expiration 7 jours
-                .build();
+    public AuthResponse login(LoginRequest request) {
+        if (request.getEmail() == null || request.getPassword() == null) {
+            throw new BadRequestException("Email et mot de passe requis");
+        }
 
-        return refreshTokenRepository.save(refreshToken);
+        String normalizedEmail = request.getEmail().trim().toLowerCase();
+        User user = userRepository.findByEmail(normalizedEmail)
+                .orElseThrow(() -> new UnauthorizedException("Identifiants invalides"));
+
+        if (!passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
+            throw new UnauthorizedException("Identifiants invalides");
+        }
+
+        if (user.getIsActive() != null && !user.getIsActive()) {
+            throw new ForbiddenException("Votre compte est désactivé. Veuillez contacter l'administration.");
+        }
+
+        String accessToken = tokenProvider.generateAccessToken(user);
+        String refreshTokenValue = createAndSaveRefreshToken(user);
+
+        return AuthResponse.builder()
+                .accessToken(accessToken)
+                .refreshToken(refreshTokenValue)
+                .tokenType("Bearer")
+                .userId(user.getId())
+                .email(user.getEmail())
+                .role(user.getRole())
+                .build();
     }
 
     @Transactional
     public AuthResponse refreshToken(RefreshTokenRequest request) {
-        String requestRefreshToken = request.getRefreshToken();
+        if (request.getRefreshToken() == null || request.getRefreshToken().trim().isEmpty()) {
+            throw new BadRequestException("Jeton de rafraîchissement requis");
+        }
 
-        return refreshTokenRepository.findByTokenHash(requestRefreshToken)
-                .map(this::verifyExpiration)
-                .map(token -> {
-                    User user = token.getUser();
-                    String jwt = tokenProvider.generateTokenFromUsername(user.getEmail(), user.getRole().name());
-                    
-                    UserProfile profile = userProfileRepository.findByUserId(user.getId()).orElse(null);
-                    String displayName = profile != null ? profile.getDisplayName() : null;
+        String rawToken = request.getRefreshToken().trim();
+        String tokenHash = tokenProvider.hashToken(rawToken);
 
-                    return AuthResponse.builder()
-                            .accessToken(jwt)
-                            .refreshToken(token.getTokenHash())
-                            .expiresIn(tokenProvider.getExpirationInMs() / 1000)
-                            .tokenType("Bearer")
-                            .user(new UserDTO(user.getId(), user.getEmail(), displayName, user.getRole()))
-                            .build();
-                })
-                .orElseThrow(() -> new UnauthorizedException("Refresh token is not in database!"));
+        RefreshToken refreshToken = refreshTokenRepository.findByTokenHash(tokenHash)
+                .orElseThrow(() -> new UnauthorizedException("Jeton de rafraîchissement invalide"));
+
+        // Détection de rejeu et d'attaque par vol de refresh token
+        if (Boolean.TRUE.equals(refreshToken.getRevoked())) {
+            log.warn("ALERTE SÉCURITÉ: Tentative de réutilisation d'un refresh token révoqué pour utilisateur #{}",
+                    refreshToken.getUser().getId());
+            // Révoquer immédiatement tous les jetons actifs de cet utilisateur compromis
+            refreshTokenRepository.findByUserId(refreshToken.getUser().getId()).forEach(t -> {
+                t.setRevoked(true);
+                refreshTokenRepository.save(t);
+            });
+            throw new UnauthorizedException("Alerte de sécurité : jeton déjà utilisé ou révoqué");
+        }
+
+        if (refreshToken.getExpiresAt().isBefore(LocalDateTime.now())) {
+            refreshToken.setRevoked(true);
+            refreshTokenRepository.save(refreshToken);
+            throw new UnauthorizedException("Jeton de rafraîchissement expiré");
+        }
+
+        User user = refreshToken.getUser();
+        if (user.getIsActive() != null && !user.getIsActive()) {
+            throw new ForbiddenException("Ce compte est désactivé");
+        }
+
+        // Invalidation de l'ancien jeton utilisé (Rotation)
+        refreshToken.setRevoked(true);
+        refreshTokenRepository.save(refreshToken);
+
+        String newAccessToken = tokenProvider.generateAccessToken(user);
+        String newRefreshToken = createAndSaveRefreshToken(user);
+
+        return AuthResponse.builder()
+                .accessToken(newAccessToken)
+                .refreshToken(newRefreshToken)
+                .tokenType("Bearer")
+                .userId(user.getId())
+                .email(user.getEmail())
+                .role(user.getRole())
+                .build();
     }
 
-    private RefreshToken verifyExpiration(RefreshToken token) {
-        if (token.getExpiresAt().isBefore(LocalDateTime.now()) || token.getRevoked()) {
-            refreshTokenRepository.delete(token);
-            throw new UnauthorizedException("Refresh token was expired or revoked. Please make a new signin request");
-        }
-        return token;
+    @Transactional
+    public AuthResponse refresh(RefreshTokenRequest request) {
+        return refreshToken(request);
     }
 
     @Transactional
     public void logout(String refreshTokenValue) {
-        Optional<RefreshToken> token = refreshTokenRepository.findByTokenHash(refreshTokenValue);
-        token.ifPresent(t -> {
-            t.setRevoked(true);
-            refreshTokenRepository.save(t);
-        });
+        if (refreshTokenValue != null && !refreshTokenValue.trim().isEmpty()) {
+            try {
+                String tokenHash = tokenProvider.hashToken(refreshTokenValue.trim());
+                refreshTokenRepository.findByTokenHash(tokenHash).ifPresent(token -> {
+                    token.setRevoked(true);
+                    refreshTokenRepository.save(token);
+                });
+            } catch (Exception e) {
+                log.warn("Impossible de révoquer le refresh token lors de la déconnexion : {}", e.getMessage());
+            }
+        }
     }
 
-    public UserDTO getCurrentUser(String email) {
+    private String createAndSaveRefreshToken(User user) {
+        String tokenValue = tokenProvider.generateRefreshTokenValue();
+        String tokenHash = tokenProvider.hashToken(tokenValue);
+        LocalDateTime expiresAt = LocalDateTime.now().plusSeconds(refreshExpirationMs / 1000);
+
+        RefreshToken refreshToken = RefreshToken.builder()
+                .user(user)
+                .tokenHash(tokenHash)
+                .expiresAt(expiresAt)
+                .revoked(false)
+                .build();
+
+        refreshTokenRepository.save(refreshToken);
+        return tokenValue;
+    }
+
+    public com.galileo.auth.dto.UserDTO getCurrentUser(String email) {
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResourceNotFoundException("User", "email", email));
+                .orElseThrow(() -> new com.galileo.common.exception.ResourceNotFoundException("User", "email", email));
         UserProfile profile = userProfileRepository.findByUserId(user.getId()).orElse(null);
         String displayName = profile != null ? profile.getDisplayName() : null;
-        
-        return new UserDTO(user.getId(), user.getEmail(), displayName, user.getRole());
+
+        return new com.galileo.auth.dto.UserDTO(user.getId(), user.getEmail(), displayName, user.getRole());
     }
 }

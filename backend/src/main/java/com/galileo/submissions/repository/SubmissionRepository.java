@@ -12,6 +12,9 @@ import java.util.List;
 @Repository
 public interface SubmissionRepository extends JpaRepository<Submission, Long> {
     Page<Submission> findByStatus(SubmissionStatus status, Pageable pageable);
+    List<Submission> findByStatus(SubmissionStatus status);
     List<Submission> findBySubmittedById(Long userId);
+    List<Submission> findBySubmittedByIdOrderBySubmittedAtDesc(Long userId);
     List<Submission> findByPublicationId(Long publicationId);
+    long countByStatus(SubmissionStatus status);
 }

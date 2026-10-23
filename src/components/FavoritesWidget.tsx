@@ -1,18 +1,29 @@
 import React, { useEffect, useState } from 'react';
-import { lectureService, type FavoritePublication } from '../services/lectureService';
+import { favoritesService } from '../services/favoritesService';
 import { useAuth } from '../contexts/AuthContext';
+
+export interface FavoriteItem {
+  id: string | number;
+  publicationTitle: string;
+  addedAt: string;
+}
 
 const FavoritesWidget: React.FC = () => {
   const { user } = useAuth();
-  const [favorites, setFavorites] = useState<FavoritePublication[]>([]);
+  const [favorites, setFavorites] = useState<FavoriteItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const loadFavorites = async () => {
       if (!user) return;
       try {
-        const data = await lectureService.getUserFavorites(user.uid);
-        setFavorites(data.slice(0, 4)); // Top 4
+        const data = await favoritesService.getMyFavorites();
+        const mapped = data.map(f => ({
+          id: f.publicationId,
+          publicationTitle: f.publicationTitle || `Publication #${f.publicationId}`,
+          addedAt: f.createdAt || new Date().toISOString()
+        }));
+        setFavorites(mapped.slice(0, 4));
       } catch (error) {
         console.debug('[Favorites] Pas de favoris disponibles');
       } finally {
