@@ -55,9 +55,11 @@ galileo:
       bucket-name: ${R2_BUCKET_NAME:galileo-documents}
       public-url: ${R2_PUBLIC_URL:}
   ai:
-    deepseek:
-      api-key: ${DEEPSEEK_API_KEY:}
-      base-url: ${DEEPSEEK_BASE_URL:https://api.deepseek.com/v1}
-    qwen:
-      api-key: ${QWEN_API_KEY:}
-      base-url: ${QWEN_BASE_URL:https://dashscope.aliyuncs.com/compatible-mode/v1}
+    claude:
+      api-key: ${CLAUDE_API_KEY:}
+      base-url: ${CLAUDE_BASE_URL:https://api.bedrock.com.de}
+      model: ${CLAUDE_MODEL:claude-sonnet-5}
+    openrouter:
+      api-key: ${OPENROUTER_API_KEY:}
+      base-url: ${OPENROUTER_BASE_URL:https://openrouter.ai/api/v1}
+      embedding-model: ${OPENROUTER_EMBEDDING_MODEL:nvidia/nemotron-3.5-embed-1b:free}

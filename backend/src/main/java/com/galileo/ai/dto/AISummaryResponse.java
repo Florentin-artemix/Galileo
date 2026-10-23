@@ -16,5 +16,5 @@ public class AISummaryResponse {
     private boolean cached;
     private String model;
     @Builder.Default
-    private String disclaimer = "Synthèse générée par IA (DeepSeek). Destinée à l'apprentissage et à la veille académique.";
+    private String disclaimer = "Synthèse générée par IA (Claude). Destinée à l'apprentissage et à la veille académique.";
 }

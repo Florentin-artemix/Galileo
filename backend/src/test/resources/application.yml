@@ -31,9 +31,10 @@ galileo:
     type: local
     local-dir: "./target/test-storage"
   ai:
-    deepseek:
-      api-key: "test-deepseek-key"
-      base-url: "https://api.deepseek.com/v1"
+    claude:
+      api-key: "test-claude-key"
+      base-url: "https://api.anthropic.com"
+      model: "claude-sonnet-5"
     qwen:
       api-key: "test-qwen-key"
       base-url: "https://dashscope-intl.aliyuncs.com/compatible-mode/v1"

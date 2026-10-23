@@ -1,6 +1,6 @@
 package com.galileo.ai;
 
-import com.galileo.ai.service.DeepSeekAIService;
+import com.galileo.ai.service.ClaudeAIService;
 import com.galileo.embedding.provider.EmbeddingProviderUnavailableException;
 import com.galileo.embedding.provider.QwenEmbeddingProvider;
 import org.junit.jupiter.api.DisplayName;
@@ -29,14 +29,14 @@ class AIServiceTest {
     }
 
     @Test
-    @DisplayName("DeepSeekAIService should return graceful notice when API key is not configured")
-    void testDeepSeekAIServiceWithoutKey() {
-        DeepSeekAIService deepSeek = new DeepSeekAIService();
-        ReflectionTestUtils.setField(deepSeek, "apiKey", "");
+    @DisplayName("ClaudeAIService should return graceful notice when API key is not configured")
+    void testClaudeAIServiceWithoutKey() {
+        ClaudeAIService claude = new ClaudeAIService();
+        ReflectionTestUtils.setField(claude, "apiKey", "");
 
-        assertFalse(deepSeek.isConfigured());
+        assertFalse(claude.isConfigured());
 
-        String response = deepSeek.askDocumentAssistant("Prompt système", "Question utilisateur");
+        String response = claude.askDocumentAssistant("Prompt système", "Question utilisateur");
         assertNotNull(response);
         assertTrue(response.contains("n'est pas encore configuré") || response.contains("absente"));
     }

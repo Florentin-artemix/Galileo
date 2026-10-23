@@ -30,7 +30,7 @@ Ce document fournit la procédure complète, éprouvée et sécurisée pour dép
 ┌──────────────────┐  ┌───────────────────────────────────┐
 │ PostgreSQL 16    │  │ Services Cloud Externes           │
 │ + pgvector 1024  │  │ - Cloudflare R2 (Stockage PDF/S3) │
-│ (Port 5432 local)│  │ - API DeepSeek (Assistance RAG)   │
+│ (Port 5432 local)│  │ - API Claude (Assistance RAG)      │
 └──────────────────┘  │ - API Qwen (Embeddings 1024 dims) │
                       └───────────────────────────────────┘
 ```
@@ -172,8 +172,9 @@ R2_BUCKET_NAME=galileo-documents
 R2_PUBLIC_URL=https://documents.galileo.mapon.ac.cd
 
 # ─── INTELLIGENCE ARTIFICIELLE ───
-DEEPSEEK_API_KEY=sk-VOTRE_CLE_DEEPSEEK
-DEEPSEEK_BASE_URL=https://api.deepseek.com/v1
+CLAUDE_API_KEY=VOTRE_CLE_CLAUDE
+CLAUDE_BASE_URL=https://api.bedrock.com.de
+CLAUDE_MODEL=claude-sonnet-5
 
 QWEN_API_KEY=sk-VOTRE_CLE_QWEN_DASHSCOPE
 QWEN_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1

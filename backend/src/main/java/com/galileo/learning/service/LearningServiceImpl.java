@@ -3,7 +3,7 @@ package com.galileo.learning.service;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.galileo.ai.service.DeepSeekAIService;
+import com.galileo.ai.service.ClaudeAIService;
 import com.galileo.auth.entity.User;
 import com.galileo.auth.repository.UserRepository;
 import com.galileo.common.exception.BadRequestException;
@@ -38,7 +38,7 @@ public class LearningServiceImpl implements LearningService {
     private final PublicationRepository publicationRepository;
     private final DocumentRepository documentRepository;
     private final UserRepository userRepository;
-    private final DeepSeekAIService deepSeekAIService;
+    private final ClaudeAIService claudeAIService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Override
@@ -67,7 +67,7 @@ public class LearningServiceImpl implements LearningService {
 
         int count = request.getQuestionCount() != null ? Math.min(Math.max(request.getQuestionCount(), 3), 10) : 5;
 
-        // 1. Invocation de DeepSeek pour générer un QCM rigoureux au format JSON strict
+        // 1. Invocation de Claude pour générer un QCM rigoureux au format JSON strict
         String systemPrompt = """
             Tu es un concepteur pédagogique universitaire expert.
             Génère un quiz QCM à choix multiples basé rigoureusement sur le contenu académique fourni.
@@ -85,7 +85,7 @@ public class LearningServiceImpl implements LearningService {
 
         String userPrompt = "Génère exactement " + count + " questions QCM à partir de ce texte :\n" + contentForQuiz;
 
-        DeepSeekAIService.DeepSeekResult result = deepSeekAIService.generateText(systemPrompt, userPrompt, 0.2, 2048);
+        ClaudeAIService.ClaudeResult result = claudeAIService.generateText(systemPrompt, userPrompt, 0.2, 2048);
 
         List<GeneratedQuestion> parsedQuestions = parseQuizQuestions(result.getContent(), count);
 
@@ -239,7 +239,7 @@ public class LearningServiceImpl implements LearningService {
             """;
 
         String userPrompt = "Thématique d'apprentissage : " + topic.trim();
-        DeepSeekAIService.DeepSeekResult result = deepSeekAIService.generateText(systemPrompt, userPrompt, 0.3, 2048);
+        ClaudeAIService.ClaudeResult result = claudeAIService.generateText(systemPrompt, userPrompt, 0.3, 2048);
 
         String stepsJson = cleanJsonString(result.getContent());
         List<Map<String, Object>> stepsList = parseStepsList(stepsJson, topic.trim());

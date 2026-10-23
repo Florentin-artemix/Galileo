@@ -26,6 +26,8 @@ public class RegisterRequest {
     private Role role;
 
     private String displayName;
+    private String firstName;
+    private String lastName;
     private String program;
     private String motivation;
 }

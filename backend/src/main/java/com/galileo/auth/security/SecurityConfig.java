@@ -103,6 +103,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/search/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/blog/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/evenements/**", "/api/events/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/content/resources").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/documents/**").permitAll()
 
                         // Tracking public silencieux

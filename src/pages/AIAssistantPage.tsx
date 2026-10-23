@@ -17,7 +17,7 @@ const AIAssistantPage: React.FC = () => {
     {
       id: 'welcome',
       sender: 'assistant',
-      text: "Bienvenue dans l'espace Assistant IA Galileo propulsé par DeepSeek et l'index vectoriel Qwen (1024D). Choisissez un mode ci-dessus pour explorer les publications académiques, synthétiser des travaux ou formuler vos questions scientifiques.",
+      text: "Bienvenue dans l'espace Assistant IA Galileo propulsé par Claude et l'index vectoriel Qwen (1024D). Choisissez un mode ci-dessus pour explorer les publications académiques, synthétiser des travaux ou formuler vos questions scientifiques.",
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     }
   ]);
@@ -126,7 +126,7 @@ const AIAssistantPage: React.FC = () => {
             </h1>
           </div>
           <p className="text-sm text-light-text-secondary dark:text-gray-400">
-            Génération DeepSeek & Indexation sémantique Qwen text-embedding-v4 (1024D)
+            Génération Claude & Indexation sémantique Qwen text-embedding-v4 (1024D)
           </p>
         </div>
 
@@ -159,7 +159,7 @@ const AIAssistantPage: React.FC = () => {
       <div className="mb-6 p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-800 dark:text-amber-300 flex items-start space-x-3">
         <span className="text-xl flex-shrink-0">⚠️</span>
         <div className="text-xs md:text-sm">
-          <strong>Avertissement éditorial Galileo :</strong> Les réponses fournies par l'Assistant IA Galileo sont générées par le modèle DeepSeek à partir des extraits indexés. Ces informations d'assistance ne se substituent pas à une lecture critique et doivent être vérifiées auprès des publications académiques originales.
+          <strong>Avertissement éditorial Galileo :</strong> Les réponses fournies par l'Assistant IA Galileo sont générées par le modèle Claude à partir des extraits indexés. Ces informations d'assistance ne se substituent pas à une lecture critique et doivent être vérifiées auprès des publications académiques originales.
         </div>
       </div>
 
@@ -263,7 +263,7 @@ const AIAssistantPage: React.FC = () => {
                   <div className="w-2.5 h-2.5 rounded-full bg-light-accent dark:bg-teal animate-bounce" />
                   <div className="w-2.5 h-2.5 rounded-full bg-light-accent dark:bg-teal animate-bounce [animation-delay:0.2s]" />
                   <div className="w-2.5 h-2.5 rounded-full bg-light-accent dark:bg-teal animate-bounce [animation-delay:0.4s]" />
-                  <span className="text-gray-500 text-xs">Recherche RAG & Génération DeepSeek...</span>
+                  <span className="text-gray-500 text-xs">Recherche RAG & Génération Claude...</span>
                 </div>
               )}
               <div ref={messagesEndRef} />
@@ -309,7 +309,7 @@ const AIAssistantPage: React.FC = () => {
             Explicateur Pédagogique Multi-Niveaux
           </h2>
           <p className="text-sm text-light-text-secondary dark:text-gray-400 mb-6">
-            Collez un extrait ou formule mathématique complexe. L'IA DeepSeek le vulgarise selon le niveau souhaité.
+            Collez un extrait ou formule mathématique complexe. L'IA Claude le vulgarise selon le niveau souhaité.
           </p>
 
           <div className="space-y-4">

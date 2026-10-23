@@ -41,8 +41,8 @@ public class AdminServiceImpl implements AdminService {
             "maxDailyRequestsPerUser", 100,
             "maxTokensPerRequest", 4096,
             "embeddingDimensions", 1024,
-            "qwenEmbeddingEnabled", true,
-            "deepSeekEnabled", true,
+            "openRouterEmbeddingEnabled", true,
+            "claudeEnabled", true,
             "rateLimitPerMinute", 20
     ));
 

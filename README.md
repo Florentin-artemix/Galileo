@@ -14,7 +14,7 @@ Galileo permet le dépôt, la revue par les pairs, la validation éditoriale, l'
 | **Backend** | Java 21, Spring Boot 3.3.4, Spring Security 6, Maven | API REST unifiée, authentification JWT stateless, validation |
 | **Base de données** | PostgreSQL 16+ avec extension `pgvector` | Schéma relationnel (36 tables), vecteurs 1024 dimensions, Flyway |
 | **Stockage Fichiers** | Cloudflare R2 (compatible S3) / Fallback local | Archivage sécurisé des PDFs avec contrôle MIME et taille |
-| **IA & Sémantique** | Qwen `text-embedding-v4` & DeepSeek Chat | Recherche par similarité cosinus (pgvector) et assistant de synthèse |
+| **IA & Sémantique** | Qwen `text-embedding-v4` & Claude | Recherche par similarité cosinus (pgvector) et assistant de synthèse |
 | **Déploiement** | Ubuntu 24.04 LTS sur AWS EC2 | Service `systemd` natif + reverse proxy `Nginx` (sans Docker) |
 
 ---
@@ -38,8 +38,9 @@ Pour la production, toutes les valeurs sensibles doivent être configurées via 
 | `R2_SECRET_ACCESS_KEY` | Si R2 actif | Clé secrète S3 Cloudflare R2 |
 | `R2_BUCKET_NAME` | Si R2 actif | Nom du bucket (`galileo-documents`) |
 | `R2_PUBLIC_URL` | Si R2 actif | URL publique personnalisée du bucket R2 |
-| `DEEPSEEK_API_KEY` | Si IA active | Clé API DeepSeek pour l'assistant documentaire |
-| `DEEPSEEK_BASE_URL` | Non | `https://api.deepseek.com/v1` |
+| `CLAUDE_API_KEY` | Si IA active | Clé API Claude pour l'assistant documentaire |
+| `CLAUDE_BASE_URL` | Non | `https://api.bedrock.com.de` (ou l'URL de votre proxy compatible Anthropic) |
+| `CLAUDE_MODEL` | Non | `claude-sonnet-5` |
 | `QWEN_API_KEY` | Si IA active | Clé API DashScope Qwen pour les embeddings 1024-dim |
 
 ---
@@ -122,7 +123,9 @@ R2_ACCOUNT_ID=votre_account_id
 R2_ACCESS_KEY_ID=votre_access_key
 R2_SECRET_ACCESS_KEY=votre_secret_key
 R2_BUCKET_NAME=galileo-documents
-DEEPSEEK_API_KEY=votre_cle_deepseek
+CLAUDE_API_KEY=votre_cle_claude
+CLAUDE_BASE_URL=https://api.bedrock.com.de
+CLAUDE_MODEL=claude-sonnet-5
 QWEN_API_KEY=votre_cle_qwen
 ```
 

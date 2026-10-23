@@ -18,13 +18,16 @@ import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @Service
-public class DeepSeekAIService {
+public class ClaudeAIService {
 
-    @Value("${galileo.ai.deepseek.api-key:}")
+    @Value("${galileo.ai.claude.api-key:}")
     private String apiKey;
 
-    @Value("${galileo.ai.deepseek.base-url:https://api.deepseek.com/v1}")
+    @Value("${galileo.ai.claude.base-url:https://api.anthropic.com}")
     private String baseUrl;
+
+    @Value("${galileo.ai.claude.model:claude-sonnet-5}")
+    private String model;
 
     private final OkHttpClient httpClient = new OkHttpClient.Builder()
             .connectTimeout(15, TimeUnit.SECONDS)
@@ -41,7 +44,7 @@ public class DeepSeekAIService {
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
-    public static class DeepSeekResult {
+    public static class ClaudeResult {
         private String content;
         private int inputTokens;
         private int outputTokens;
@@ -49,10 +52,10 @@ public class DeepSeekAIService {
         private String error;
     }
 
-    public DeepSeekResult generateText(String systemPrompt, String userMessage, double temperature, int maxTokens) {
+    public ClaudeResult generateText(String systemPrompt, String userMessage, double temperature, int maxTokens) {
         if (!isConfigured()) {
-            return DeepSeekResult.builder()
-                    .content("L'assistant IA DeepSeek n'est pas encore configuré sur cette instance (clé API absente).")
+            return ClaudeResult.builder()
+                    .content("L'assistant IA Claude n'est pas encore configuré sur cette instance (clé API absente).")
                     .inputTokens(0)
                     .outputTokens(0)
                     .success(false)
@@ -61,32 +64,32 @@ public class DeepSeekAIService {
         }
 
         try {
-            String url = baseUrl.replaceAll("/$", "") + "/chat/completions";
-
-            List<Map<String, String>> messages = List.of(
-                    Map.of("role", "system", "content", systemPrompt != null ? systemPrompt : "Tu es un assistant scientifique expert de la plateforme académique Galileo."),
-                    Map.of("role", "user", "content", userMessage)
-            );
+            String normalizedBaseUrl = baseUrl.replaceAll("/+$", "");
+            String url = normalizedBaseUrl.endsWith("/v1")
+                    ? normalizedBaseUrl + "/messages"
+                    : normalizedBaseUrl + "/v1/messages";
 
             Map<String, Object> requestMap = Map.of(
-                    "model", "deepseek-chat",
-                    "messages", messages,
+                    "model", model,
+                    "system", systemPrompt != null ? systemPrompt : "Tu es un assistant scientifique expert de la plateforme académique Galileo.",
+                    "messages", List.of(Map.of("role", "user", "content", userMessage)),
                     "temperature", temperature,
                     "max_tokens", maxTokens
             );
 
             String requestBody = objectMapper.writeValueAsString(requestMap);
-
             Request request = new Request.Builder()
                     .url(url)
-                    .header("Authorization", "Bearer " + apiKey.trim())
+                    .header("x-api-key", apiKey.trim())
+                    .header("anthropic-version", "2023-06-01")
+                    .header("Content-Type", "application/json")
                     .post(RequestBody.create(requestBody, MediaType.parse("application/json")))
                     .build();
 
             try (Response response = httpClient.newCall(request).execute()) {
                 if (!response.isSuccessful()) {
-                    log.warn("Erreur API DeepSeek : HTTP {}", response.code());
-                    return DeepSeekResult.builder()
+                    log.warn("Erreur API Claude : HTTP {}", response.code());
+                    return ClaudeResult.builder()
                             .content("Le service d'assistance IA est temporairement indisponible (erreur HTTP " + response.code() + ").")
                             .inputTokens(0)
                             .outputTokens(0)
@@ -97,26 +100,30 @@ public class DeepSeekAIService {
 
                 String responseBody = response.body() != null ? response.body().string() : "{}";
                 JsonNode root = objectMapper.readTree(responseBody);
-                JsonNode choices = root.path("choices");
+                JsonNode contentBlocks = root.path("content");
                 String content = "";
-                if (choices.isArray() && !choices.isEmpty()) {
-                    content = choices.get(0).path("message").path("content").asText();
+                if (contentBlocks.isArray()) {
+                    for (JsonNode block : contentBlocks) {
+                        if ("text".equals(block.path("type").asText())) {
+                            content += block.path("text").asText();
+                        }
+                    }
                 }
 
                 JsonNode usage = root.path("usage");
-                int promptTokens = usage.path("prompt_tokens").asInt(userMessage.length() / 4);
-                int completionTokens = usage.path("completion_tokens").asInt(content.length() / 4);
+                int inputTokens = usage.path("input_tokens").asInt(userMessage.length() / 4);
+                int outputTokens = usage.path("output_tokens").asInt(content.length() / 4);
 
-                return DeepSeekResult.builder()
+                return ClaudeResult.builder()
                         .content(content)
-                        .inputTokens(promptTokens)
-                        .outputTokens(completionTokens)
+                        .inputTokens(inputTokens)
+                        .outputTokens(outputTokens)
                         .success(true)
                         .build();
             }
         } catch (IOException e) {
-            log.error("Erreur de communication avec DeepSeek API : {}", e.getMessage());
-            return DeepSeekResult.builder()
+            log.error("Erreur de communication avec l'API Claude : {}", e.getMessage());
+            return ClaudeResult.builder()
                     .content("Une erreur réseau est survenue lors de la communication avec l'assistant IA.")
                     .inputTokens(0)
                     .outputTokens(0)

@@ -10,7 +10,7 @@ import com.galileo.ai.repository.AIInteractionRepository;
 import com.galileo.ai.repository.AIMessageRepository;
 import com.galileo.ai.repository.PublicationSummaryCacheRepository;
 import com.galileo.ai.service.AIServiceImpl;
-import com.galileo.ai.service.DeepSeekAIService;
+import com.galileo.ai.service.ClaudeAIService;
 import com.galileo.auth.entity.Role;
 import com.galileo.auth.entity.User;
 import com.galileo.auth.repository.UserRepository;
@@ -43,7 +43,7 @@ import static org.mockito.Mockito.*;
 class AIServiceRAGTest {
 
     @Mock
-    private DeepSeekAIService deepSeekAIService;
+    private ClaudeAIService claudeAIService;
 
     @Mock
     private EmbeddingProvider embeddingProvider;
@@ -106,11 +106,11 @@ class AIServiceRAGTest {
                 aiService.chat(request, userDetails)
         );
 
-        verify(deepSeekAIService, never()).generateText(any(), any(), anyDouble(), anyInt());
+        verify(claudeAIService, never()).generateText(any(), any(), anyDouble(), anyInt());
     }
 
     @Test
-    @DisplayName("Summary caching must return cached response without calling external DeepSeek LLM")
+    @DisplayName("Summary caching must return cached response without calling external Claude LLM")
     void testSummaryReturnedFromCacheWithoutLLMCall() {
         User user = User.builder().id(1L).email("user@mapon.cd").role(Role.STUDENT).build();
         CustomUserDetails userDetails = new CustomUserDetails(user);
@@ -130,7 +130,7 @@ class AIServiceRAGTest {
                 .summaryType("RAPIDE")
                 .documentVersion(1)
                 .content("Synthèse pré-calculée stockée en base.")
-                .model("deepseek-chat")
+                .model("claude-sonnet-5")
                 .build();
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
@@ -151,7 +151,7 @@ class AIServiceRAGTest {
         assertNotNull(response);
         assertEquals("Synthèse pré-calculée stockée en base.", response.getContent());
         assertTrue(response.isCached());
-        verify(deepSeekAIService, never()).generateText(any(), any(), anyDouble(), anyInt());
+        verify(claudeAIService, never()).generateText(any(), any(), anyDouble(), anyInt());
     }
 
     @Test

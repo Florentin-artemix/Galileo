@@ -155,7 +155,7 @@ export const AIAssistantWidget: React.FC<AIAssistantWidgetProps> = ({
           </div>
           <div>
             <h3 className="font-poppins font-bold text-light-text dark:text-off-white text-base">Assistant IA Galileo</h3>
-            <p className="text-xs text-light-text-secondary dark:text-gray-400">DeepSeek RAG & Qwen 1024D</p>
+            <p className="text-xs text-light-text-secondary dark:text-gray-400">Claude RAG & Qwen 1024D</p>
           </div>
         </div>
         <button
@@ -190,7 +190,7 @@ export const AIAssistantWidget: React.FC<AIAssistantWidgetProps> = ({
       {/* Mandatory AI Disclaimer Notice */}
       <div className="px-3 py-2 bg-amber-500/10 border-b border-amber-500/20 text-[11px] text-amber-800 dark:text-amber-300 flex items-start space-x-2">
         <span className="flex-shrink-0">⚠️</span>
-        <p>Contenu généré par l'IA DeepSeek. Les extraits cités proviennent du texte indexé. Vérifiez systématiquement les sources.</p>
+        <p>Contenu généré par l'IA Claude. Les extraits cités proviennent du texte indexé. Vérifiez systématiquement les sources.</p>
       </div>
 
       {/* Quick Action Chips (Document mode only) */}

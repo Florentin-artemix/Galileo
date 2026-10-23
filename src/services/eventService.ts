@@ -63,7 +63,7 @@ class EventService {
    */
   async getAllEventsNoPagination(): Promise<EventData[]> {
     try {
-      const response = await apiClient.get('/events/all');
+      const response = await apiClient.get('/events');
       return response.data;
     } catch (error) {
       console.error('Erreur récupération événements:', error);

@@ -109,7 +109,7 @@ const QuizPage: React.FC = () => {
           Générer un quiz d'évaluation à partir d'une publication
         </h3>
         <p className="text-xs text-light-text-secondary dark:text-gray-400 mb-4">
-          L'IA DeepSeek extrait les concepts fondamentaux de la publication sélectionnée et conçoit un questionnaire d'évaluation scientifique.
+          L'IA Claude extrait les concepts fondamentaux de la publication sélectionnée et conçoit un questionnaire d'évaluation scientifique.
         </p>
 
         <div className="flex flex-col sm:flex-row items-center gap-3">
@@ -131,7 +131,7 @@ const QuizPage: React.FC = () => {
             className="w-full sm:w-auto px-6 py-3 rounded-xl bg-light-accent dark:bg-teal text-white dark:text-navy font-bold text-sm hover:opacity-90 disabled:opacity-50 transition-all shadow-md flex items-center justify-center space-x-2"
           >
             {isGenerating ? (
-              <span>Génération DeepSeek...</span>
+              <span>Génération Claude...</span>
             ) : (
               <span>✨ Générer le Quiz</span>
             )}

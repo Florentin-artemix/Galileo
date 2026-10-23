@@ -39,7 +39,7 @@ import java.util.*;
 @RequiredArgsConstructor
 public class AIServiceImpl implements AIService {
 
-    private final DeepSeekAIService deepSeekAIService;
+    private final ClaudeAIService claudeAIService;
     private final EmbeddingProvider embeddingProvider;
     private final AIConversationRepository conversationRepository;
     private final AIMessageRepository messageRepository;
@@ -157,10 +157,10 @@ public class AIServiceImpl implements AIService {
         }
 
         long startTime = System.currentTimeMillis();
-        DeepSeekAIService.DeepSeekResult result = deepSeekAIService.generateText(systemPrompt, finalUserPrompt, 0.3, 2048);
+        ClaudeAIService.ClaudeResult result = claudeAIService.generateText(systemPrompt, finalUserPrompt, 0.3, 2048);
         long duration = System.currentTimeMillis() - startTime;
 
-        // Observabilité IA (DeepSeek LLM)
+        // Observabilité IA (Claude LLM)
         recordLLMInteraction(user, "chat_" + mode.name().toLowerCase(),
                 result.getInputTokens(), result.getOutputTokens(), (int) duration);
 
@@ -252,7 +252,7 @@ public class AIServiceImpl implements AIService {
         String userPrompt = "Document à synthétiser :\nTitre : " + publication.getTitle() + "\nContenu :\n" + documentContent;
 
         long startTime = System.currentTimeMillis();
-        DeepSeekAIService.DeepSeekResult result = deepSeekAIService.generateText(systemPrompt, userPrompt, 0.2, 1500);
+        ClaudeAIService.ClaudeResult result = claudeAIService.generateText(systemPrompt, userPrompt, 0.2, 1500);
         long duration = System.currentTimeMillis() - startTime;
 
         recordLLMInteraction(currentUser, "summarize_" + summaryType.toLowerCase(),
@@ -264,7 +264,7 @@ public class AIServiceImpl implements AIService {
                 .summaryType(summaryType)
                 .build());
         cache.setContent(result.getContent());
-        cache.setModel("deepseek-chat");
+        cache.setModel("claude-sonnet-5");
         cache.setDocumentVersion(currentDocVersion);
         summaryCacheRepository.save(cache);
 
@@ -273,7 +273,7 @@ public class AIServiceImpl implements AIService {
                 .summaryType(summaryType)
                 .content(result.getContent())
                 .cached(false)
-                .model("deepseek-chat")
+                .model("claude-sonnet-5")
                 .build();
     }
 
@@ -308,7 +308,7 @@ public class AIServiceImpl implements AIService {
         String userPrompt = "Passage à expliquer :\n« " + request.getPassage() + " »";
 
         long startTime = System.currentTimeMillis();
-        DeepSeekAIService.DeepSeekResult result = deepSeekAIService.generateText(systemPrompt, userPrompt, 0.4, 1200);
+        ClaudeAIService.ClaudeResult result = claudeAIService.generateText(systemPrompt, userPrompt, 0.4, 1200);
         long duration = System.currentTimeMillis() - startTime;
 
         recordLLMInteraction(currentUser, "explain_" + level.toLowerCase(),
@@ -364,7 +364,7 @@ public class AIServiceImpl implements AIService {
                 "\n\nProduis un tableau comparatif Markdown synthétique suivi d'une analyse comparative rédigée.";
 
         long startTime = System.currentTimeMillis();
-        DeepSeekAIService.DeepSeekResult result = deepSeekAIService.generateText(systemPrompt, userPrompt, 0.3, 2500);
+        ClaudeAIService.ClaudeResult result = claudeAIService.generateText(systemPrompt, userPrompt, 0.3, 2500);
         long duration = System.currentTimeMillis() - startTime;
 
         recordLLMInteraction(currentUser, "compare_publications",
@@ -503,8 +503,8 @@ public class AIServiceImpl implements AIService {
                     .user(user)
                     .interactionType("LLM")
                     .functionName(functionName)
-                    .provider("deepseek")
-                    .model("deepseek-chat")
+                    .provider("claude")
+                    .model("claude-sonnet-5")
                     .inputTokens(inTokens)
                     .outputTokens(outTokens)
                     .dimension(null)

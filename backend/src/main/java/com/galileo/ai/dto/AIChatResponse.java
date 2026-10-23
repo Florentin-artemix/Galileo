@@ -19,7 +19,7 @@ public class AIChatResponse {
     private AIMode mode;
     private List<SourceCitation> sources;
     @Builder.Default
-    private String disclaimer = "Réponse générée par IA (DeepSeek). Les résultats doivent faire l'objet d'une vérification critique.";
+    private String disclaimer = "Réponse générée par IA (Claude). Les résultats doivent faire l'objet d'une vérification critique.";
 
     @Data
     @Builder

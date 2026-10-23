@@ -71,7 +71,7 @@ export const learningService = {
   },
 
   /**
-   * Génère un nouveau quiz académique via IA DeepSeek
+   * Génère un nouveau quiz académique via IA Claude
    */
   async generateQuiz(publicationId: number, count: number = 5, difficulty: string = 'INTERMEDIATE'): Promise<QuizDTO> {
     const response = await apiClient.post('/learning/quizzes/generate', null, {

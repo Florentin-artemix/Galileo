@@ -17,14 +17,16 @@ import java.util.concurrent.TimeUnit;
 public class QwenEmbeddingProvider implements EmbeddingProvider {
 
     private static final int DIMENSION = 1024;
-    private static final String PROVIDER_NAME = "qwen-cloud";
-    private static final String MODEL_NAME = "text-embedding-v4";
+    private static final String PROVIDER_NAME = "openrouter";
 
-    @Value("${galileo.ai.qwen.api-key:}")
+    @Value("${galileo.ai.openrouter.api-key:}")
     private String apiKey;
 
-    @Value("${galileo.ai.qwen.base-url:https://dashscope.aliyuncs.com/compatible-mode/v1}")
+    @Value("${galileo.ai.openrouter.base-url:https://openrouter.ai/api/v1}")
     private String baseUrl;
+
+    @Value("${galileo.ai.openrouter.embedding-model:nvidia/nemotron-3.5-embed-1b:free}")
+    private String model;
 
     private final OkHttpClient httpClient = new OkHttpClient.Builder()
             .connectTimeout(15, TimeUnit.SECONDS)
@@ -40,7 +42,7 @@ public class QwenEmbeddingProvider implements EmbeddingProvider {
 
     @Override
     public String getModelName() {
-        return MODEL_NAME;
+        return model;
     }
 
     @Override
@@ -59,71 +61,65 @@ public class QwenEmbeddingProvider implements EmbeddingProvider {
         }
 
         if (!isConfigured()) {
-            throw new EmbeddingProviderUnavailableException("Fournisseur Qwen non configuré : variable QWEN_API_KEY absente.");
+            throw new EmbeddingProviderUnavailableException("Fournisseur OpenRouter non configuré : variable OPENROUTER_API_KEY absente.");
         }
 
         try {
             String url = baseUrl.replaceAll("/$", "") + "/embeddings";
-            String jsonBody = objectMapper.writeValueAsString(new EmbeddingRequest(MODEL_NAME, text.trim(), DIMENSION));
-
-            RequestBody body = RequestBody.create(jsonBody, MediaType.parse("application/json"));
-            Request request = new Request.Builder()
-                    .url(url)
-                    .header("Authorization", "Bearer " + apiKey.trim())
-                    .post(body)
-                    .build();
-
-            try (Response response = httpClient.newCall(request).execute()) {
-                if (!response.isSuccessful()) {
-                    log.warn("Erreur API Qwen Embedding (HTTP {})", response.code());
-                    throw new EmbeddingProviderUnavailableException("Erreur API Qwen Embedding (HTTP " + response.code() + ")");
-                }
-
-                String responseBody = response.body() != null ? response.body().string() : "{}";
-                JsonNode root = objectMapper.readTree(responseBody);
-                JsonNode dataNode = root.path("data");
-                if (!dataNode.isArray() || dataNode.isEmpty()) {
-                    throw new EmbeddingProviderUnavailableException("Réponse Qwen invalide : champ 'data' manquant ou vide");
-                }
-
-                JsonNode embeddingNode = dataNode.get(0).path("embedding");
-                if (!embeddingNode.isArray() || embeddingNode.size() != DIMENSION) {
-                    throw new EmbeddingProviderUnavailableException(
-                            "Dimension d'embedding Qwen inattendue : attendu " + DIMENSION + ", reçu " + embeddingNode.size());
-                }
-
-                float[] result = new float[DIMENSION];
-                double sumSq = 0.0;
-                for (int i = 0; i < DIMENSION; i++) {
-                    float val = (float) embeddingNode.get(i).asDouble();
-                    if (Float.isNaN(val) || Float.isInfinite(val)) {
-                        throw new EmbeddingProviderUnavailableException("Valeur non numérique (NaN/Inf) dans le vecteur Qwen");
-                    }
-                    result[i] = val;
-                    sumSq += val * val;
-                }
-
-                // Vérification stricte : refuser formellement tout vecteur nul
-                if (sumSq < 1e-9) {
-                    throw new EmbeddingProviderUnavailableException("Vecteur nul reçu du fournisseur Qwen (norme = 0)");
-                }
-
-                return result;
-            }
+            return requestEmbeddings(url, List.of(text.trim())).get(0);
         } catch (IOException e) {
-            log.warn("Impossible de contacter le fournisseur d'embeddings Qwen : {}", e.getMessage());
-            throw new EmbeddingProviderUnavailableException("Impossible de contacter le fournisseur Qwen : " + e.getMessage(), e);
+            log.warn("Impossible de contacter le fournisseur d'embeddings OpenRouter : {}", e.getMessage());
+            throw new EmbeddingProviderUnavailableException("Impossible de contacter le fournisseur OpenRouter : " + e.getMessage(), e);
         }
     }
 
     @Override
     public List<float[]> generateEmbeddings(List<String> texts) {
-        List<float[]> embeddings = new ArrayList<>(texts.size());
-        for (String text : texts) {
-            embeddings.add(generateEmbedding(text));
+        if (texts == null || texts.isEmpty()) {
+            return List.of();
         }
-        return embeddings;
+        if (!isConfigured()) {
+            throw new EmbeddingProviderUnavailableException("Fournisseur OpenRouter non configuré : variable OPENROUTER_API_KEY absente.");
+        }
+        List<String> inputs = texts.stream().map(text -> {
+            if (text == null || text.trim().isEmpty()) {
+                throw new IllegalArgumentException("Le texte à vectoriser ne peut pas être vide");
+            }
+            return text.trim();
+        }).toList();
+        try {
+            return requestEmbeddings(baseUrl.replaceAll("/$", "") + "/embeddings", inputs);
+        } catch (IOException e) {
+            throw new EmbeddingProviderUnavailableException("Impossible de contacter le fournisseur OpenRouter : " + e.getMessage(), e);
+        }
     }
 
-    private record EmbeddingRequest(String model, String input, int dimensions) {}
+    private List<float[]> requestEmbeddings(String url, List<String> inputs) throws IOException {
+        String jsonBody = objectMapper.writeValueAsString(new EmbeddingRequest(model, inputs));
+        Request request = new Request.Builder().url(url)
+                .header("Authorization", "Bearer " + apiKey.trim())
+                .post(RequestBody.create(jsonBody, MediaType.parse("application/json"))).build();
+        try (Response response = httpClient.newCall(request).execute()) {
+            if (!response.isSuccessful()) {
+                throw new EmbeddingProviderUnavailableException("Erreur API OpenRouter Embedding (HTTP " + response.code() + ")");
+            }
+            JsonNode data = objectMapper.readTree(response.body() != null ? response.body().string() : "{}").path("data");
+            if (!data.isArray() || data.size() != inputs.size()) {
+                throw new EmbeddingProviderUnavailableException("Réponse OpenRouter invalide ou incomplète");
+            }
+            List<float[]> results = new ArrayList<>(inputs.size());
+            for (JsonNode item : data) {
+                JsonNode vector = item.path("embedding");
+                if (!vector.isArray() || vector.size() < DIMENSION) {
+                    throw new EmbeddingProviderUnavailableException("Dimension OpenRouter inattendue : au moins " + DIMENSION + " requises");
+                }
+                float[] embedding = new float[DIMENSION];
+                for (int i = 0; i < DIMENSION; i++) embedding[i] = (float) vector.get(i).asDouble();
+                results.add(embedding);
+            }
+            return results;
+        }
+    }
+
+    private record EmbeddingRequest(String model, List<String> input) {}
 }

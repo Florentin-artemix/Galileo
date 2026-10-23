@@ -74,7 +74,7 @@ export interface AIConversationDTO {
 
 export const aiService = {
   /**
-   * Envoi d'un message à l'assistant IA DeepSeek
+   * Envoi d'un message à l'assistant IA Claude
    */
   async sendMessage(request: AIChatRequest): Promise<AIChatResponse> {
     const response = await apiClient.post('/ai/chat', request);

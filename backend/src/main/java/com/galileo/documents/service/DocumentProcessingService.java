@@ -123,9 +123,10 @@ public class DocumentProcessingService {
             // 4. Nettoyage préalable pour garantir l'idempotence (suppression des anciens chunks et embeddings)
             cleanExistingChunksAndEmbeddings(document.getId());
 
-            // 5. Sauvegarde des chunks et vectorisation Qwen (1024 dims)
+            // 5. Sauvegarde des chunks et vectorisation OpenRouter par lot (1024 dims)
             int chunkIndex = 0;
             int totalTokensEstimated = 0;
+            List<DocumentChunk> persistedChunks = new ArrayList<>(chunks.size());
 
             for (ChunkData c : chunks) {
                 int tokenEstimate = Math.max(1, c.text.length() / 4);
@@ -140,12 +141,16 @@ public class DocumentProcessingService {
                         .tokenCount(tokenEstimate)
                         .build();
                 chunk = chunkRepository.save(chunk);
+                persistedChunks.add(chunk);
+            }
 
-                // Génération vecteur Qwen
-                float[] vector = embeddingProvider.generateEmbedding(c.text);
+            List<float[]> vectors = embeddingProvider.generateEmbeddings(
+                    persistedChunks.stream().map(DocumentChunk::getContent).toList());
+            for (int i = 0; i < persistedChunks.size(); i++) {
+                float[] vector = vectors.get(i);
                 if (vector != null && vector.length == embeddingProvider.getDimension()) {
                     DocumentEmbedding embedding = DocumentEmbedding.builder()
-                            .chunk(chunk)
+                            .chunk(persistedChunks.get(i))
                             .embedding(new PGvector(vector))
                             .model(embeddingProvider.getModelName())
                             .provider(embeddingProvider.getProviderName())
@@ -155,7 +160,7 @@ public class DocumentProcessingService {
                 }
             }
 
-            // Enregistrement métrique observabilité IA (Qwen Embeddings)
+            // Enregistrement métrique observabilité IA (OpenRouter Embeddings)
             long duration = System.currentTimeMillis() - startTime;
             recordEmbeddingInteraction(submission != null ? submission.getSubmittedBy() : null,
                     chunks.size(), totalTokensEstimated, (int) duration);
