@@ -1,12 +1,15 @@
 package com.galileo.content.controller;
 
 import com.galileo.common.dto.ApiResponse;
+import com.galileo.common.exception.BadRequestException;
 import com.galileo.common.exception.ResourceNotFoundException;
 import com.galileo.content.entity.BlogPost;
 import com.galileo.content.entity.Event;
 import com.galileo.content.repository.BlogPostRepository;
 import com.galileo.content.repository.EventRepository;
+import com.galileo.storage.service.StorageService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -14,10 +17,14 @@ import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.time.LocalDateTime;
 import java.util.*;
 
+@Slf4j
 @RestController
 @RequiredArgsConstructor
 public class ContentController {
@@ -25,6 +32,21 @@ public class ContentController {
     private final BlogPostRepository blogPostRepository;
     private final EventRepository eventRepository;
     private final com.galileo.auth.repository.UserRepository userRepository;
+    private final StorageService storageService;
+
+    private static final Set<String> ALLOWED_IMAGE_TYPES = Set.of(
+            "image/jpeg",
+            "image/jpg",
+            "image/png",
+            "image/webp",
+            "image/gif"
+    );
+
+    private static final Set<String> ALLOWED_IMAGE_EXTENSIONS = Set.of(
+            ".jpg", ".jpeg", ".png", ".webp", ".gif"
+    );
+
+    private static final long MAX_BLOG_IMAGE_SIZE = 10 * 1024 * 1024; // 10 Mo
 
     // ==========================================
     // BLOG (/api/blog)
@@ -195,6 +217,97 @@ public class ContentController {
         return ResponseEntity.ok(ApiResponse.ok("Article supprimé"));
     }
 
+    @PostMapping("/api/blog/upload-image")
+    @PreAuthorize("hasAnyRole('STAFF', 'ADMIN')")
+    public ResponseEntity<Map<String, Object>> uploadBlogImage(@RequestParam("file") MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new BadRequestException("Fichier manquant ou vide");
+        }
+
+        if (file.getSize() > MAX_BLOG_IMAGE_SIZE) {
+            throw new BadRequestException("La taille de l'image ne doit pas dépasser 10 Mo");
+        }
+
+        String contentType = file.getContentType();
+        if (contentType == null || !ALLOWED_IMAGE_TYPES.contains(contentType.toLowerCase().trim())) {
+            throw new BadRequestException("Format MIME non autorisé. Formats acceptés : JPEG, PNG, WEBP, GIF");
+        }
+
+        String originalFilename = file.getOriginalFilename();
+        if (originalFilename == null || !hasAllowedImageExtension(originalFilename)) {
+            throw new BadRequestException("Extension de fichier invalide");
+        }
+
+        try (InputStream is = file.getInputStream()) {
+            if (!validateImageSignature(is, contentType.toLowerCase().trim())) {
+                throw new BadRequestException("Signature de fichier invalide : le contenu ne correspond pas à une image valide");
+            }
+        } catch (IOException e) {
+            log.error("Erreur lors de la lecture du fichier pour validation", e);
+            throw new BadRequestException("Impossible de lire le fichier envoyé");
+        }
+
+        String sanitizedFilename = originalFilename.replaceAll("[^a-zA-Z0-9._-]", "_");
+        String key = "blog/" + UUID.randomUUID() + "-" + sanitizedFilename;
+
+        try (InputStream uploadStream = file.getInputStream()) {
+            storageService.uploadFile(key, uploadStream, file.getSize(), contentType);
+        } catch (IOException e) {
+            log.error("Erreur lors du stockage de l'image du blog", e);
+            throw new RuntimeException("Erreur lors de l'enregistrement de l'image", e);
+        }
+
+        String imageUrl = storageService.generatePresignedUrl(key, 1440 * 365); // 1 an
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("imageUrl", imageUrl);
+        response.put("r2Key", key);
+        response.put("success", true);
+
+        return ResponseEntity.ok(response);
+    }
+
+    private boolean hasAllowedImageExtension(String filename) {
+        String lower = filename.toLowerCase();
+        for (String ext : ALLOWED_IMAGE_EXTENSIONS) {
+            if (lower.endsWith(ext)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean validateImageSignature(InputStream inputStream, String contentType) throws IOException {
+        byte[] header = new byte[12];
+        int read = inputStream.read(header, 0, header.length);
+        if (read < 4) {
+            return false;
+        }
+
+        // JPEG: FF D8 FF
+        if ((header[0] & 0xFF) == 0xFF && (header[1] & 0xFF) == 0xD8 && (header[2] & 0xFF) == 0xFF) {
+            return "image/jpeg".equalsIgnoreCase(contentType) || "image/jpg".equalsIgnoreCase(contentType);
+        }
+
+        // PNG: 89 50 4E 47
+        if ((header[0] & 0xFF) == 0x89 && header[1] == 'P' && header[2] == 'N' && header[3] == 'G') {
+            return "image/png".equalsIgnoreCase(contentType);
+        }
+
+        // GIF: GIF8
+        if (header[0] == 'G' && header[1] == 'I' && header[2] == 'F' && header[3] == '8') {
+            return "image/gif".equalsIgnoreCase(contentType);
+        }
+
+        // WEBP: RIFF....WEBP
+        if (read >= 12 && header[0] == 'R' && header[1] == 'I' && header[2] == 'F' && header[3] == 'F'
+                && header[8] == 'W' && header[9] == 'E' && header[10] == 'B' && header[11] == 'P') {
+            return "image/webp".equalsIgnoreCase(contentType);
+        }
+
+        return false;
+    }
+
     // ==========================================
     // ÉVÉNEMENTS (/api/evenements, /api/events)
     // ==========================================
@@ -295,6 +408,8 @@ public class ContentController {
         map.put("auteur", b.getAuthor() != null ? b.getAuthor().getEmail().split("@")[0] : "Galileo");
         map.put("datePublication", b.getPublishedAt() != null ? b.getPublishedAt().toString() : (b.getCreatedAt() != null ? b.getCreatedAt().toString() : ""));
         map.put("nombreVues", 0);
+        map.put("publie", b.getIsPublished() != null ? b.getIsPublished() : true);
+        map.put("isPublished", b.getIsPublished() != null ? b.getIsPublished() : true);
         return map;
     }
 

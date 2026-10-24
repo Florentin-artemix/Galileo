@@ -4,6 +4,8 @@ import com.galileo.auth.entity.User;
 import com.galileo.publications.entity.Publication;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDateTime;
 
@@ -34,6 +36,7 @@ public class AnalyticsEvent {
     @JoinColumn(name = "publication_id")
     private Publication publication;
 
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "metadata", columnDefinition = "JSONB")
     private String metadata;
 

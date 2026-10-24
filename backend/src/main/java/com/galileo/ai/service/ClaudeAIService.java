@@ -8,10 +8,12 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import okhttp3.*;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
+import java.net.SocketTimeoutException;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -21,23 +23,47 @@ import java.util.concurrent.TimeUnit;
 public class ClaudeAIService {
 
     @Value("${galileo.ai.claude.api-key:}")
-    private String apiKey;
+    private String apiKey = "";
 
-    @Value("${galileo.ai.claude.base-url:https://api.anthropic.com}")
-    private String baseUrl;
+    @Value("${galileo.ai.claude.base-url:https://api.bedrock.com.de}")
+    private String baseUrl = "https://api.bedrock.com.de";
 
     @Value("${galileo.ai.claude.model:claude-sonnet-5}")
-    private String model;
+    private String model = "claude-sonnet-5";
 
-    private final OkHttpClient httpClient = new OkHttpClient.Builder()
-            .connectTimeout(15, TimeUnit.SECONDS)
-            .readTimeout(60, TimeUnit.SECONDS)
-            .build();
-
+    private final OpenRouterAIService openRouterAIService;
+    private final OkHttpClient httpClient;
     private final ObjectMapper objectMapper = new ObjectMapper();
+
+    @Autowired
+    public ClaudeAIService(@Autowired(required = false) OpenRouterAIService openRouterAIService) {
+        this.openRouterAIService = openRouterAIService;
+        this.httpClient = new OkHttpClient.Builder()
+                .connectTimeout(10, TimeUnit.SECONDS)
+                .readTimeout(25, TimeUnit.SECONDS)
+                .callTimeout(30, TimeUnit.SECONDS)
+                .build();
+    }
+
+    public ClaudeAIService(OpenRouterAIService openRouterAIService, OkHttpClient httpClient) {
+        this.openRouterAIService = openRouterAIService;
+        this.httpClient = httpClient;
+    }
+
+    public ClaudeAIService() {
+        this(null);
+    }
 
     public boolean isConfigured() {
         return apiKey != null && !apiKey.trim().isEmpty();
+    }
+
+    public String getModel() {
+        return model;
+    }
+
+    public String getProviderName() {
+        return "claude";
     }
 
     @Data
@@ -50,24 +76,91 @@ public class ClaudeAIService {
         private int outputTokens;
         private boolean success;
         private String error;
+        private Integer httpStatus;
+        @Builder.Default
+        private String provider = "claude";
+        private String model;
+        private boolean fallbackUsed;
+
+        public boolean isRecoverableError() {
+            if (success) {
+                return false;
+            }
+            if (httpStatus != null) {
+                return httpStatus >= 500 || httpStatus == 429 || httpStatus == 408;
+            }
+            return true; // Erreurs réseau, timeouts
+        }
     }
 
     public ClaudeResult generateText(String systemPrompt, String userMessage, double temperature, int maxTokens) {
+        // 1. Si la clé primaire est absente, basculer directement sur OpenRouter si disponible
         if (!isConfigured()) {
+            if (openRouterAIService != null && openRouterAIService.isConfigured()) {
+                log.info("Clé Claude non configurée. Bascule directe sur le fournisseur de secours OpenRouter");
+                return openRouterAIService.generateText(systemPrompt, userMessage, temperature, maxTokens);
+            }
             return ClaudeResult.builder()
                     .content("L'assistant IA Claude n'est pas encore configuré sur cette instance (clé API absente).")
                     .inputTokens(0)
                     .outputTokens(0)
                     .success(false)
                     .error("API_KEY_MISSING")
+                    .provider("claude")
+                    .model(model)
+                    .fallbackUsed(false)
                     .build();
         }
 
+        // 2. Appel au fournisseur primaire (Claude)
+        ClaudeResult primaryResult = callClaude(systemPrompt, userMessage, temperature, maxTokens);
+
+        if (primaryResult.isSuccess()) {
+            return primaryResult;
+        }
+
+        // 3. Politique de bascule en cas d'échec récupérable
+        if (primaryResult.isRecoverableError()) {
+            if (openRouterAIService != null && openRouterAIService.isConfigured()) {
+                log.warn("Échec du fournisseur primaire Claude ({}), déclenchement du fallback vers OpenRouter", primaryResult.getError());
+                ClaudeResult fallbackResult = openRouterAIService.generateText(systemPrompt, userMessage, temperature, maxTokens);
+                if (fallbackResult.isSuccess()) {
+                    log.info("Bascule OpenRouter réussie avec le modèle {}", fallbackResult.getModel());
+                    return fallbackResult;
+                }
+                log.error("Échec des deux fournisseurs IA (Claude: {}, OpenRouter: {})", primaryResult.getError(), fallbackResult.getError());
+                return ClaudeResult.builder()
+                        .content("Les services d'assistance IA (Claude et OpenRouter) sont temporairement indisponibles.")
+                        .inputTokens(0)
+                        .outputTokens(0)
+                        .success(false)
+                        .httpStatus(primaryResult.getHttpStatus() != null ? primaryResult.getHttpStatus() : 503)
+                        .error("ALL_PROVIDERS_FAILED: Claude=[" + primaryResult.getError() + "], OpenRouter=[" + fallbackResult.getError() + "]")
+                        .provider("openrouter")
+                        .model(fallbackResult.getModel())
+                        .fallbackUsed(true)
+                        .build();
+            } else {
+                log.warn("Échec récupérable de Claude ({}), mais OpenRouter n'est pas disponible ou configuré", primaryResult.getError());
+            }
+        } else {
+            log.warn("Erreur non récupérable pour Claude (HTTP {}). Aucun fallback déclenché.", primaryResult.getHttpStatus());
+        }
+
+        return primaryResult;
+    }
+
+    private ClaudeResult callClaude(String systemPrompt, String userMessage, double temperature, int maxTokens) {
         try {
-            String normalizedBaseUrl = baseUrl.replaceAll("/+$", "");
-            String url = normalizedBaseUrl.endsWith("/v1")
-                    ? normalizedBaseUrl + "/messages"
-                    : normalizedBaseUrl + "/v1/messages";
+            String normalizedBaseUrl = baseUrl != null ? baseUrl.replaceAll("/+$", "") : "https://api.bedrock.com.de";
+            String url;
+            if (normalizedBaseUrl.endsWith("/v1/messages")) {
+                url = normalizedBaseUrl;
+            } else if (normalizedBaseUrl.endsWith("/v1")) {
+                url = normalizedBaseUrl + "/messages";
+            } else {
+                url = normalizedBaseUrl + "/v1/messages";
+            }
 
             Map<String, Object> requestMap = Map.of(
                     "model", model,
@@ -87,40 +180,69 @@ public class ClaudeAIService {
                     .build();
 
             try (Response response = httpClient.newCall(request).execute()) {
+                int code = response.code();
+                String responseBody = response.body() != null ? response.body().string() : "{}";
+
                 if (!response.isSuccessful()) {
-                    log.warn("Erreur API Claude : HTTP {}", response.code());
+                    log.warn("Erreur API Claude : HTTP {}", code);
+                    String errorDetail = "HTTP_" + code;
+                    try {
+                        JsonNode errNode = objectMapper.readTree(responseBody);
+                        if (errNode.has("error")) {
+                            errorDetail = errNode.path("error").path("message").asText(errorDetail);
+                        }
+                    } catch (Exception ignored) {}
+
                     return ClaudeResult.builder()
-                            .content("Le service d'assistance IA est temporairement indisponible (erreur HTTP " + response.code() + ").")
+                            .content("Le service d'assistance IA est temporairement indisponible (erreur HTTP " + code + ").")
                             .inputTokens(0)
                             .outputTokens(0)
                             .success(false)
-                            .error("HTTP_" + response.code())
+                            .httpStatus(code)
+                            .error("HTTP_" + code + ": " + errorDetail)
+                            .provider("claude")
+                            .model(model)
+                            .fallbackUsed(false)
                             .build();
                 }
 
-                String responseBody = response.body() != null ? response.body().string() : "{}";
                 JsonNode root = objectMapper.readTree(responseBody);
                 JsonNode contentBlocks = root.path("content");
-                String content = "";
+                StringBuilder content = new StringBuilder();
                 if (contentBlocks.isArray()) {
                     for (JsonNode block : contentBlocks) {
                         if ("text".equals(block.path("type").asText())) {
-                            content += block.path("text").asText();
+                            content.append(block.path("text").asText());
                         }
                     }
                 }
 
                 JsonNode usage = root.path("usage");
-                int inputTokens = usage.path("input_tokens").asInt(userMessage.length() / 4);
-                int outputTokens = usage.path("output_tokens").asInt(content.length() / 4);
+                int inputTokens = usage.path("input_tokens").asInt(0);
+                int outputTokens = usage.path("output_tokens").asInt(0);
 
                 return ClaudeResult.builder()
-                        .content(content)
+                        .content(content.toString())
                         .inputTokens(inputTokens)
                         .outputTokens(outputTokens)
                         .success(true)
+                        .provider("claude")
+                        .model(model)
+                        .fallbackUsed(false)
                         .build();
             }
+        } catch (SocketTimeoutException e) {
+            log.error("Timeout de communication avec l'API Claude : {}", e.getMessage());
+            return ClaudeResult.builder()
+                    .content("Délai de réponse dépassé avec le service d'assistance IA.")
+                    .inputTokens(0)
+                    .outputTokens(0)
+                    .success(false)
+                    .error("TIMEOUT: " + e.getMessage())
+                    .provider("claude")
+                    .model(model)
+                    .fallbackUsed(false)
+                    .build();
         } catch (IOException e) {
             log.error("Erreur de communication avec l'API Claude : {}", e.getMessage());
             return ClaudeResult.builder()
@@ -128,7 +250,10 @@ public class ClaudeAIService {
                     .inputTokens(0)
                     .outputTokens(0)
                     .success(false)
-                    .error(e.getMessage())
+                    .error("NETWORK_ERROR: " + e.getMessage())
+                    .provider("claude")
+                    .model(model)
+                    .fallbackUsed(false)
                     .build();
         }
     }

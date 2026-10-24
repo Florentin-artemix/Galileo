@@ -1,5 +1,6 @@
 package com.galileo.admin.controller;
 
+import com.galileo.admin.dto.UserAdminDTO;
 import com.galileo.auth.entity.Role;
 import com.galileo.auth.entity.User;
 import com.galileo.auth.repository.UserRepository;
@@ -13,6 +14,11 @@ import com.galileo.submissions.service.SubmissionService;
 import com.galileo.users.entity.UserProfile;
 import com.galileo.users.repository.UserProfileRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -121,47 +127,62 @@ public class AdminController {
 
     @GetMapping("/users")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<List<Map<String, Object>>> getAllUsers() {
-        List<User> users = userRepository.findAll();
-        List<Map<String, Object>> result = new ArrayList<>();
+    public ResponseEntity<?> getAllUsers(
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size,
+            @RequestParam(required = false, defaultValue = "id") String sortBy,
+            @RequestParam(required = false, defaultValue = "desc") String direction
+    ) {
+        if (page != null || size != null) {
+            int pageIndex = page != null ? page : 0;
+            int pageSize = size != null ? size : 20;
 
-        for (User u : users) {
-            UserProfile profile = userProfileRepository.findByUserId(u.getId()).orElse(null);
-            Map<String, Object> map = new HashMap<>();
-            map.put("id", u.getId());
-            map.put("uid", String.valueOf(u.getId()));
-            map.put("email", u.getEmail());
-            map.put("role", u.getRole().name());
-            map.put("disabled", u.getIsActive() != null && !u.getIsActive());
-            map.put("isActive", u.getIsActive());
-            map.put("creationTime", u.getCreatedAt() != null ? u.getCreatedAt().toString() : "");
-            map.put("lastSignInTime", u.getUpdatedAt() != null ? u.getUpdatedAt().toString() : "");
-            map.put("displayName", profile != null ? profile.getDisplayName() : u.getEmail().split("@")[0]);
-            result.add(map);
+            if (pageIndex < 0) {
+                throw new BadRequestException("Le numéro de page ne peut pas être négatif");
+            }
+            if (pageSize <= 0) {
+                throw new BadRequestException("La taille de page doit être supérieure à zéro");
+            }
+            if (pageSize > 100) {
+                throw new BadRequestException("La taille de page maximale autorisée est de 100");
+            }
+
+            Sort.Direction dir = "asc".equalsIgnoreCase(direction) ? Sort.Direction.ASC : Sort.Direction.DESC;
+            String sortProperty = "createdAt".equalsIgnoreCase(sortBy) ? "createdAt" : "id";
+            Sort sort = Sort.by(dir, sortProperty);
+            Pageable pageable = PageRequest.of(pageIndex, pageSize, sort);
+
+            Page<User> usersPage = userRepository.findAll(pageable);
+            List<UserAdminDTO> dtos = usersPage.getContent().stream()
+                    .map(this::toUserAdminDTO)
+                    .toList();
+
+            Page<UserAdminDTO> resultPage = new PageImpl<>(dtos, pageable, usersPage.getTotalElements());
+            return ResponseEntity.ok(resultPage);
         }
+
+        List<User> users = userRepository.findAll();
+        List<UserAdminDTO> result = users.stream()
+                .map(this::toUserAdminDTO)
+                .toList();
 
         return ResponseEntity.ok(result);
     }
 
     @GetMapping("/users/{id}")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Map<String, Object>> getUserById(@PathVariable String id) {
-        Long userId = Long.parseLong(id);
+    public ResponseEntity<UserAdminDTO> getUserById(@PathVariable String id) {
+        Long userId;
+        try {
+            userId = Long.parseLong(id);
+        } catch (NumberFormatException e) {
+            throw new BadRequestException("Identifiant utilisateur invalide : " + id);
+        }
+
         User u = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Utilisateur", "id", userId));
-        UserProfile profile = userProfileRepository.findByUserId(u.getId()).orElse(null);
 
-        Map<String, Object> map = new HashMap<>();
-        map.put("id", u.getId());
-        map.put("uid", String.valueOf(u.getId()));
-        map.put("email", u.getEmail());
-        map.put("role", u.getRole().name());
-        map.put("disabled", u.getIsActive() != null && !u.getIsActive());
-        map.put("isActive", u.getIsActive());
-        map.put("creationTime", u.getCreatedAt() != null ? u.getCreatedAt().toString() : "");
-        map.put("displayName", profile != null ? profile.getDisplayName() : u.getEmail().split("@")[0]);
-
-        return ResponseEntity.ok(map);
+        return ResponseEntity.ok(toUserAdminDTO(u));
     }
 
     @PutMapping("/users/{id}/role")
@@ -171,9 +192,15 @@ public class AdminController {
             @RequestBody Map<String, String> body,
             @AuthenticationPrincipal CustomUserDetails currentUser
     ) {
-        Long targetUserId = Long.parseLong(id);
-        String roleStr = body.get("role");
-        if (roleStr == null) {
+        Long targetUserId;
+        try {
+            targetUserId = Long.parseLong(id);
+        } catch (NumberFormatException e) {
+            throw new BadRequestException("Identifiant utilisateur invalide : " + id);
+        }
+
+        String roleStr = body != null ? body.get("role") : null;
+        if (roleStr == null || roleStr.trim().isEmpty()) {
             throw new BadRequestException("Rôle obligatoire");
         }
 
@@ -204,10 +231,31 @@ public class AdminController {
             @PathVariable String id,
             @RequestBody Map<String, Boolean> body
     ) {
-        Long targetUserId = Long.parseLong(id);
-        boolean isActive = body.getOrDefault("isActive", true);
+        Long targetUserId;
+        try {
+            targetUserId = Long.parseLong(id);
+        } catch (NumberFormatException e) {
+            throw new BadRequestException("Identifiant utilisateur invalide : " + id);
+        }
+
+        boolean isActive = body != null ? body.getOrDefault("isActive", true) : true;
         adminService.toggleUserStatus(targetUserId, isActive);
         return ResponseEntity.ok(ApiResponse.ok("Statut du compte mis à jour (actif=" + isActive + ")"));
+    }
+
+    private UserAdminDTO toUserAdminDTO(User u) {
+        UserProfile profile = userProfileRepository.findByUserId(u.getId()).orElse(null);
+        return UserAdminDTO.builder()
+                .id(u.getId())
+                .uid(String.valueOf(u.getId()))
+                .email(u.getEmail())
+                .role(u.getRole() != null ? u.getRole().name() : "STUDENT")
+                .disabled(u.getIsActive() != null && !u.getIsActive())
+                .isActive(u.getIsActive())
+                .creationTime(u.getCreatedAt() != null ? u.getCreatedAt().toString() : "")
+                .lastSignInTime(u.getUpdatedAt() != null ? u.getUpdatedAt().toString() : "")
+                .displayName(profile != null ? profile.getDisplayName() : (u.getEmail() != null ? u.getEmail().split("@")[0] : ""))
+                .build();
     }
 
     // ==========================================

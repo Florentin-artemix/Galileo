@@ -4,6 +4,8 @@ import com.galileo.auth.entity.User;
 import com.galileo.publications.entity.Publication;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDateTime;
 
@@ -40,6 +42,7 @@ public class Submission {
     @Column(name = "reviewer_notes", columnDefinition = "TEXT")
     private String reviewerNotes;
 
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "ai_analysis", columnDefinition = "JSONB")
     private String aiAnalysis;
 

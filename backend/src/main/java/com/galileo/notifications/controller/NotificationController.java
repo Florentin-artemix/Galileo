@@ -2,6 +2,7 @@ package com.galileo.notifications.controller;
 
 import com.galileo.auth.security.CustomUserDetails;
 import com.galileo.common.dto.ApiResponse;
+import com.galileo.common.exception.ForbiddenException;
 import com.galileo.notifications.entity.Notification;
 import com.galileo.notifications.entity.NotificationPreference;
 import com.galileo.notifications.repository.NotificationPreferenceRepository;
@@ -151,6 +152,11 @@ public class NotificationController {
     private Long resolveUserId(String userIdStr, CustomUserDetails userDetails) {
         if ("me".equalsIgnoreCase(userIdStr) || userDetails.getId().toString().equals(userIdStr)) {
             return userDetails.getId();
+        }
+        boolean isPrivileged = userDetails.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN") || a.getAuthority().equals("ROLE_STAFF"));
+        if (!isPrivileged) {
+            throw new ForbiddenException("Accès refusé aux notifications d'un tiers");
         }
         try {
             return Long.parseLong(userIdStr);

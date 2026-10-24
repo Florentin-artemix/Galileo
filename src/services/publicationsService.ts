@@ -141,15 +141,18 @@ export const soumissionsService = {
     formData.append('resume', data.resume);
     formData.append('auteurPrincipal', data.auteurPrincipal);
     formData.append('emailAuteur', data.emailAuteur);
-    if (data.coAuteurs) {
+    if (data.coAuteurs && Array.isArray(data.coAuteurs)) {
       data.coAuteurs.forEach(coAuteur => {
         formData.append('coAuteurs', coAuteur);
       });
     }
-    data.motsCles.forEach(motCle => {
+    const motsCles = Array.isArray(data.motsCles) ? data.motsCles : [];
+    motsCles.forEach(motCle => {
       formData.append('motsCles', motCle);
     });
-    formData.append('domaineRecherche', data.domaineRecherche);
+    if (data.domaineRecherche) {
+      formData.append('domaineRecherche', data.domaineRecherche);
+    }
     if (data.notes) {
       formData.append('notes', data.notes);
     }

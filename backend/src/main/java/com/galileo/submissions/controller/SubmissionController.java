@@ -22,6 +22,7 @@ public class SubmissionController {
     private final SubmissionService submissionService;
 
     @PostMapping(consumes = {"multipart/form-data"})
+    @PreAuthorize("hasAnyRole('STUDENT', 'RESEARCHER', 'TEACHER', 'STAFF', 'ADMIN')")
     public ResponseEntity<Map<String, Object>> submitPublication(
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @RequestParam("fichierPdf") MultipartFile fichierPdf,

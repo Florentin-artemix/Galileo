@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { aiService, type AIMode, type SourceReference } from '../services/aiService';
+import { aiService, getAIErrorMessage, type AIMode, type SourceReference } from '../services/aiService';
 import { publicationsService, type PublicationDTO } from '../services/publicationsService';
 
 interface Message {
@@ -86,7 +86,7 @@ const AIAssistantPage: React.FC = () => {
         {
           id: String(Date.now() + 1),
           sender: 'assistant',
-          text: "Désolé, une erreur est survenue lors du traitement de votre requête. Veuillez vérifier vos accès et réessayer.",
+          text: getAIErrorMessage(err),
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         }
       ]);
@@ -108,7 +108,7 @@ const AIAssistantPage: React.FC = () => {
       });
       setExplainResult(res.explanation);
     } catch (err) {
-      setExplainResult("Erreur lors de la génération de l'explication.");
+      setExplainResult(getAIErrorMessage(err));
     } finally {
       setIsExplaining(false);
     }

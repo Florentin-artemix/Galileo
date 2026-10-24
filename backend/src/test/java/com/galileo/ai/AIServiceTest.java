@@ -16,11 +16,12 @@ class AIServiceTest {
     void testQwenEmbeddingProviderWithoutKey() {
         QwenEmbeddingProvider provider = new QwenEmbeddingProvider();
         ReflectionTestUtils.setField(provider, "apiKey", "");
-        ReflectionTestUtils.setField(provider, "baseUrl", "https://dashscope.aliyuncs.com/compatible-mode/v1");
+        ReflectionTestUtils.setField(provider, "baseUrl", "https://openrouter.ai/api/v1");
+        ReflectionTestUtils.setField(provider, "model", "nvidia/nemotron-3.5-embed-1b:free");
 
         assertEquals(1024, provider.getDimension());
-        assertEquals("text-embedding-v4", provider.getModelName());
-        assertEquals("qwen-cloud", provider.getProviderName());
+        assertEquals("nvidia/nemotron-3.5-embed-1b:free", provider.getModelName());
+        assertEquals("openrouter", provider.getProviderName());
         assertFalse(provider.isConfigured());
 
         assertThrows(EmbeddingProviderUnavailableException.class, () ->

@@ -121,3 +121,54 @@ export const aiService = {
     return response.data;
   }
 };
+
+/**
+ * Normalise les messages d'erreur de l'assistant IA selon le statut HTTP réel
+ * pour éviter d'induire l'utilisateur en erreur sur ses permissions d'accès.
+ */
+export function getAIErrorMessage(err: any): string {
+  if (!err) {
+    return "Une erreur inattendue est survenue.";
+  }
+
+  // Timeout (Axios code ECONNABORTED ou message timeout)
+  if (err.code === 'ECONNABORTED' || err.message?.toLowerCase().includes('timeout')) {
+    return "Le délai d'attente de l'assistant IA a été dépassé. Veuillez réessayer dans quelques instants.";
+  }
+
+  // Erreur réseau (pas de réponse reçue du serveur)
+  if (!err.response) {
+    return "Impossible de joindre le serveur Galileo. Veuillez vérifier votre connexion Internet.";
+  }
+
+  const status = err.response.status;
+
+  if (status === 401) {
+    return "Votre session a expiré ou vous n'êtes pas connecté. Veuillez vous reconnecter pour utiliser l'assistant IA.";
+  }
+
+  if (status === 403) {
+    return "Vous n'avez pas l'autorisation d'accéder à ce document ou à cette ressource académique.";
+  }
+
+  if (status === 429) {
+    return "Limite de requêtes atteinte (quota journalier épuisé). Veuillez réessayer demain.";
+  }
+
+  if (status === 504) {
+    return "Le délai d'attente du fournisseur IA a été dépassé. Veuillez renouveler votre requête.";
+  }
+
+  if (status >= 500) {
+    return "Le service d'assistance IA rencontre un problème technique temporaire. Nos équipes techniques sont informées.";
+  }
+
+  const serverMessage = err.response.data?.message;
+  if (serverMessage && typeof serverMessage === 'string') {
+    return serverMessage;
+  }
+
+  return "Une erreur est survenue lors du traitement de votre requête. Veuillez réessayer.";
+}
+
+export default aiService;

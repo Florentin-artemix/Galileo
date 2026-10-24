@@ -105,6 +105,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/evenements/**", "/api/events/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/content/resources").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/documents/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/public/team/**").permitAll()
 
                         // Tracking public silencieux
                         .requestMatchers(HttpMethod.POST, "/api/analytics/track/**").permitAll()
@@ -114,7 +115,7 @@ public class SecurityConfig {
 
                         // Administration & Modération éditoriale (ADMIN et STAFF)
                         .requestMatchers("/api/admin/**").hasAnyRole("ADMIN", "STAFF")
-                        .requestMatchers("/api/analytics/dashboard").hasAnyRole("ADMIN", "STAFF")
+                        .requestMatchers("/api/analytics/dashboard", "/api/analytics/global").hasAnyRole("ADMIN", "STAFF")
 
                         // Toutes les autres routes (soumissions, favoris, profil, historique, notifications) nécessitent une authentification
                         .anyRequest().authenticated()

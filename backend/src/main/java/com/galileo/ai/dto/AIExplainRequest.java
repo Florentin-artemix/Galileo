@@ -13,6 +13,7 @@ import lombok.NoArgsConstructor;
 public class AIExplainRequest {
     @NotBlank(message = "Le passage à expliquer est obligatoire")
     @jakarta.validation.constraints.Size(max = 10000, message = "Le passage ne peut dépasser 10000 caractères")
+    @com.fasterxml.jackson.annotation.JsonAlias({"text", "passage"})
     private String passage;
     @Builder.Default
     private String level = "INTERMEDIAIRE"; // SIMPLIFIE, INTERMEDIAIRE, AVANCE

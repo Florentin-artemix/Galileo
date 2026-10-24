@@ -29,14 +29,6 @@ export interface Notification {
   readAt?: string;
 }
 
-export interface CreateNotificationDTO {
-  userId: string;
-  type: NotificationType;
-  title: string;
-  message: string;
-  data?: Record<string, unknown>;
-}
-
 export interface NotificationStats {
   total: number;
   unread: number;
@@ -166,14 +158,6 @@ export const notificationService = {
     if (!user) throw new Error('Utilisateur non connecté');
     
     await apiClient.delete(`/notifications/${user.uid}/${notificationId}`);
-  },
-
-  /**
-   * Créer une notification (pour admin/système)
-   */
-  async createNotification(notification: CreateNotificationDTO): Promise<Notification> {
-    const response = await apiClient.post('/notifications', notification);
-    return response.data;
   },
 
   // ============ PRÉFÉRENCES DE NOTIFICATION ============

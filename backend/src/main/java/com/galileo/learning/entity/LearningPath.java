@@ -3,6 +3,8 @@ package com.galileo.learning.entity;
 import com.galileo.auth.entity.User;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDateTime;
 
@@ -29,6 +31,7 @@ public class LearningPath {
     @Column(name = "topic", length = 200)
     private String topic;
 
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "steps", columnDefinition = "JSONB", nullable = false)
     private String steps;
 

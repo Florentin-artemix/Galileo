@@ -2,13 +2,15 @@ import apiClient from './apiService';
 import type { UserRole } from './authService';
 
 export interface UserDTO {
+  id?: number;
   uid: string;
   email: string;
   displayName: string | null;
   role: UserRole;
-  creationTime: string;
-  lastSignInTime: string;
-  disabled: boolean;
+  creationTime?: string;
+  lastSignInTime?: string;
+  disabled?: boolean;
+  isActive?: boolean;
 }
 
 /**
@@ -16,11 +18,18 @@ export interface UserDTO {
  */
 export const usersService = {
   /**
-   * Récupérer la liste de tous les utilisateurs
+   * Récupérer la liste des utilisateurs (paginée ou non)
    */
-  async getUsers(): Promise<UserDTO[]> {
-    const response = await apiClient.get('/admin/users');
-    return response.data;
+  async getUsers(page?: number, size?: number): Promise<UserDTO[]> {
+    const params: Record<string, number> = {};
+    if (page !== undefined) params.page = page;
+    if (size !== undefined) params.size = size;
+
+    const response = await apiClient.get('/admin/users', { params });
+    if (response.data && Array.isArray(response.data.content)) {
+      return response.data.content;
+    }
+    return Array.isArray(response.data) ? response.data : [];
   },
 
   /**

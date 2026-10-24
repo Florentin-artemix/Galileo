@@ -3,6 +3,8 @@ package com.galileo.recommendations.entity;
 import com.galileo.auth.entity.User;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDateTime;
 
@@ -26,6 +28,7 @@ public class SearchHistory {
     @Column(name = "query", columnDefinition = "TEXT", nullable = false)
     private String query;
 
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "filters", columnDefinition = "JSONB")
     private String filters;
 

@@ -15,6 +15,7 @@ export interface ArticleBlogDTO {
   tempsLecture?: number | null;
   nombreVues: number;
   datePublication: string;
+  publie?: boolean;
 }
 
 export interface ArticleBlogCreateDTO {
@@ -78,7 +79,7 @@ export const blogService = {
    * Créer un nouvel article (authentifié, ADMIN/STAFF)
    */
   async createArticle(article: ArticleBlogCreateDTO): Promise<ArticleBlogDTO> {
-    const token = await authService.getIdToken();
+    const token = authService.getAccessToken();
     if (!token) {
       throw new Error('Non authentifié');
     }
@@ -95,7 +96,7 @@ export const blogService = {
    * Mettre à jour un article (authentifié, ADMIN/STAFF)
    */
   async updateArticle(id: number, article: ArticleBlogCreateDTO): Promise<ArticleBlogDTO> {
-    const token = await authService.getIdToken();
+    const token = authService.getAccessToken();
     if (!token) {
       throw new Error('Non authentifié');
     }
@@ -112,7 +113,7 @@ export const blogService = {
    * Supprimer un article (authentifié, ADMIN)
    */
   async deleteArticle(id: number): Promise<void> {
-    const token = await authService.getIdToken();
+    const token = authService.getAccessToken();
     if (!token) {
       throw new Error('Non authentifié');
     }
@@ -127,7 +128,7 @@ export const blogService = {
    * Upload une image pour un article de blog vers Cloudflare R2
    */
   async uploadBlogImage(file: File): Promise<{ imageUrl: string; r2Key: string }> {
-    const token = await authService.getIdToken();
+    const token = authService.getAccessToken();
     if (!token) {
       throw new Error('Non authentifié');
     }

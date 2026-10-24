@@ -199,6 +199,55 @@ class SecurityAccessTest {
     }
 
     @Test
+    @DisplayName("Analytics global /api/analytics/global must reject anonymous access with 401 Unauthorized")
+    void analyticsGlobalShouldRejectAnonymous() throws Exception {
+        mockMvc.perform(get("/api/analytics/global")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("Analytics global /api/analytics/global must forbid STUDENT role with 403 Forbidden")
+    @WithMockUser(username = "student@mapon.cd", roles = {"STUDENT"})
+    void analyticsGlobalShouldForbidStudent() throws Exception {
+        mockMvc.perform(get("/api/analytics/global")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("Analytics global /api/analytics/global must allow STAFF role with 200 OK")
+    @WithMockUser(username = "staff@mapon.cd", roles = {"STAFF"})
+    void analyticsGlobalShouldAllowStaff() throws Exception {
+        when(publicationRepository.count()).thenReturn(10L);
+        when(userRepository.count()).thenReturn(5L);
+        when(favoriteRepository.count()).thenReturn(2L);
+        when(readingHistoryRepository.count()).thenReturn(15L);
+        when(publicationRepository.sumTotalViews()).thenReturn(100L);
+        when(publicationRepository.sumTotalDownloads()).thenReturn(20L);
+
+        mockMvc.perform(get("/api/analytics/global")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("Analytics global /api/analytics/global must allow ADMIN role with 200 OK")
+    @WithMockUser(username = "admin@mapon.cd", roles = {"ADMIN"})
+    void analyticsGlobalShouldAllowAdmin() throws Exception {
+        when(publicationRepository.count()).thenReturn(10L);
+        when(userRepository.count()).thenReturn(5L);
+        when(favoriteRepository.count()).thenReturn(2L);
+        when(readingHistoryRepository.count()).thenReturn(15L);
+        when(publicationRepository.sumTotalViews()).thenReturn(100L);
+        when(publicationRepository.sumTotalDownloads()).thenReturn(20L);
+
+        mockMvc.perform(get("/api/analytics/global")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk());
+    }
+
+    @Test
     @DisplayName("User analytics /api/analytics/user/123 must reject anonymous access with 401 Unauthorized")
     void userAnalyticsShouldRequireAuthentication() throws Exception {
         mockMvc.perform(get("/api/analytics/user/123")

@@ -1,218 +1,75 @@
 /**
- * Service pour gérer les membres de l'équipe via l'API backend
+ * Service pour gérer les membres de l'équipe institutionnelle via l'API backend
  */
 
+import apiClient from './apiService';
 import type { TeamMember } from '../types';
-
-// URL de base pour les appels API (en production, nginx proxifie /api vers le gateway)
-const API_BASE = '/api';
 
 export interface TeamMemberDTO {
   id: number;
-  name: string;
+  uid?: string;
+  displayName: string;
+  name?: string;
   role: string;
+  bio?: string;
   description?: string;
+  department?: string;
+  avatarUrl?: string;
   imageUrl?: string;
   location?: string;
   email?: string;
   phone?: string;
-}
-
-export interface TeamMemberCreateDTO {
-  name: string;
-  role: string;
-  description?: string;
-  imageUrl?: string;
-  location?: string;
-  email?: string;
-  phone?: string;
-  displayOrder?: number;
 }
 
 /**
  * Convertit un DTO backend en type frontend TeamMember
  */
-function mapToTeamMember(dto: TeamMemberDTO): TeamMember {
+export function mapToTeamMember(dto: TeamMemberDTO): TeamMember {
+  const name = dto.displayName || dto.name || 'Membre';
+  const avatar = dto.avatarUrl || dto.imageUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random&size=200`;
+  const description = dto.bio || dto.description || (dto.department ? `Département : ${dto.department}` : '');
+
   return {
     id: dto.id,
-    name: dto.name,
+    name,
     role: dto.role,
-    description: dto.description || '',
-    imageUrl: dto.imageUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(dto.name)}&background=random&size=200`,
-    location: dto.location,
-    email: dto.email,
-    phone: dto.phone
+    description,
+    imageUrl: avatar,
+    location: dto.location || undefined,
+    email: dto.email || undefined,
+    phone: dto.phone || undefined
   };
 }
 
 /**
- * Récupérer tous les membres actifs de l'équipe (STAFF + ADMIN depuis PostgreSQL)
+ * Récupérer tous les membres actifs de l'équipe institutionnelle (ADMIN, STAFF, TEACHER, RESEARCHER)
  */
 export async function getAllTeamMembers(): Promise<TeamMember[]> {
   try {
-    // Utiliser le nouvel endpoint public qui retourne les users STAFF/ADMIN
-    const response = await fetch(`${API_BASE}/public/team`);
-    
-    if (!response.ok) {
-      throw new Error(`Erreur HTTP: ${response.status}`);
-    }
-    
-    const data = await response.json();
-    // Mapper les UserDTO vers TeamMember
-    return data.map((user: any) => ({
-      id: user.uid || user.id,
-      name: user.displayName || user.email?.split('@')[0] || 'Membre',
-      role: user.role || 'STAFF',
-      description: user.motivation || user.program || '',
-      imageUrl: user.imageUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.displayName || user.email || 'User')}&background=random&size=200`,
-      location: user.location,
-      email: user.email,
-      phone: user.phone
-    }));
+    const response = await apiClient.get<TeamMemberDTO[]>('/public/team');
+    return (response.data || []).map(mapToTeamMember);
   } catch (error) {
-    console.error('Erreur lors de la récupération des membres:', error);
+    console.error('Erreur lors de la récupération des membres de l\'équipe:', error);
     throw error;
   }
 }
 
 /**
- * Récupérer un membre par ID
- */
-export async function getTeamMemberById(id: number): Promise<TeamMember> {
-  try {
-    const response = await fetch(`${API_BASE}/team/${id}`);
-    
-    if (!response.ok) {
-      throw new Error(`Membre non trouvé: ${id}`);
-    }
-    
-    const data: TeamMemberDTO = await response.json();
-    return mapToTeamMember(data);
-  } catch (error) {
-    console.error('Erreur lors de la récupération du membre:', error);
-    throw error;
-  }
-}
-
-/**
- * Récupérer les membres par rôle (depuis PostgreSQL)
+ * Récupérer les membres de l'équipe par rôle institutionnel (STAFF, ADMIN, TEACHER, RESEARCHER)
  */
 export async function getTeamMembersByRole(role: string): Promise<TeamMember[]> {
   try {
-    // Utiliser le nouvel endpoint public
-    const response = await fetch(`${API_BASE}/public/team/role/${encodeURIComponent(role)}`);
-    
-    if (!response.ok) {
-      throw new Error(`Erreur HTTP: ${response.status}`);
-    }
-    
-    const data = await response.json();
-    // Mapper les UserDTO vers TeamMember
-    return data.map((user: any) => ({
-      id: user.uid || user.id,
-      name: user.displayName || user.email?.split('@')[0] || 'Membre',
-      role: user.role || role,
-      description: user.motivation || user.program || '',
-      imageUrl: user.imageUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.displayName || user.email || 'User')}&background=random&size=200`,
-      location: user.location,
-      email: user.email,
-      phone: user.phone
-    }));
+    const response = await apiClient.get<TeamMemberDTO[]>(`/public/team/role/${encodeURIComponent(role)}`);
+    return (response.data || []).map(mapToTeamMember);
   } catch (error) {
-    console.error('Erreur lors de la récupération par rôle:', error);
-    throw error;
-  }
-}
-
-/**
- * Créer un nouveau membre (nécessite authentification)
- */
-export async function createTeamMember(
-  member: TeamMemberCreateDTO,
-  authToken: string
-): Promise<TeamMember> {
-  try {
-    const response = await fetch(`${API_BASE}/team`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${authToken}`
-      },
-      body: JSON.stringify(member)
-    });
-    
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || 'Erreur lors de la création');
-    }
-    
-    const data: TeamMemberDTO = await response.json();
-    return mapToTeamMember(data);
-  } catch (error) {
-    console.error('Erreur lors de la création du membre:', error);
-    throw error;
-  }
-}
-
-/**
- * Mettre à jour un membre (nécessite authentification)
- */
-export async function updateTeamMember(
-  id: number,
-  member: TeamMemberCreateDTO,
-  authToken: string
-): Promise<TeamMember> {
-  try {
-    const response = await fetch(`${API_BASE}/team/${id}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${authToken}`
-      },
-      body: JSON.stringify(member)
-    });
-    
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || 'Erreur lors de la mise à jour');
-    }
-    
-    const data: TeamMemberDTO = await response.json();
-    return mapToTeamMember(data);
-  } catch (error) {
-    console.error('Erreur lors de la mise à jour du membre:', error);
-    throw error;
-  }
-}
-
-/**
- * Supprimer un membre (nécessite authentification)
- */
-export async function deleteTeamMember(id: number, authToken: string): Promise<void> {
-  try {
-    const response = await fetch(`${API_BASE}/team/${id}`, {
-      method: 'DELETE',
-      headers: {
-        'Authorization': `Bearer ${authToken}`
-      }
-    });
-    
-    if (!response.ok) {
-      throw new Error('Erreur lors de la suppression');
-    }
-  } catch (error) {
-    console.error('Erreur lors de la suppression du membre:', error);
+    console.error(`Erreur lors de la récupération des membres pour le rôle ${role}:`, error);
     throw error;
   }
 }
 
 export const teamService = {
   getAllTeamMembers,
-  getTeamMemberById,
-  getTeamMembersByRole,
-  createTeamMember,
-  updateTeamMember,
-  deleteTeamMember
+  getTeamMembersByRole
 };
 
 export default teamService;

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { aiService, type AIMode, type SourceReference } from '../services/aiService';
+import { aiService, getAIErrorMessage, type AIMode, type SourceReference } from '../services/aiService';
 
 interface AIAssistantWidgetProps {
   publicationId?: number;
@@ -87,7 +87,7 @@ export const AIAssistantWidget: React.FC<AIAssistantWidgetProps> = ({
       const errorMsg: Message = {
         id: String(Date.now() + 1),
         sender: 'assistant',
-        text: "Désolé, une erreur est survenue lors de la communication avec l'IA. Veuillez vérifier vos accès ou réessayer dans un instant.",
+        text: getAIErrorMessage(err),
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       };
       setMessages(prev => [...prev, errorMsg]);
@@ -136,7 +136,7 @@ export const AIAssistantWidget: React.FC<AIAssistantWidgetProps> = ({
         {
           id: String(Date.now() + 1),
           sender: 'assistant',
-          text: "Impossible de générer le résumé pour le moment.",
+          text: getAIErrorMessage(err),
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         }
       ]);

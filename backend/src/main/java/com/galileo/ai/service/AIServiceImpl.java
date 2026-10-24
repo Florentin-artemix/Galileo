@@ -11,6 +11,8 @@ import com.galileo.auth.entity.Role;
 import com.galileo.auth.entity.User;
 import com.galileo.auth.repository.UserRepository;
 import com.galileo.auth.security.CustomUserDetails;
+import com.galileo.common.exception.AIServiceTimeoutException;
+import com.galileo.common.exception.AIServiceUnavailableException;
 import com.galileo.common.exception.BadRequestException;
 import com.galileo.common.exception.ForbiddenException;
 import com.galileo.common.exception.ResourceNotFoundException;
@@ -116,7 +118,7 @@ public class AIServiceImpl implements AIService {
         }
 
         // RAG Documentaire si mode DOCUMENT
-        List<AIChatResponse.SourceCitation> sources = new ArrayList<>();
+        List<AIChatResponse.SourceReference> sourceReferences = new ArrayList<>();
         String systemPrompt = buildSystemPrompt(mode, publication);
         String finalUserPrompt = request.getMessage();
 
@@ -136,8 +138,9 @@ public class AIServiceImpl implements AIService {
                             rc.pageEnd != null ? rc.pageEnd : 1,
                             rc.content));
 
-                    sources.add(AIChatResponse.SourceCitation.builder()
+                    sourceReferences.add(AIChatResponse.SourceReference.builder()
                             .chunkId(rc.chunkId)
+                            .pageNumber(rc.pageStart != null ? rc.pageStart : 1)
                             .pageStart(rc.pageStart)
                             .pageEnd(rc.pageEnd)
                             .excerpt(rc.content.length() > 200 ? rc.content.substring(0, 197) + "..." : rc.content)
@@ -160,8 +163,17 @@ public class AIServiceImpl implements AIService {
         ClaudeAIService.ClaudeResult result = claudeAIService.generateText(systemPrompt, finalUserPrompt, 0.3, 2048);
         long duration = System.currentTimeMillis() - startTime;
 
-        // Observabilité IA (Claude LLM)
+        if (!result.isSuccess()) {
+            log.warn("Échec de la génération IA pour la conversation {} : {}", conversation != null ? conversation.getId() : "null", result.getError());
+            if (result.getError() != null && result.getError().toLowerCase().contains("timeout")) {
+                throw new AIServiceTimeoutException("Le délai d'attente de l'assistant IA a été dépassé. Veuillez réessayer.");
+            }
+            throw new AIServiceUnavailableException("Le service d'assistance IA est temporairement indisponible. Veuillez réessayer ultérieurement.");
+        }
+
+        // Observabilité IA (modèle et fournisseur dynamiques)
         recordLLMInteraction(user, "chat_" + mode.name().toLowerCase(),
+                result.getProvider(), result.getModel(),
                 result.getInputTokens(), result.getOutputTokens(), (int) duration);
 
         // Sauvegarde de la réponse de l'assistant
@@ -169,7 +181,14 @@ public class AIServiceImpl implements AIService {
         if (conversation != null) {
             String metadataJson = null;
             try {
-                metadataJson = objectMapper.writeValueAsString(Map.of("sourcesCount", sources.size()));
+                metadataJson = objectMapper.writeValueAsString(Map.of(
+                        "sourcesCount", sourceReferences.size(),
+                        "provider", result.getProvider() != null ? result.getProvider() : "unknown",
+                        "model", result.getModel() != null ? result.getModel() : "unknown",
+                        "inputTokens", result.getInputTokens(),
+                        "outputTokens", result.getOutputTokens(),
+                        "fallbackUsed", result.isFallbackUsed()
+                ));
             } catch (Exception ignored) {}
 
             assistantMsg = messageRepository.save(AIMessage.builder()
@@ -186,9 +205,12 @@ public class AIServiceImpl implements AIService {
         return AIChatResponse.builder()
                 .conversationId(conversation != null ? conversation.getId() : null)
                 .messageId(assistantMsg != null ? assistantMsg.getId() : null)
-                .reply(result.getContent())
+                .response(result.getContent())
                 .mode(mode)
-                .sources(sources)
+                .sourceReferences(sourceReferences)
+                .inputTokens(result.getInputTokens())
+                .outputTokens(result.getOutputTokens())
+                .disclaimer("Réponse générée par IA (" + (result.getProvider() != null ? result.getProvider() : "Galileo AI") + "). Les résultats doivent faire l'objet d'une vérification critique.")
                 .build();
     }
 
@@ -255,7 +277,12 @@ public class AIServiceImpl implements AIService {
         ClaudeAIService.ClaudeResult result = claudeAIService.generateText(systemPrompt, userPrompt, 0.2, 1500);
         long duration = System.currentTimeMillis() - startTime;
 
+        if (!result.isSuccess()) {
+            throw new AIServiceUnavailableException("Le service de synthèse IA est temporairement indisponible.");
+        }
+
         recordLLMInteraction(currentUser, "summarize_" + summaryType.toLowerCase(),
+                result.getProvider(), result.getModel(),
                 result.getInputTokens(), result.getOutputTokens(), (int) duration);
 
         // Sauvegarde ou mise à jour du cache
@@ -264,7 +291,7 @@ public class AIServiceImpl implements AIService {
                 .summaryType(summaryType)
                 .build());
         cache.setContent(result.getContent());
-        cache.setModel("claude-sonnet-5");
+        cache.setModel(result.getModel() != null ? result.getModel() : "claude-sonnet-5");
         cache.setDocumentVersion(currentDocVersion);
         summaryCacheRepository.save(cache);
 
@@ -273,7 +300,7 @@ public class AIServiceImpl implements AIService {
                 .summaryType(summaryType)
                 .content(result.getContent())
                 .cached(false)
-                .model("claude-sonnet-5")
+                .model(result.getModel() != null ? result.getModel() : "claude-sonnet-5")
                 .build();
     }
 
@@ -311,7 +338,12 @@ public class AIServiceImpl implements AIService {
         ClaudeAIService.ClaudeResult result = claudeAIService.generateText(systemPrompt, userPrompt, 0.4, 1200);
         long duration = System.currentTimeMillis() - startTime;
 
+        if (!result.isSuccess()) {
+            throw new AIServiceUnavailableException("Le service d'explication IA est temporairement indisponible.");
+        }
+
         recordLLMInteraction(currentUser, "explain_" + level.toLowerCase(),
+                result.getProvider(), result.getModel(),
                 result.getInputTokens(), result.getOutputTokens(), (int) duration);
 
         return result.getContent();
@@ -367,7 +399,12 @@ public class AIServiceImpl implements AIService {
         ClaudeAIService.ClaudeResult result = claudeAIService.generateText(systemPrompt, userPrompt, 0.3, 2500);
         long duration = System.currentTimeMillis() - startTime;
 
+        if (!result.isSuccess()) {
+            throw new AIServiceUnavailableException("Le service de comparaison IA est temporairement indisponible.");
+        }
+
         recordLLMInteraction(currentUser, "compare_publications",
+                result.getProvider(), result.getModel(),
                 result.getInputTokens(), result.getOutputTokens(), (int) duration);
 
         return result.getContent();
@@ -497,14 +534,14 @@ public class AIServiceImpl implements AIService {
         }
     }
 
-    private void recordLLMInteraction(User user, String functionName, int inTokens, int outTokens, int durationMs) {
+    private void recordLLMInteraction(User user, String functionName, String provider, String model, int inTokens, int outTokens, int durationMs) {
         try {
             AIInteraction interaction = AIInteraction.builder()
                     .user(user)
                     .interactionType("LLM")
                     .functionName(functionName)
-                    .provider("claude")
-                    .model("claude-sonnet-5")
+                    .provider(provider != null ? provider : "claude")
+                    .model(model != null ? model : "claude-sonnet-5")
                     .inputTokens(inTokens)
                     .outputTokens(outTokens)
                     .dimension(null)

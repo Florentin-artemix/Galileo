@@ -1,5 +1,6 @@
 package com.galileo.users.controller;
 
+import com.galileo.auth.entity.Role;
 import com.galileo.auth.entity.User;
 import com.galileo.auth.repository.UserRepository;
 import com.galileo.auth.security.CustomUserDetails;
@@ -13,6 +14,7 @@ import com.galileo.recommendations.entity.ReadingHistory;
 import com.galileo.recommendations.repository.FavoriteRepository;
 import com.galileo.recommendations.repository.ReadingHistoryRepository;
 import com.galileo.storage.service.StorageService;
+import com.galileo.users.dto.TeamMemberDTO;
 import com.galileo.users.entity.UserProfile;
 import com.galileo.users.repository.UserProfileRepository;
 import lombok.RequiredArgsConstructor;
@@ -28,8 +30,11 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Slf4j
 @RestController
@@ -360,5 +365,85 @@ public class UserProfileController {
         } catch (NumberFormatException e) {
             return userDetails.getId();
         }
+    }
+
+    // ==========================================
+    // ÉQUIPE PUBLIQUE (/api/public/team)
+    // ==========================================
+
+    private static final Set<Role> INSTITUTIONAL_ROLES = Set.of(
+            Role.ADMIN,
+            Role.STAFF,
+            Role.TEACHER,
+            Role.RESEARCHER
+    );
+
+    @GetMapping("/api/public/team")
+    public ResponseEntity<List<TeamMemberDTO>> getPublicTeam() {
+        List<User> users = userRepository.findByRoleInAndIsActiveTrueOrderByIdAsc(INSTITUTIONAL_ROLES);
+        return ResponseEntity.ok(mapUsersToTeamDTO(users));
+    }
+
+    @GetMapping("/api/public/team/role/{role}")
+    public ResponseEntity<List<TeamMemberDTO>> getPublicTeamByRole(@PathVariable String role) {
+        if (role == null || role.trim().isEmpty()) {
+            throw new BadRequestException("Le rôle est obligatoire");
+        }
+
+        Role parsedRole;
+        try {
+            parsedRole = Role.valueOf(role.trim().toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new BadRequestException("Rôle inconnu : " + role);
+        }
+
+        if (!INSTITUTIONAL_ROLES.contains(parsedRole)) {
+            throw new BadRequestException("Le rôle spécifié ne fait pas partie de l'équipe publique : " + role);
+        }
+
+        List<User> users = userRepository.findByRoleAndIsActiveTrueOrderByIdAsc(parsedRole);
+        return ResponseEntity.ok(mapUsersToTeamDTO(users));
+    }
+
+    private List<TeamMemberDTO> mapUsersToTeamDTO(List<User> users) {
+        if (users.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        List<Long> userIds = users.stream().map(User::getId).toList();
+        Map<Long, UserProfile> profileMap = userProfileRepository.findByUserIdIn(userIds).stream()
+                .filter(p -> p.getUser() != null)
+                .collect(Collectors.toMap(p -> p.getUser().getId(), p -> p, (p1, p2) -> p1));
+
+        return users.stream().map(u -> {
+            UserProfile p = profileMap.get(u.getId());
+            String displayName = (p != null && p.getDisplayName() != null && !p.getDisplayName().trim().isEmpty())
+                    ? p.getDisplayName().trim()
+                    : u.getEmail().split("@")[0];
+
+            String avatarUrl;
+            if (p != null && p.getAvatarUrl() != null && !p.getAvatarUrl().trim().isEmpty()) {
+                avatarUrl = p.getAvatarUrl().trim();
+            } else {
+                avatarUrl = "https://ui-avatars.com/api/?name=" + URLEncoder.encode(displayName, StandardCharsets.UTF_8)
+                        + "&background=random&size=200";
+            }
+
+            String bio = (p != null && p.getBio() != null) ? p.getBio() : null;
+            String department = (p != null && p.getDepartment() != null) ? p.getDepartment() : null;
+
+            return TeamMemberDTO.builder()
+                    .id(u.getId())
+                    .uid(String.valueOf(u.getId()))
+                    .displayName(displayName)
+                    .email(u.getEmail())
+                    .role(u.getRole().name())
+                    .bio(bio)
+                    .department(department)
+                    .avatarUrl(avatarUrl)
+                    .location(null)
+                    .phone(null)
+                    .build();
+        }).toList();
     }
 }

@@ -53,6 +53,18 @@ public class GlobalExceptionHandler {
         return buildResponse(HttpStatus.BAD_REQUEST, ex.getMessage());
     }
 
+    @ExceptionHandler(AIServiceUnavailableException.class)
+    public ResponseEntity<Map<String, Object>> handleAIServiceUnavailable(AIServiceUnavailableException ex) {
+        log.warn("Service IA indisponible : {}", ex.getMessage());
+        return buildResponse(HttpStatus.SERVICE_UNAVAILABLE, ex.getMessage());
+    }
+
+    @ExceptionHandler(AIServiceTimeoutException.class)
+    public ResponseEntity<Map<String, Object>> handleAIServiceTimeout(AIServiceTimeoutException ex) {
+        log.warn("Délai d'attente IA dépassé : {}", ex.getMessage());
+        return buildResponse(HttpStatus.GATEWAY_TIMEOUT, ex.getMessage());
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<Map<String, Object>> handleValidation(MethodArgumentNotValidException ex) {
         Map<String, Object> body = new HashMap<>();

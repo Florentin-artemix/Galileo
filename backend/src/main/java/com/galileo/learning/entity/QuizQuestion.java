@@ -2,6 +2,8 @@ package com.galileo.learning.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 @Entity
 @Table(name = "quiz_questions")
@@ -23,6 +25,7 @@ public class QuizQuestion {
     @Column(name = "question", columnDefinition = "TEXT", nullable = false)
     private String question;
 
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "options", columnDefinition = "JSONB")
     private String options;
 

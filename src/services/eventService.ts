@@ -128,13 +128,13 @@ class EventService {
   /**
    * Créer un nouvel événement (nécessite authentification)
    */
-  async createEvent(event: Omit<EventData, 'id'>, token: string): Promise<EventData> {
+  async createEvent(event: Omit<EventData, 'id'>, token?: string): Promise<EventData> {
     try {
-      const response = await apiClient.post('/events', event, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
+      const headers: Record<string, string> = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+      const response = await apiClient.post('/events', event, { headers });
       return response.data;
     } catch (error) {
       console.error('Erreur création événement:', error);
@@ -145,13 +145,13 @@ class EventService {
   /**
    * Mettre à jour un événement (nécessite authentification)
    */
-  async updateEvent(id: number, event: Partial<EventData>, token: string): Promise<EventData> {
+  async updateEvent(id: number, event: Partial<EventData>, token?: string): Promise<EventData> {
     try {
-      const response = await apiClient.put(`/events/${id}`, event, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
+      const headers: Record<string, string> = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+      const response = await apiClient.put(`/events/${id}`, event, { headers });
       return response.data;
     } catch (error) {
       console.error(`Erreur mise à jour événement ${id}:`, error);
@@ -162,13 +162,13 @@ class EventService {
   /**
    * Supprimer un événement (nécessite authentification)
    */
-  async deleteEvent(id: number, token: string): Promise<void> {
+  async deleteEvent(id: number, token?: string): Promise<void> {
     try {
-      await apiClient.delete(`/events/${id}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
+      const headers: Record<string, string> = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+      await apiClient.delete(`/events/${id}`, { headers });
     } catch (error) {
       console.error(`Erreur suppression événement ${id}:`, error);
       throw error;

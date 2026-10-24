@@ -17,6 +17,7 @@ import com.galileo.recommendations.repository.ReadingHistoryRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
@@ -92,6 +93,7 @@ public class AnalyticsController {
     }
 
     @GetMapping("/global")
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
     public ResponseEntity<Map<String, Object>> getGlobalStats() {
         long totalPubs = publicationRepository.count();
         long totalUsers = userRepository.count();
