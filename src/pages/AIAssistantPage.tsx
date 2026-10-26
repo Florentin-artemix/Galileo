@@ -22,9 +22,9 @@ interface AssistantMessage {
 
 const modeOptions: { key: AIMode; label: string; description: string }[] = [
   { key: 'GENERAL', label: 'Général', description: 'Questions académiques ouvertes' },
-  { key: 'DOCUMENT', label: 'Document', description: 'Analyse du document lié' },
-  { key: 'RESEARCH', label: 'Recherche', description: 'Méthodologie et littérature' },
-  { key: 'LEARNING', label: 'Apprentissage', description: 'Explications progressives' }
+  { key: 'DOCUMENT', label: 'Document', description: 'Questions sur une publication liée' },
+  { key: 'RESEARCH', label: 'Recherche', description: 'Explorer les travaux académiques' },
+  { key: 'LEARNING', label: 'Apprentissage', description: 'Soutien à l’apprentissage' }
 ];
 
 const explanationLevels: { value: AIExplanationLevel; label: string }[] = [
@@ -267,8 +267,9 @@ const AIAssistantPage: React.FC = () => {
     <main className="ai-assistant-page">
       <header className="ai-assistant-heading">
         <div>
-          <h1>Assistant IA</h1>
-          <p>Explorez, comprenez et comparez les publications académiques.</p>
+          <p className="ai-assistant-eyebrow">ASSISTANT DOCUMENTAIRE</p>
+          <h1>Assistant IA Galileo</h1>
+          <p>Interrogez les travaux académiques, obtenez un résumé ou comparez des publications.</p>
         </div>
       </header>
 
@@ -291,7 +292,7 @@ const AIAssistantPage: React.FC = () => {
       <div className="ai-workspace">
         <section className="ai-conversation-panel" aria-label="Espace de conversation IA">
           <header className="ai-conversation-header">
-            <h2>Assistant Galileo</h2>
+            <h2>Conversation</h2>
             <div className="ai-action-selector" role="tablist" aria-label="Action IA">
               {([
                 ['CHAT', 'Discuter'],
@@ -314,13 +315,23 @@ const AIAssistantPage: React.FC = () => {
 
           {action === 'CHAT' && (
             <>
+              <div className="ai-welcome-state">
+                <div className="ai-welcome-head">
+                  <img src="/assets/figma-ai-sparkles.svg" alt="" aria-hidden="true" />
+                  <h3>Bonjour, comment puis-je vous aider ?</h3>
+                </div>
+                <p>Choisissez un mode, posez une question ou liez la conversation à une publication. Les réponses sont générées par le service IA de Galileo.</p>
+              </div>
               <div className="ai-message-list" aria-live="polite" aria-busy={Boolean(pendingMessage) || historyLoading}>
                 {historyLoading ? (
-                  <div className="ai-empty-state">Chargement de la conversation…</div>
+                  <div className="ai-empty-state" role="status">Chargement de la conversation…</div>
                 ) : messages.length === 0 ? (
-                  <div className="ai-welcome-state">
-                    <h3>Que souhaitez-vous explorer aujourd’hui ?</h3>
-                    <p>Posez une question scientifique ou sélectionnez une publication pour commencer.</p>
+                  <div className="ai-empty-state">
+                    <span className="ai-empty-illustration" aria-hidden="true">
+                      <img src="/assets/figma-ai-book.svg" alt="" />
+                    </span>
+                    <h3>Votre échange apparaîtra ici</h3>
+                    <p>Les réponses et références sont ajoutées après l’envoi d’une question.</p>
                   </div>
                 ) : messages.map(message => (
                   <article key={message.id} className={`ai-message-row ${message.sender}`}>
@@ -353,9 +364,6 @@ const AIAssistantPage: React.FC = () => {
 
               <form className="ai-composer" onSubmit={handleSendMessage}>
                 {chatError && <div className="ai-status ai-status-error" role="alert">{chatError}</div>}
-                {mode === 'DOCUMENT' && !selectedPublicationId && (
-                  <div className="ai-context-hint">Sélectionnez une publication dans le panneau Contexte pour continuer.</div>
-                )}
                 <label className="ai-sr-only" htmlFor="ai-chat-input">Votre message</label>
                 <textarea
                   id="ai-chat-input"
@@ -373,7 +381,9 @@ const AIAssistantPage: React.FC = () => {
                   rows={2}
                 />
                 <div className="ai-composer-footer">
-                  <span>{input.length}/4000</span>
+                  <span>{mode === 'DOCUMENT'
+                    ? activePublicationTitle || 'Sélectionnez une publication liée'
+                    : 'Contexte documentaire facultatif'}</span>
                   <button type="submit" disabled={!input.trim() || Boolean(pendingMessage) || historyLoading || (mode === 'DOCUMENT' && !selectedPublicationId)}>
                     Envoyer
                   </button>
@@ -460,7 +470,8 @@ const AIAssistantPage: React.FC = () => {
 
         <aside className="ai-context-panel" aria-label="Contexte et références">
           <section className="ai-side-section ai-publication-context">
-            <h3>Contexte</h3>
+            <h3>Contexte de la demande</h3>
+            <p className="ai-context-description">Associez une publication pour ancrer les questions, résumés et comparaisons sur un document précis.</p>
             <label htmlFor="ai-publication-select">Publication liée</label>
             <select
               id="ai-publication-select"
@@ -499,7 +510,7 @@ const AIAssistantPage: React.FC = () => {
           </section>
 
           <section className="ai-side-section ai-references-section">
-            <h3>Références</h3>
+            <h3>Références de la réponse</h3>
             {latestSources.length > 0 ? (
               <ul>
                 {latestSources.map((source, index) => (
@@ -514,7 +525,7 @@ const AIAssistantPage: React.FC = () => {
                 ? 'La conversation conservée indique des références, mais leurs extraits ne sont pas disponibles dans l’historique.'
                 : messages.some(message => message.sender === 'assistant')
                   ? 'Aucune référence n’a été renvoyée pour la dernière réponse.'
-                  : 'Les références apparaîtront lorsqu’une réponse en renverra.'}</p>
+                  : 'Les références sont affichées lorsque le service IA renvoie des sources pour la réponse.'}</p>
             )}
           </section>
         </aside>

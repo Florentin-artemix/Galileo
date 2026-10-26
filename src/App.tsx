@@ -9,7 +9,7 @@ import Header from './components/Header';
 import Footer from './components/Footer';
 import RequireRole from './components/RequireRole';
 
-const HomePage = lazy(() => import('./pages/HomePage'));
+const HomePage = lazy(() => import('./pages/DiscoveryHomePage'));
 const AboutPage = lazy(() => import('./pages/AboutPage'));
 const TeamPage = lazy(() => import('./pages/TeamPage'));
 const PublicationsPage = lazy(() => import('./pages/PublicationsPage'));
@@ -26,6 +26,7 @@ const StaffDashboard = lazy(() => import('./pages/StaffDashboard'));
 const StudentDashboard = lazy(() => import('./pages/StudentDashboard'));
 const FavoritesPage = lazy(() => import('./pages/FavoritesPage'));
 const ReadingHistoryPage = lazy(() => import('./pages/ReadingHistoryPage'));
+const MyLibraryPage = lazy(() => import('./pages/MyLibraryPage'));
 const NotificationsPage = lazy(() => import('./pages/NotificationsPage'));
 const AnalyticsDashboardPage = lazy(() => import('./pages/AnalyticsDashboardPage'));
 const AIAssistantPage = lazy(() => import('./pages/AIAssistantPage'));
@@ -55,10 +56,22 @@ const ThemeEffect: React.FC = () => {
 const AppContent: React.FC = () => {
   return (
     <HashRouter>
+      <AppRoutes />
+    </HashRouter>
+  );
+};
+
+const AppRoutes: React.FC = () => {
+  const { pathname } = useLocation();
+  const isReaderRoute = pathname.startsWith('/publication/');
+  const isDesignRoute = isReaderRoute || pathname === '/' || pathname === '/library';
+
+  return (
+    <>
       <ScrollToTop />
       <ThemeEffect />
       <div className="bg-light-bg dark:bg-navy font-inter text-light-text dark:text-off-white min-h-screen flex flex-col transition-colors duration-300">
-        <Header />
+        {!isReaderRoute && <Header />}
         <main className="flex-grow">
           <Suspense fallback={<div className="min-h-[40vh]" aria-busy="true" />}>
             <Routes>
@@ -124,6 +137,14 @@ const AppContent: React.FC = () => {
                 }
               />
               <Route
+                path="/library"
+                element={
+                  <RequireRole allowed={['STUDENT', 'RESEARCHER', 'TEACHER', 'STAFF', 'ADMIN']}>
+                    <MyLibraryPage />
+                  </RequireRole>
+                }
+              />
+              <Route
                 path="/notifications"
                 element={
                   <RequireRole allowed={['STUDENT', 'RESEARCHER', 'TEACHER', 'STAFF', 'ADMIN']}>
@@ -175,9 +196,9 @@ const AppContent: React.FC = () => {
             </Routes>
           </Suspense>
         </main>
-        <Footer />
+        {!isDesignRoute && <Footer />}
       </div>
-    </HashRouter>
+    </>
   );
 };
 

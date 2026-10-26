@@ -100,6 +100,7 @@ public class LearningDTOs {
         private List<Map<String, Object>> steps;
         private Boolean isActive;
         private Integer completedSteps;
+        private List<Integer> completedStepIndexes;
         private Integer totalSteps;
         private Float progressPercentage;
         private LocalDateTime createdAt;

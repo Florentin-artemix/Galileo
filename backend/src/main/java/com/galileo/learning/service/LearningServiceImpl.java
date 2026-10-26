@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.galileo.ai.service.ClaudeAIService;
+import com.galileo.auth.security.CustomUserDetails;
 import com.galileo.common.exception.AIServiceTimeoutException;
 import com.galileo.common.exception.AIServiceUnavailableException;
 import com.galileo.auth.entity.User;
@@ -18,6 +19,7 @@ import com.galileo.learning.entity.*;
 import com.galileo.learning.repository.*;
 import com.galileo.publications.entity.Publication;
 import com.galileo.publications.repository.PublicationRepository;
+import com.galileo.publications.service.PublicationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -43,18 +45,21 @@ public class LearningServiceImpl implements LearningService {
     private final DocumentRepository documentRepository;
     private final UserRepository userRepository;
     private final ClaudeAIService claudeAIService;
+    private final PublicationService publicationService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Override
     @Transactional
     public QuizDTO generateQuiz(QuizGenerateRequest request, Long userId) {
-        User user = userId != null ? userRepository.findById(userId).orElse(null) : null;
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Utilisateur", "id", userId));
         Publication pub = null;
         String contentForQuiz = "";
 
         if (request.getPublicationId() != null) {
             pub = publicationRepository.findById(request.getPublicationId())
                     .orElseThrow(() -> new ResourceNotFoundException("Publication", "id", request.getPublicationId()));
+            ensurePublicationAccess(pub, user);
 
             List<Document> docs = documentRepository.findByPublicationId(pub.getId());
             if (!docs.isEmpty() && docs.get(0).getExtractedText() != null && !docs.get(0).getExtractedText().isEmpty()) {
@@ -144,7 +149,11 @@ public class LearningServiceImpl implements LearningService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<QuizDTO> getQuizzesForPublication(Long publicationId) {
+    public List<QuizDTO> getQuizzesForPublication(Long publicationId, Long userId) {
+        Publication publication = publicationRepository.findById(publicationId)
+                .orElseThrow(() -> new ResourceNotFoundException("Publication", "id", publicationId));
+        ensurePublicationAccess(publication, findUser(userId));
+
         return quizRepository.findByPublicationId(publicationId).stream()
                 .map(q -> toQuizDTO(q, questionRepository.findByQuizIdOrderByPositionAsc(q.getId()), false))
                 .toList();
@@ -153,9 +162,12 @@ public class LearningServiceImpl implements LearningService {
     @Override
     @Transactional(readOnly = true)
     public List<QuizDTO> getMyQuizzes(Long userId) {
-        return quizRepository.findByUserId(userId).stream()
-                .map(q -> toQuizDTO(q, questionRepository.findByQuizIdOrderByPositionAsc(q.getId()), true))
-                .toList();
+        List<QuizDTO> quizzes = new ArrayList<>();
+        for (Quiz quiz : quizRepository.findByUserId(userId)) {
+            ensureQuizAccess(quiz, userId);
+            quizzes.add(toQuizDTO(quiz, questionRepository.findByQuizIdOrderByPositionAsc(quiz.getId()), true));
+        }
+        return quizzes;
     }
 
     @Override
@@ -255,8 +267,16 @@ public class LearningServiceImpl implements LearningService {
         String userPrompt = "Thématique d'apprentissage : " + topic.trim();
         ClaudeAIService.ClaudeResult result = claudeAIService.generateText(systemPrompt, userPrompt, 0.3, 2048);
 
+        if (result == null || !result.isSuccess()) {
+            String error = result != null ? result.getError() : null;
+            if (error != null && error.toLowerCase(Locale.ROOT).contains("timeout")) {
+                throw new AIServiceTimeoutException("Le délai de génération du parcours a été dépassé. Veuillez réessayer.");
+            }
+            throw new AIServiceUnavailableException("Le service de génération du parcours est temporairement indisponible.");
+        }
+
         String stepsJson = cleanJsonString(result.getContent());
-        List<Map<String, Object>> stepsList = parseStepsList(stepsJson, topic.trim());
+        List<Map<String, Object>> stepsList = parseGeneratedStepsList(stepsJson);
 
         LearningPath path = LearningPath.builder()
                 .user(user)
@@ -278,7 +298,7 @@ public class LearningServiceImpl implements LearningService {
             progressRepository.save(prog);
         }
 
-        return toLearningPathDTO(path, stepsList, 0);
+        return toLearningPathDTO(path, stepsList, List.of());
     }
 
     @Override
@@ -290,8 +310,7 @@ public class LearningServiceImpl implements LearningService {
         for (LearningPath p : paths) {
             List<Map<String, Object>> steps = parseStepsList(p.getSteps(), p.getTopic());
             List<LearningProgress> progs = progressRepository.findByLearningPathIdAndUserId(p.getId(), userId);
-            long completed = progs.stream().filter(pr -> Boolean.TRUE.equals(pr.getCompleted())).count();
-            result.add(toLearningPathDTO(p, steps, (int) completed));
+            result.add(toLearningPathDTO(p, steps, completedStepIndexes(progs, steps.size())));
         }
 
         return result;
@@ -309,9 +328,7 @@ public class LearningServiceImpl implements LearningService {
 
         List<Map<String, Object>> steps = parseStepsList(path.getSteps(), path.getTopic());
         List<LearningProgress> progs = progressRepository.findByLearningPathIdAndUserId(pathId, userId);
-        long completed = progs.stream().filter(pr -> Boolean.TRUE.equals(pr.getCompleted())).count();
-
-        return toLearningPathDTO(path, steps, (int) completed);
+        return toLearningPathDTO(path, steps, completedStepIndexes(progs, steps.size()));
     }
 
     @Override
@@ -322,6 +339,11 @@ public class LearningServiceImpl implements LearningService {
 
         if (!path.getUser().getId().equals(userId)) {
             throw new ForbiddenException("Ce parcours d'apprentissage ne vous appartient pas");
+        }
+
+        List<Map<String, Object>> steps = parseStepsList(path.getSteps(), path.getTopic());
+        if (stepIndex < 0 || stepIndex >= steps.size()) {
+            throw new BadRequestException("L'indice de l'étape est hors des limites du parcours");
         }
 
         List<LearningProgress> progs = progressRepository.findByLearningPathIdAndUserId(pathId, userId);
@@ -397,9 +419,24 @@ public class LearningServiceImpl implements LearningService {
     }
 
     private void ensureQuizAccess(Quiz quiz, Long userId) {
-        if (quiz.getPublication() == null
-                && (quiz.getUser() == null || userId == null || !Objects.equals(quiz.getUser().getId(), userId))) {
+        if (quiz.getPublication() != null) {
+            ensurePublicationAccess(quiz.getPublication(), findUser(userId));
+            return;
+        }
+
+        if (quiz.getUser() == null || userId == null || !Objects.equals(quiz.getUser().getId(), userId)) {
             throw new ForbiddenException("Ce quiz privé n'est pas accessible avec ce compte.");
+        }
+    }
+
+    private User findUser(Long userId) {
+        return userId != null ? userRepository.findById(userId).orElse(null) : null;
+    }
+
+    private void ensurePublicationAccess(Publication publication, User user) {
+        CustomUserDetails userDetails = user != null ? new CustomUserDetails(user) : null;
+        if (!publicationService.isAuthorizedToAccess(publication, userDetails)) {
+            throw new ForbiddenException("Vous n'avez pas l'autorisation d'accéder à cette publication");
         }
     }
 
@@ -476,6 +513,45 @@ public class LearningServiceImpl implements LearningService {
         }
     }
 
+    private List<Map<String, Object>> parseGeneratedStepsList(String json) {
+        try {
+            JsonNode root = objectMapper.readTree(json);
+            if (root == null || !root.isArray() || root.size() < 4 || root.size() > 5) {
+                throw invalidGeneratedLearningPath();
+            }
+
+            List<Map<String, Object>> steps = objectMapper.convertValue(root, new TypeReference<>() {});
+            for (int i = 0; i < steps.size(); i++) {
+                Map<String, Object> step = steps.get(i);
+                Object index = step.get("stepIndex");
+                Object minutes = step.get("estimatedMinutes");
+                Object concepts = step.get("keyConcepts");
+                if (!(index instanceof Number stepIndex) || !Double.isFinite(stepIndex.doubleValue())
+                        || stepIndex.doubleValue() != i
+                        || isBlank(step.get("title")) || isBlank(step.get("description"))
+                        || !(minutes instanceof Number estimatedMinutes) || !Double.isFinite(estimatedMinutes.doubleValue())
+                        || estimatedMinutes.doubleValue() < 1 || estimatedMinutes.doubleValue() != Math.rint(estimatedMinutes.doubleValue())
+                        || !(concepts instanceof List<?> keyConcepts) || keyConcepts.isEmpty()
+                        || keyConcepts.stream().anyMatch(concept -> !(concept instanceof String text) || text.isBlank())) {
+                    throw invalidGeneratedLearningPath();
+                }
+            }
+            return steps;
+        } catch (AIServiceUnavailableException e) {
+            throw e;
+        } catch (Exception e) {
+            throw invalidGeneratedLearningPath();
+        }
+    }
+
+    private boolean isBlank(Object value) {
+        return !(value instanceof String text) || text.isBlank();
+    }
+
+    private AIServiceUnavailableException invalidGeneratedLearningPath() {
+        return new AIServiceUnavailableException("Le service de génération a renvoyé un parcours incomplet. Veuillez réessayer.");
+    }
+
     private QuizDTO toQuizDTO(Quiz q, List<QuizQuestion> questions, boolean showAnswer) {
         List<QuestionDTO> qDtos = questions.stream().map(qn -> {
             List<String> opts = Collections.emptyList();
@@ -507,8 +583,19 @@ public class LearningServiceImpl implements LearningService {
                 .build();
     }
 
-    private LearningPathDTO toLearningPathDTO(LearningPath p, List<Map<String, Object>> steps, int completedCount) {
+    private List<Integer> completedStepIndexes(List<LearningProgress> progress, int totalSteps) {
+        return progress.stream()
+                .filter(item -> Boolean.TRUE.equals(item.getCompleted()))
+                .map(LearningProgress::getStepIndex)
+                .filter(index -> index != null && index >= 0 && index < totalSteps)
+                .distinct()
+                .sorted()
+                .toList();
+    }
+
+    private LearningPathDTO toLearningPathDTO(LearningPath p, List<Map<String, Object>> steps, List<Integer> completedStepIndexes) {
         int total = steps.size();
+        int completedCount = completedStepIndexes.size();
         float pct = total > 0 ? ((float) completedCount / total) * 100.0f : 0f;
 
         return LearningPathDTO.builder()
@@ -519,6 +606,7 @@ public class LearningServiceImpl implements LearningService {
                 .steps(steps)
                 .isActive(p.getIsActive())
                 .completedSteps(completedCount)
+                .completedStepIndexes(completedStepIndexes)
                 .totalSteps(total)
                 .progressPercentage(pct)
                 .createdAt(p.getCreatedAt())

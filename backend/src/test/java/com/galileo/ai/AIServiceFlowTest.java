@@ -145,6 +145,11 @@ class AIServiceFlowTest {
 
         AIChatResponse response = aiService.chat(request, testUserDetails);
 
+        ArgumentCaptor<String> systemPromptCaptor = ArgumentCaptor.forClass(String.class);
+        verify(claudeAIService).generateText(systemPromptCaptor.capture(), any(), anyDouble(), anyInt());
+        assertTrue(systemPromptCaptor.getValue().contains("Contexte de référence sur Galileo"));
+        assertTrue(systemPromptCaptor.getValue().contains("mission académique"));
+
         // 3. Vérification du DTO conforme au contrat frontend
         assertNotNull(response);
         assertEquals(10L, response.getConversationId());

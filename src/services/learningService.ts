@@ -39,36 +39,34 @@ export interface QuizAttemptDTO {
   corrections: QuizCorrectionDTO[];
 }
 
-export interface LearningModuleDTO {
-  id: number;
-  title: string;
+export interface LearningStepDTO {
+  stepIndex?: number;
+  title?: string;
   description?: string;
-  orderIndex: number;
   estimatedMinutes?: number;
-  publicationId?: number;
-  publicationTitle?: string;
-  isCompleted?: boolean;
+  keyConcepts?: string[];
 }
 
 export interface LearningPathDTO {
   id: number;
+  userId: number;
   title: string;
-  slug: string;
-  description?: string;
-  domainId?: number;
-  domainName?: string;
-  level: string;
-  estimatedHours: number;
-  modules: LearningModuleDTO[];
+  topic: string;
+  steps: LearningStepDTO[];
+  isActive: boolean | null;
+  completedSteps: number;
+  completedStepIndexes?: number[];
+  totalSteps: number;
+  progressPercentage: number;
+  createdAt: string;
 }
 
 export interface LearningProfileDTO {
   id: number;
   userId: number;
-  preferredLanguage?: string;
-  totalQuizAttempts: number;
-  averageQuizScore: number;
-  completedPathsCount: number;
+  studiedTopics: string[];
+  estimatedLevel: string;
+  interests: string[];
 }
 
 export const learningService = {
@@ -104,19 +102,27 @@ export const learningService = {
     return response.data;
   },
 
-  /**
-   * Liste l'ensemble des parcours d'apprentissage
-   */
+  /** Liste les parcours de l'utilisateur connecté. */
   async getLearningPaths(): Promise<LearningPathDTO[]> {
     const response = await apiClient.get('/learning/paths');
     return response.data;
   },
 
-  /**
-   * Récupère un parcours d'apprentissage avec tous ses modules
-   */
+  /** Génère et enregistre un parcours pour le sujet demandé. */
+  async generateLearningPath(topic: string): Promise<LearningPathDTO> {
+    const response = await apiClient.post('/learning/paths/generate', { topic });
+    return response.data;
+  },
+
+  /** Récupère le parcours et sa progression globale. */
   async getLearningPath(id: number): Promise<LearningPathDTO> {
     const response = await apiClient.get(`/learning/paths/${id}`);
+    return response.data;
+  },
+
+  /** Enregistre l'état d'une étape et renvoie la progression mise à jour. */
+  async updateStepProgress(pathId: number, stepIndex: number, completed: boolean): Promise<LearningPathDTO> {
+    const response = await apiClient.post(`/learning/paths/${pathId}/step`, { stepIndex, completed });
     return response.data;
   },
 

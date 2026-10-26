@@ -136,6 +136,7 @@ export const publicationsService = {
       tags: tags,
       type: dto.type,
       academicYear: dto.academicYear,
+      pageCount: dto.nombrePages ?? undefined,
     };
   }
 };

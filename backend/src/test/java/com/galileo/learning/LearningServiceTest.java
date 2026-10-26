@@ -5,10 +5,14 @@ import com.galileo.ai.service.ClaudeAIService;
 import com.galileo.auth.entity.Role;
 import com.galileo.auth.entity.User;
 import com.galileo.auth.repository.UserRepository;
+import com.galileo.auth.security.CustomUserDetails;
 import com.galileo.common.exception.AIServiceUnavailableException;
+import com.galileo.common.exception.BadRequestException;
 import com.galileo.common.exception.ForbiddenException;
 import com.galileo.documents.repository.DocumentRepository;
 import com.galileo.learning.dto.LearningDTOs.*;
+import com.galileo.learning.entity.LearningPath;
+import com.galileo.learning.entity.LearningProgress;
 import com.galileo.learning.entity.Quiz;
 import com.galileo.learning.entity.QuizAttempt;
 import com.galileo.learning.entity.QuizQuestion;
@@ -16,6 +20,8 @@ import com.galileo.learning.repository.*;
 import com.galileo.learning.service.LearningServiceImpl;
 import com.galileo.publications.entity.Publication;
 import com.galileo.publications.repository.PublicationRepository;
+import com.galileo.publications.service.PublicationService;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -57,6 +63,15 @@ class LearningServiceTest {
     private DocumentRepository documentRepository;
 
     @Mock
+    private PublicationService publicationService;
+
+    @Mock
+    private LearningPathRepository pathRepository;
+
+    @Mock
+    private LearningProgressRepository progressRepository;
+
+    @Mock
     private ClaudeAIService claudeAIService;
 
     @Spy
@@ -64,6 +79,12 @@ class LearningServiceTest {
 
     @InjectMocks
     private LearningServiceImpl learningService;
+
+    @BeforeEach
+    void allowPublicationAccessByDefault() {
+        lenient().when(publicationService.isAuthorizedToAccess(any(Publication.class), any(CustomUserDetails.class)))
+                .thenReturn(true);
+    }
 
     @Test
     @DisplayName("Submitting quiz attempt should calculate accurate percentage and pass status")
@@ -137,6 +158,37 @@ class LearningServiceTest {
                 22L, QuizSubmitRequest.builder().answers(Map.of()).build(), 6L));
         verify(questionRepository, never()).findByQuizIdOrderByPositionAsc(22L);
         verify(userRepository, never()).findById(6L);
+        verify(attemptRepository, never()).save(any(QuizAttempt.class));
+    }
+
+    @Test
+    @DisplayName("Restricted publication quizzes require publication access for generation, listing, reading, and attempts")
+    void restrictedPublicationQuizzesRequirePublicationAccess() {
+        User student = User.builder().id(5L).email("student@mapon.cd").role(Role.STUDENT).build();
+        Publication publication = Publication.builder().id(12L).title("Publication restreinte").build();
+        Quiz quiz = Quiz.builder().id(22L).publication(publication).build();
+        when(userRepository.findById(5L)).thenReturn(Optional.of(student));
+        when(publicationRepository.findById(12L)).thenReturn(Optional.of(publication));
+        when(publicationService.isAuthorizedToAccess(eq(publication), any(CustomUserDetails.class))).thenReturn(false);
+        when(quizRepository.findById(22L)).thenReturn(Optional.of(quiz));
+
+        QuizGenerateRequest generationRequest = QuizGenerateRequest.builder()
+                .publicationId(12L)
+                .questionCount(3)
+                .build();
+
+        assertThrows(ForbiddenException.class, () -> learningService.generateQuiz(generationRequest, 5L));
+        assertThrows(ForbiddenException.class, () -> learningService.getQuizzesForPublication(12L, 5L));
+        assertThrows(ForbiddenException.class, () -> learningService.getQuiz(22L, 5L));
+        when(quizRepository.findByUserId(5L)).thenReturn(List.of(quiz));
+        assertThrows(ForbiddenException.class, () -> learningService.getMyQuizzes(5L));
+        assertThrows(ForbiddenException.class, () -> learningService.submitQuizAttempt(
+                22L, QuizSubmitRequest.builder().answers(Map.of()).build(), 5L));
+
+        verify(documentRepository, never()).findByPublicationId(12L);
+        verify(claudeAIService, never()).generateText(anyString(), anyString(), anyDouble(), anyInt());
+        verify(quizRepository, never()).findByPublicationId(12L);
+        verify(questionRepository, never()).findByQuizIdOrderByPositionAsc(22L);
         verify(attemptRepository, never()).save(any(QuizAttempt.class));
     }
 
@@ -239,5 +291,87 @@ class LearningServiceTest {
         assertTrue(result.getQuestions().stream().allMatch(question -> question.getExplanation() == null));
         verify(quizRepository, times(1)).save(any(Quiz.class));
         verify(questionRepository, times(3)).save(any(QuizQuestion.class));
+    }
+
+    @Test
+    @DisplayName("Failed learning path generation does not persist a fallback path")
+    void failedLearningPathGenerationDoesNotPersist() {
+        User student = User.builder().id(5L).email("student@mapon.cd").role(Role.STUDENT).build();
+        when(userRepository.findById(5L)).thenReturn(Optional.of(student));
+        when(claudeAIService.generateText(anyString(), anyString(), anyDouble(), anyInt()))
+                .thenReturn(ClaudeAIService.ClaudeResult.builder()
+                        .success(false)
+                        .error("API_UNAVAILABLE")
+                        .content("Provider error")
+                        .build());
+
+        assertThrows(AIServiceUnavailableException.class,
+                () -> learningService.generateLearningPath("Physique", 5L));
+
+        verify(pathRepository, never()).save(any(LearningPath.class));
+        verify(progressRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Learning path generation rejects incomplete steps without persisting")
+    void incompleteLearningPathGenerationDoesNotPersist() {
+        User student = User.builder().id(5L).email("student@mapon.cd").role(Role.STUDENT).build();
+        when(userRepository.findById(5L)).thenReturn(Optional.of(student));
+        when(claudeAIService.generateText(anyString(), anyString(), anyDouble(), anyInt()))
+                .thenReturn(ClaudeAIService.ClaudeResult.builder()
+                        .success(true)
+                        .content("[{\"stepIndex\":0,\"title\":\"Étape\",\"description\":\"Objectif\"}]")
+                        .build());
+
+        assertThrows(AIServiceUnavailableException.class,
+                () -> learningService.generateLearningPath("Physique", 5L));
+
+        verify(pathRepository, never()).save(any(LearningPath.class));
+        verify(progressRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Learning path progress rejects indexes outside the generated steps")
+    void learningPathProgressRejectsOutOfRangeIndexes() {
+        User owner = User.builder().id(5L).email("owner@mapon.cd").role(Role.STUDENT).build();
+        LearningPath path = LearningPath.builder()
+                .id(30L)
+                .user(owner)
+                .topic("Physique")
+                .steps("[{}, {}, {}, {}]")
+                .build();
+        when(pathRepository.findById(30L)).thenReturn(Optional.of(path));
+
+        assertThrows(BadRequestException.class, () -> learningService.updateStepProgress(30L, -1, true, 5L));
+        assertThrows(BadRequestException.class, () -> learningService.updateStepProgress(30L, 4, true, 5L));
+
+        verify(progressRepository, never()).findByLearningPathIdAndUserId(30L, 5L);
+        verify(progressRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Learning path response restores completed step indexes from persisted progress")
+    void learningPathDtoIncludesPersistedCompletedStepIndexes() {
+        User owner = User.builder().id(5L).email("owner@mapon.cd").role(Role.STUDENT).build();
+        LearningPath path = LearningPath.builder()
+                .id(30L)
+                .user(owner)
+                .topic("Physique")
+                .title("Parcours : Physique")
+                .steps("[{\"stepIndex\":0},{\"stepIndex\":1},{\"stepIndex\":2},{\"stepIndex\":3}]")
+                .build();
+        when(pathRepository.findById(30L)).thenReturn(Optional.of(path));
+        when(progressRepository.findByLearningPathIdAndUserId(30L, 5L)).thenReturn(List.of(
+                LearningProgress.builder().stepIndex(1).completed(true).build(),
+                LearningProgress.builder().stepIndex(3).completed(false).build(),
+                LearningProgress.builder().stepIndex(7).completed(true).build()
+        ));
+
+        LearningPathDTO result = learningService.getLearningPath(30L, 5L);
+
+        assertEquals(List.of(1), result.getCompletedStepIndexes());
+        assertEquals(1, result.getCompletedSteps());
+        assertEquals(4, result.getTotalSteps());
+        assertEquals(25.0f, result.getProgressPercentage());
     }
 }

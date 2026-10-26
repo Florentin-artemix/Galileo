@@ -7,9 +7,9 @@ import { documentsService, type DocumentDTO } from '../services/documentsService
 import { publicationsService } from '../services/publicationsService';
 import { readingHistoryService } from '../services/readingHistoryService';
 import type { Publication } from '../types';
-import AIAssistantWidget from '../components/AIAssistantWidget';
 import FavoriteButton from '../components/FavoriteButton';
 import PdfViewer from '../components/PdfViewer';
+import PublicationAIPanel from '../components/PublicationAIPanel';
 import ReadingProgress from '../components/ReadingProgress';
 import SimilarPublications from '../components/SimilarPublications';
 import './publication-detail.css';
@@ -26,7 +26,6 @@ const SinglePublicationPage: React.FC = () => {
   const [document, setDocument] = useState<DocumentDTO | null>(null);
   const [documentState, setDocumentState] = useState<DocumentState>('loading');
   const [currentPage, setCurrentPage] = useState(1);
-  const [isAIOpen, setIsAIOpen] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadError, setDownloadError] = useState(false);
 
@@ -108,6 +107,12 @@ const SinglePublicationPage: React.FC = () => {
       })
     : '';
   const isFrench = language === 'fr';
+  const infoItems = [
+    publication.type || '',
+    publication.academicYear || (publication.date && Number.isFinite(Date.parse(publication.date)) ? new Date(publication.date).getFullYear().toString() : ''),
+    domain,
+    document?.pageCount ? `${document.pageCount} ${isFrench ? 'pages' : 'pages'}` : ''
+  ].filter(Boolean);
 
   const downloadDocument = async () => {
     if (!document || isDownloading) return;
@@ -145,81 +150,111 @@ const SinglePublicationPage: React.FC = () => {
 
   return (
     <div className="publication-detail">
+      <header className="publication-reader-topbar">
+        <NavLink to="/" className="publication-reader-topbar__brand" aria-label="Galileo, accueil">
+          <span aria-hidden="true">G</span>
+          <strong>Galileo</strong>
+        </NavLink>
+        <NavLink to="/publications" className="publication-reader-topbar__back">
+          <span aria-hidden="true">←</span>{isFrench ? 'Résultats' : 'Results'}
+        </NavLink>
+        <p className="publication-reader-topbar__title">{title}</p>
+        <div className="publication-reader-topbar__actions">
+          {isAuthenticated ? (
+            <FavoriteButton
+              publication={{ id: publication.id, titre: title, auteurs: authors.join(', '), domaine: domain }}
+              size="large"
+            />
+          ) : (
+            <NavLink className="publication-action publication-action--secondary" to="/auth">{isFrench ? 'Enregistrer' : 'Save'}</NavLink>
+          )}
+          {documentState === 'ready' && document && (
+            <button type="button" className="publication-action publication-action--primary" onClick={downloadDocument} disabled={isDownloading}>
+              {isDownloading ? (isFrench ? 'Téléchargement…' : 'Downloading…') : (isFrench ? 'Télécharger PDF' : 'Download PDF')}
+            </button>
+          )}
+        </div>
+      </header>
+
       <div className="publication-detail__content">
-        <nav className="publication-detail__breadcrumb" aria-label={isFrench ? 'Fil d’Ariane' : 'Breadcrumb'}>
-          <NavLink to="/publications">{isFrench ? 'Publications' : 'Publications'}</NavLink>
-          <span aria-hidden="true">/</span>
-          <span>{isFrench ? 'Détail de la publication' : 'Publication details'}</span>
-        </nav>
+        {downloadError && <p className="publication-reader__error publication-reader__error--top" role="alert">{isFrench ? 'Le téléchargement a échoué. Vérifiez votre accès au document.' : 'Download failed. Check your access to this document.'}</p>}
+        <div className="publication-reader-layout">
+          <aside className="publication-reader-outline" aria-label={isFrench ? 'Navigation et informations du document' : 'Document navigation and information'}>
+            <section className="publication-reader-outline__section">
+              <p className="publication-reader-outline__eyebrow">{isFrench ? 'DANS CE DOCUMENT' : 'IN THIS DOCUMENT'}</p>
+              <nav aria-label={isFrench ? 'Sections du document' : 'Document sections'}>
+                {abstract.trim() && <a className="publication-reader-outline__link publication-reader-outline__link--active" href="#publication-summary">{isFrench ? 'Résumé' : 'Abstract'}<span>1</span></a>}
+                <a className="publication-reader-outline__link" href="#publication-document">{isFrench ? 'Document PDF' : 'PDF document'}<span>{currentPage}</span></a>
+              </nav>
+            </section>
 
-        <header className="publication-detail__heading">
-          <div className="publication-detail__domain-line">
-            {domain && <span className="publication-detail__domain">{domain}</span>}
-            {publishedDate && <span>{isFrench ? 'Publié le' : 'Published'} {publishedDate}</span>}
-          </div>
-          <div className="publication-detail__title-row">
-            <h1>{title}</h1>
-            {isAuthenticated && (
-              <FavoriteButton
-                publication={{ id: publication.id, titre: title, auteurs: authors.join(', '), domaine: domain }}
-                size="large"
-              />
-            )}
-          </div>
-          {(authors.length > 0 || publication.type || publication.academicYear) && (
-            <p className="publication-detail__authors">
-              {authors.length > 0 ? authors.join(', ') : null}
-              {publication.type && <span>{publication.type}</span>}
-              {publication.academicYear && <span>{publication.academicYear}</span>}
-            </p>
-          )}
-          {publication.tags.length > 0 && (
-            <ul className="publication-detail__tags" aria-label={isFrench ? 'Mots-clés' : 'Keywords'}>
-              {publication.tags.map(tag => <li key={tag}>{tag}</li>)}
-            </ul>
-          )}
-        </header>
+            <section className="publication-reader-outline__section publication-reader-outline__metadata">
+              <p className="publication-reader-outline__eyebrow">{isFrench ? 'INFORMATIONS' : 'INFORMATION'}</p>
+              {authors.length > 0 && <p className="publication-reader-outline__authors">{authors.join(', ')}</p>}
+              <ul>
+                {infoItems.filter(Boolean).map(item => <li key={item}>{item}</li>)}
+                {publishedDate && <li>{publishedDate}</li>}
+              </ul>
+              <span className={`publication-reader-outline__availability${documentState === 'ready' ? ' publication-reader-outline__availability--ready' : ''}`}>
+                {documentState === 'ready'
+                  ? (isFrench ? 'PDF disponible' : 'PDF available')
+                  : documentState === 'loading'
+                    ? (isFrench ? 'Recherche du PDF…' : 'Checking PDF…')
+                    : documentState === 'missing'
+                      ? (isFrench ? 'PDF indisponible' : 'PDF unavailable')
+                      : (isFrench ? 'Accès au PDF indisponible' : 'PDF access unavailable')}
+              </span>
+            </section>
 
-        <div className="publication-detail__layout">
-          <main className="publication-detail__main">
+            <ReadingProgress
+              publicationId={publication.id}
+              totalPages={document?.pageCount}
+              currentPage={currentPage}
+              onPageChange={onPageChange}
+              isAuthenticated={isAuthenticated}
+              className="publication-reader-outline__progress"
+            />
+          </aside>
+
+          <main className="publication-reader-document">
+            <div className="publication-reader-document__heading">
+              <p className="publication-reader-document__eyebrow">
+                {[isFrench ? 'PUBLICATION' : 'PUBLICATION', domain, publication.type].filter(Boolean).join(' / ')}
+              </p>
+              <h1>{title}</h1>
+              {(authors.length > 0 || publishedDate) && (
+                <p className="publication-reader-document__byline">
+                  {authors.join(', ')}{authors.length > 0 && publishedDate ? ' · ' : ''}{publishedDate || publication.academicYear}
+                </p>
+              )}
+            </div>
+
             {abstract.trim() && (
-              <section className="publication-detail__abstract" aria-labelledby="publication-abstract-title">
+              <section id="publication-summary" className="publication-detail__abstract" aria-labelledby="publication-abstract-title">
                 <h2 id="publication-abstract-title">{isFrench ? 'Résumé' : 'Abstract'}</h2>
                 <p>{abstract}</p>
               </section>
             )}
 
-            <section className="publication-reader" aria-labelledby="publication-reader-title">
-              <div className="publication-reader__header">
-                <h2 id="publication-reader-title">{isFrench ? 'Aperçu du document PDF' : 'PDF document'}</h2>
-                <div className="publication-reader__actions">
-                  {documentState === 'ready' && document && (
-                    <button type="button" className="publication-action publication-action--secondary" onClick={downloadDocument} disabled={isDownloading}>
-                      {isDownloading ? (isFrench ? 'Téléchargement…' : 'Downloading…') : (isFrench ? 'Télécharger PDF' : 'Download PDF')}
-                    </button>
-                  )}
-                  {isAuthenticated ? (
-                    <button type="button" className="publication-action publication-action--primary" onClick={() => setIsAIOpen(true)}>
-                      {isFrench ? 'Assistant IA' : 'AI assistant'}
-                    </button>
-                  ) : (
-                    <NavLink className="publication-action publication-action--primary" to="/auth">
-                      {isFrench ? 'Se connecter pour utiliser l’assistant' : 'Sign in to use the assistant'}
-                    </NavLink>
-                  )}
-                  {isAuthenticated ? (
-                    <NavLink className="publication-action publication-action--secondary" to={`/quiz?publicationId=${publication.id}`}>
-                      {isFrench ? 'Auto-évaluation' : 'Self-assessment'}
-                    </NavLink>
-                  ) : (
-                    <NavLink className="publication-action publication-action--secondary" to="/auth">
-                      {isFrench ? 'Se connecter pour s’auto-évaluer' : 'Sign in for self-assessment'}
-                    </NavLink>
-                  )}
-                </div>
-              </div>
+            {publication.tags.length > 0 && (
+              <ul className="publication-detail__tags" aria-label={isFrench ? 'Mots-clés' : 'Keywords'}>
+                {publication.tags.map(tag => <li key={tag}>{tag}</li>)}
+              </ul>
+            )}
 
-              {downloadError && <p className="publication-reader__error" role="alert">{isFrench ? 'Le téléchargement a échoué. Vérifiez votre accès au document.' : 'Download failed. Check your access to this document.'}</p>}
+            <section id="publication-document" className="publication-reader" aria-labelledby="publication-reader-title">
+              <div className="publication-reader__header">
+                <h2 id="publication-reader-title">{isFrench ? 'Document original' : 'Original document'}</h2>
+                {isAuthenticated ? (
+                  <NavLink className="publication-action publication-action--secondary" to={`/quiz?publicationId=${publication.id}`}>
+                    {isFrench ? 'Auto-évaluation' : 'Self-assessment'}
+                  </NavLink>
+                ) : (
+                  <NavLink className="publication-action publication-action--secondary" to="/auth">
+                    {isFrench ? 'Se connecter pour s’auto-évaluer' : 'Sign in for self-assessment'}
+                  </NavLink>
+                )}
+              </div>
               {documentState === 'loading' && <p className="publication-reader__message" role="status">{isFrench ? 'Recherche du document…' : 'Looking for the document…'}</p>}
               {documentState === 'missing' && <p className="publication-reader__message">{isFrench ? 'Aucun document PDF n’est associé à cette publication.' : 'No PDF is attached to this publication.'}</p>}
               {documentState === 'error' && <p className="publication-reader__error" role="alert">{isFrench ? 'Le document est indisponible ou son accès est refusé.' : 'The document is unavailable or access was denied.'}</p>}
@@ -235,44 +270,12 @@ const SinglePublicationPage: React.FC = () => {
             </section>
           </main>
 
-          <aside className="publication-detail__sidebar" aria-label={isFrench ? 'Informations de lecture' : 'Reading information'}>
-            <ReadingProgress
-              publicationId={publication.id}
-              totalPages={document?.pageCount}
-              currentPage={currentPage}
-              onPageChange={onPageChange}
-              isAuthenticated={isAuthenticated}
-            />
-
-            <section className="publication-sidebar-card publication-assistant">
-              <h2 className="publication-sidebar-card__title">{isFrench ? 'Assistant IA sur cet article' : 'AI assistant for this article'}</h2>
-              <p>{isFrench ? 'Posez une question sur le contenu de la publication. Les réponses dépendent du texte indexé.' : 'Ask about this publication. Responses depend on its indexed text.'}</p>
-              {isAuthenticated ? (
-                <button type="button" className="publication-assistant__open" onClick={() => setIsAIOpen(true)}>
-                  {isFrench ? 'Poser une question' : 'Ask a question'}
-                  <span aria-hidden="true">→</span>
-                </button>
-              ) : (
-                <NavLink className="publication-assistant__open" to="/auth">
-                  {isFrench ? 'Se connecter' : 'Sign in'}
-                  <span aria-hidden="true">→</span>
-                </NavLink>
-              )}
-              <small>{isFrench ? 'Les réponses peuvent contenir des erreurs; vérifiez les sources.' : 'AI responses can be inaccurate; verify cited sources.'}</small>
-            </section>
-
-            <SimilarPublications publicationId={publication.id} limit={5} />
-          </aside>
+          <PublicationAIPanel publicationId={publication.id} pageCount={document?.pageCount} onOpenPage={onPageChange} />
         </div>
+        <section className="publication-detail__related" aria-label={isFrench ? 'Publications similaires' : 'Related publications'}>
+          <SimilarPublications publicationId={publication.id} limit={5} className="publication-similar--horizontal" />
+        </section>
       </div>
-
-      <AIAssistantWidget
-        publicationId={publication.id}
-        publicationTitle={title}
-        initialMode="DOCUMENT"
-        isOpen={isAIOpen}
-        onClose={() => setIsAIOpen(false)}
-      />
     </div>
   );
 };

@@ -11,6 +11,7 @@ export interface Publication {
   tags: string[];
   type?: string;
   academicYear?: string;
+  pageCount?: number;
 }
 
 export interface TeamMember {

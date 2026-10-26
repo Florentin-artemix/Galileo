@@ -10,7 +10,7 @@ public interface LearningService {
 
     QuizDTO getQuiz(Long quizId, Long userId);
 
-    List<QuizDTO> getQuizzesForPublication(Long publicationId);
+    List<QuizDTO> getQuizzesForPublication(Long publicationId, Long userId);
 
     List<QuizDTO> getMyQuizzes(Long userId);
 

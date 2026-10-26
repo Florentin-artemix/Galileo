@@ -1,22 +1,43 @@
 import React, { useState } from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import SearchBarWithAutocomplete from './SearchBarWithAutocomplete';
 import NotificationCenter from './NotificationCenter';
+import './Header.css';
 
 const Header: React.FC = () => {
   const { language, toggleLanguage, translations } = useLanguage();
   const { theme, toggleTheme } = useTheme();
   const { isAuthenticated, user, role, logout } = useAuth();
   const navigate = useNavigate();
+  const { pathname } = useLocation();
+  const isAssistantRoute = pathname === '/ai-assistant';
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
 
-  const navLinks = [
-    { to: '/', text: translations.nav.home },
+  const primaryNavLinks = [
+    { to: '/', text: language === 'fr' ? 'Découvrir' : 'Discover' },
     { to: '/publications', text: translations.nav.journal },
+    { to: '/#domains', text: language === 'fr' ? 'Domaines' : 'Domains' },
+    { to: '/library', text: language === 'fr' ? 'Ma bibliothèque' : 'My library' },
+  ];
+
+  const assistantNavLinks = [
+    { to: '/', text: language === 'fr' ? 'Accueil' : 'Home' },
+    { to: '/publications', text: translations.nav.journal },
+    { to: '/ai-assistant', text: 'Assistant IA' },
+    { to: '/learning-paths', text: language === 'fr' ? 'Parcours' : 'Learning' },
+    { to: '/quiz', text: 'Quiz' },
+    { to: '/resources', text: translations.nav.resources },
+    { to: '/events', text: translations.nav.activities },
+  ];
+  const desktopNavLinks = isAssistantRoute ? assistantNavLinks : primaryNavLinks;
+  const canSubmit = role === 'STUDENT' || role === 'RESEARCHER' || role === 'TEACHER' || role === 'STAFF' || role === 'ADMIN';
+
+  const navLinks = [
+    ...primaryNavLinks,
     { to: '/ai-assistant', text: 'Assistant IA' },
     { to: '/learning-paths', text: 'Parcours' },
     { to: '/quiz', text: 'Quiz' },
@@ -56,18 +77,23 @@ const Header: React.FC = () => {
           <span className="font-poppins text-[19px] font-bold text-[#0b1e38] dark:text-white">Galileo</span>
         </NavLink>
 
-        <nav className="hidden min-w-0 flex-1 items-center justify-center gap-4 xl:flex 2xl:gap-[19px]" aria-label="Navigation principale">
-          {navLinks.map(link => <NavLink key={link.to} to={link.to} className={linkClass}>{link.text}</NavLink>)}
+        <nav className={`hidden min-w-0 flex-1 items-center justify-center xl:flex ${isAssistantRoute ? 'gap-4' : 'gap-3 2xl:gap-5'}`} aria-label="Navigation principale">
+          {desktopNavLinks.map(link => <NavLink key={link.to} to={link.to} end={link.to === '/'} className={linkClass}>{link.text}</NavLink>)}
         </nav>
 
         <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+          {!isAssistantRoute && <SearchBarWithAutocomplete
+              placeholder={language === 'fr' ? 'Rechercher un sujet, auteur, DOI…' : 'Search topic, author, DOI…'}
+              onSearch={openCatalogSearch}
+              className="galileo-header-search hidden w-[min(320px,24vw)] xl:block"
+            />}
           <button
             type="button"
             onClick={() => setIsSearchOpen(open => !open)}
             aria-label="Rechercher une publication"
             aria-expanded={isSearchOpen}
             aria-controls="header-catalog-search"
-            className="flex h-[34px] w-[34px] items-center justify-center rounded-[9px] border border-[#e9ecef] text-[#575e69] hover:bg-[#f5f8fa] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#00838f]"
+            className="flex h-[34px] w-[34px] items-center justify-center rounded-[9px] border border-[#e9ecef] text-[#575e69] hover:bg-[#f5f8fa] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#00838f] xl:hidden"
           >
             <svg className="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
               <circle cx="10.8" cy="10.8" r="6.8" strokeWidth="1.8" />
@@ -88,23 +114,26 @@ const Header: React.FC = () => {
             aria-label={theme === 'dark' ? 'Activer le thème clair' : 'Activer le thème sombre'}
             className="flex h-[34px] w-[34px] items-center justify-center rounded-[9px] border border-[#e9ecef] text-[#575e69] hover:bg-[#f5f8fa]"
           >
-            {theme === 'dark' ? (
+            {isAssistantRoute ? (
+              <img src="/assets/figma-ai-theme.svg" alt="" aria-hidden="true" className="h-[18px] w-[18px]" />
+            ) : theme === 'dark' ? (
               <svg className="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><circle cx="12" cy="12" r="4" strokeWidth="1.7" /><path d="M12 2v2m0 16v2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M2 12h2m16 0h2M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42" strokeWidth="1.7" strokeLinecap="round" /></svg>
             ) : (
               <svg className="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M20.35 15.35A9 9 0 0 1 8.65 3.65 9 9 0 1 0 20.35 15.35Z" strokeWidth="1.7" strokeLinejoin="round" /></svg>
             )}
           </button>
-          {isAuthenticated && <NotificationCenter />}
+          {isAuthenticated && <NotificationCenter designVariant={isAssistantRoute} />}
 
           <div className="hidden items-center gap-2 xl:flex">
             {isAuthenticated ? (
               <>
-                {roleLink && <NavLink to={roleLink.to} className="rounded-[8px] border border-[#e9ecef] px-3 py-2 text-[11px] font-semibold text-[#575e69] hover:bg-[#f5f8fa]">{roleLink.text}</NavLink>}
-                {(role === 'STUDENT' || role === 'STAFF' || role === 'ADMIN') && <NavLink to="/submit" className="whitespace-nowrap rounded-[9px] bg-[#00838f] px-4 py-[13px] text-[11px] font-semibold text-white hover:bg-[#006e78]">{translations.nav.submit}</NavLink>}
-                <button type="button" onClick={handleLogout} className="whitespace-nowrap px-2 py-2 text-[11px] text-red-600 hover:text-red-700">{translations.auth_page?.logout_button || 'Déconnexion'}</button>
+                {!isAssistantRoute && roleLink && <NavLink to={roleLink.to} className="rounded-[8px] border border-[#e9ecef] px-3 py-2 text-[11px] font-semibold text-[#575e69] hover:bg-[#f5f8fa]">{roleLink.text}</NavLink>}
+                {canSubmit && <NavLink to="/submit" className={`whitespace-nowrap rounded-[9px] px-4 py-[13px] text-[11px] font-semibold text-white hover:bg-[#006b74] ${isAssistantRoute ? 'bg-[#00838f]' : 'bg-[#1a2945] hover:bg-[#253b61]'}`}>{isAssistantRoute ? (language === 'fr' ? 'Déposer un travail' : 'Submit a paper') : (language === 'fr' ? 'Importer un PDF' : 'Import a PDF')}</NavLink>}
+                {isAssistantRoute && <span className="flex h-[36px] w-[36px] items-center justify-center rounded-full bg-[#f5f8fa] text-[13px] font-bold text-[#00838f]" aria-label={user?.email || 'Profil'}>{user?.email?.charAt(0).toUpperCase() || 'U'}</span>}
+                {!isAssistantRoute && <button type="button" onClick={handleLogout} className="whitespace-nowrap px-2 py-2 text-[11px] text-red-600 hover:text-red-700">{translations.auth_page?.logout_button || 'Déconnexion'}</button>}
               </>
             ) : (
-              <NavLink to="/auth" className="whitespace-nowrap rounded-[9px] bg-[#00838f] px-4 py-[13px] text-[11px] font-semibold text-white hover:bg-[#006e78]">{translations.auth_page?.login_button || 'Connexion'}</NavLink>
+              <NavLink to="/auth" className="whitespace-nowrap rounded-[9px] bg-[#1a2945] px-4 py-[13px] text-[11px] font-semibold text-white hover:bg-[#253b61]">{language === 'fr' ? 'Importer un PDF' : 'Import a PDF'}</NavLink>
             )}
           </div>
 

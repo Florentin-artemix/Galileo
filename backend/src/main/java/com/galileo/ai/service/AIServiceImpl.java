@@ -32,7 +32,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.io.IOException;
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.*;
 
@@ -59,6 +61,9 @@ public class AIServiceImpl implements AIService {
 
     private static final int DAILY_QUOTA_PER_USER = 100;
     private static final int MAX_HISTORY_CHARACTERS = 12_000;
+    private static final int MAX_PLATFORM_KNOWLEDGE_BYTES = 12 * 1024;
+    private static final String MISSING_PLATFORM_KNOWLEDGE = "\n\nAucune fiche de référence vérifiée sur Galileo n'est disponible. "
+            + "Si l'utilisateur pose une question factuelle sur la plateforme, indique que les sources disponibles ne permettent pas de répondre; n'invente aucun détail.";
 
     @Override
     @Transactional
@@ -531,8 +536,29 @@ public class AIServiceImpl implements AIService {
             case DOCUMENT -> base + "Tu assistes l'utilisateur dans l'analyse critique et la compréhension d'un travail académique précis. Réponds avec rigueur et cite expressément les pages.";
             case RESEARCH -> base + "Tu guides les chercheurs dans la formulation de problématiques, la revue de littérature, le choix des méthodologies et la comparaison des travaux.";
             case LEARNING -> base + "Tu es un tuteur pédagogique bienveillant. Tu découpes les explications de manière claire, progressive et structurée, adaptée aux étudiants.";
-            case GENERAL -> base + "Tu réponds à toute question académique ou scientifique générale de façon claire, neutre et documentée.";
+            case GENERAL -> base + "Tu réponds à toute question académique ou scientifique générale de façon claire, neutre et documentée. "
+                    + "Utilise le contexte vérifié sur Galileo uniquement quand la question porte sur la plateforme; garde la priorité aux questions académiques."
+                    + loadPlatformKnowledge();
         };
+    }
+
+    private String loadPlatformKnowledge() {
+        try (var input = AIServiceImpl.class.getResourceAsStream("/ai/galileo-platform-knowledge.md")) {
+            if (input == null) {
+                log.warn("La fiche de connaissance Galileo est absente des ressources de l'application");
+                return MISSING_PLATFORM_KNOWLEDGE;
+            }
+            byte[] contents = input.readNBytes(MAX_PLATFORM_KNOWLEDGE_BYTES + 1);
+            if (contents.length > MAX_PLATFORM_KNOWLEDGE_BYTES) {
+                log.warn("La fiche de connaissance Galileo dépasse la limite de {} octets", MAX_PLATFORM_KNOWLEDGE_BYTES);
+                return MISSING_PLATFORM_KNOWLEDGE;
+            }
+            return "\n\nContexte de référence sur Galileo :\n"
+                    + new String(contents, StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            log.warn("Impossible de charger la fiche de connaissance Galileo", e);
+            return MISSING_PLATFORM_KNOWLEDGE;
+        }
     }
 
     private List<AIChatTurn> loadRecentConversationTurns(Long conversationId) {
