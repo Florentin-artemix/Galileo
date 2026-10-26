@@ -1,5 +1,24 @@
 import apiClient from './apiService';
 
+export interface CatalogPublicationResult {
+  id: number;
+  title: string;
+  abstractText?: string | null;
+  type?: string | null;
+  domainName?: string | null;
+  publishedAt?: string | null;
+  academicYear?: string | null;
+  authors: string[];
+  hasDocument: boolean;
+}
+
+export interface CatalogSearchResponse {
+  publications: CatalogPublicationResult[];
+  totalHits: number;
+  page: number;
+  totalPages: number;
+}
+
 export interface SearchResult {
   id: string;
   publicationId: number;
@@ -25,6 +44,34 @@ export interface SearchResponse {
  * Service de recherche utilisant Backend
  */
 export const searchService = {
+  async searchCatalog(params: {
+    query?: string;
+    domain?: string;
+    type?: string;
+    academicYear?: string;
+    page: number;
+    size: number;
+    sortBy: 'publishedAt' | 'title' | 'viewCount';
+    direction: 'asc' | 'desc';
+    signal?: AbortSignal;
+  }): Promise<CatalogSearchResponse> {
+    const { signal, ...filters } = params;
+    const response = await apiClient.get<CatalogSearchResponse>('/search/publications', {
+      params: {
+        q: filters.query || undefined,
+        domain: filters.domain || undefined,
+        type: filters.type || undefined,
+        academicYear: filters.academicYear || undefined,
+        page: filters.page,
+        size: filters.size,
+        sortBy: filters.sortBy,
+        direction: filters.direction
+      },
+      signal
+    });
+    return response.data;
+  },
+
   /**
    * Recherche full-text dans les publications
    */
@@ -93,7 +140,7 @@ export const searchService = {
   async autocompletePublications(prefix: string): Promise<string[]> {
     if (prefix.length < 2) return [];
     const response = await apiClient.get('/search/publications/autocomplete', {
-      params: { prefix }
+      params: { q: prefix }
     });
     return response.data;
   },

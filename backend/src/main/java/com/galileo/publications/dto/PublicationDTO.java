@@ -9,6 +9,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 @Builder
@@ -30,6 +31,8 @@ public class PublicationDTO {
     private LocalDateTime publishedAt;
     private String academicYear;
     private String supervisor;
+    private List<String> authors;
+    private boolean hasDocument;
     private Integer viewCount;
     private Integer downloadCount;
     private LocalDateTime createdAt;

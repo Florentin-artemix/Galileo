@@ -6,6 +6,8 @@ interface SearchBarWithAutocompleteProps {
   onSearch: (query: string) => void;
   type?: 'publications' | 'blog' | 'all';
   className?: string;
+  value?: string;
+  onChange?: (value: string) => void;
 }
 
 /**
@@ -15,25 +17,36 @@ const SearchBarWithAutocomplete: React.FC<SearchBarWithAutocompleteProps> = ({
   placeholder = 'Rechercher...',
   onSearch,
   type = 'publications',
-  className = ''
+  className = '',
+  value,
+  onChange
 }) => {
-  const [query, setQuery] = useState('');
+  const [internalQuery, setInternalQuery] = useState('');
+  const query = value ?? internalQuery;
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(-1);
   const [isLoading, setIsLoading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<NodeJS.Timeout>();
+  const requestIdRef = useRef(0);
+
+  const updateQuery = (nextQuery: string) => {
+    if (value === undefined) setInternalQuery(nextQuery);
+    onChange?.(nextQuery);
+  };
 
   // Debounced autocomplete
   useEffect(() => {
     if (debounceRef.current) {
       clearTimeout(debounceRef.current);
     }
+    const requestId = ++requestIdRef.current;
 
     if (query.length < 2) {
       setSuggestions([]);
       setIsOpen(false);
+      setIsLoading(false);
       return;
     }
 
@@ -48,13 +61,15 @@ const SearchBarWithAutocomplete: React.FC<SearchBarWithAutocompleteProps> = ({
           const blogResults = await searchService.autocompleteBlog(query);
           results = [...new Set([...results, ...blogResults])];
         }
-        setSuggestions(results.slice(0, 8));
-        setIsOpen(results.length > 0);
+        if (requestId === requestIdRef.current) {
+          setSuggestions(results.slice(0, 8));
+          setIsOpen(results.length > 0);
+        }
       } catch (error) {
         console.warn('Autocomplete error:', error);
-        setSuggestions([]);
+        if (requestId === requestIdRef.current) setSuggestions([]);
       } finally {
-        setIsLoading(false);
+        if (requestId === requestIdRef.current) setIsLoading(false);
       }
     }, 300);
 
@@ -70,14 +85,27 @@ const SearchBarWithAutocomplete: React.FC<SearchBarWithAutocompleteProps> = ({
     if (query.trim()) {
       onSearch(query.trim());
       setIsOpen(false);
+    } else {
+      onSearch('');
     }
   };
 
   const handleSuggestionClick = (suggestion: string) => {
-    setQuery(suggestion);
+    updateQuery(suggestion);
     onSearch(suggestion);
     setIsOpen(false);
     inputRef.current?.blur();
+  };
+
+  const renderSuggestion = (suggestion: string) => {
+    const term = query.trim();
+    if (!term) return suggestion;
+    const escapedTerm = term.replace(/[.*+?^{}()|[\]\\$]/g, '\\$&');
+    return suggestion.split(new RegExp('(' + escapedTerm + ')', 'gi')).map((part, index) =>
+      part.toLowerCase() === term.toLowerCase()
+        ? <strong key={index}>{part}</strong>
+        : <React.Fragment key={index}>{part}</React.Fragment>
+    );
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -115,7 +143,7 @@ const SearchBarWithAutocomplete: React.FC<SearchBarWithAutocompleteProps> = ({
           type="text"
           value={query}
           onChange={(e) => {
-            setQuery(e.target.value);
+            updateQuery(e.target.value);
             setSelectedIndex(-1);
           }}
           onFocus={() => suggestions.length > 0 && setIsOpen(true)}
@@ -146,9 +174,11 @@ const SearchBarWithAutocomplete: React.FC<SearchBarWithAutocompleteProps> = ({
         {query && (
           <button
             type="button"
+            aria-label="Effacer la recherche"
             onClick={() => {
-              setQuery('');
+              updateQuery('');
               setSuggestions([]);
+              onSearch('');
               inputRef.current?.focus();
             }}
             className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600"
@@ -184,12 +214,7 @@ const SearchBarWithAutocomplete: React.FC<SearchBarWithAutocompleteProps> = ({
                 <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
-                <span dangerouslySetInnerHTML={{
-                  __html: suggestion.replace(
-                    new RegExp(`(${query})`, 'gi'),
-                    '<strong>$1</strong>'
-                  )
-                }} />
+                <span>{renderSuggestion(suggestion)}</span>
               </div>
             </li>
           ))}

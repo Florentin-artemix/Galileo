@@ -9,6 +9,8 @@ export interface Publication {
   pdfUrl: string | null;
   imageUrl: string;
   tags: string[];
+  type?: string;
+  academicYear?: string;
 }
 
 export interface TeamMember {

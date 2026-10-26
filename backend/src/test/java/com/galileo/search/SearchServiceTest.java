@@ -1,5 +1,7 @@
 package com.galileo.search;
 
+import com.galileo.documents.entity.Document;
+import com.galileo.documents.repository.DocumentRepository;
 import com.galileo.auth.entity.Role;
 import com.galileo.auth.entity.User;
 import com.galileo.auth.security.CustomUserDetails;
@@ -7,6 +9,7 @@ import com.galileo.embedding.provider.EmbeddingProviderUnavailableException;
 import com.galileo.embedding.provider.EmbeddingProvider;
 import com.galileo.publications.entity.AccessLevel;
 import com.galileo.publications.entity.Publication;
+import com.galileo.publications.entity.PublicationAuthor;
 import com.galileo.publications.entity.PublicationStatus;
 import com.galileo.publications.repository.DomainRepository;
 import com.galileo.publications.repository.PublicationAuthorRepository;
@@ -41,6 +44,9 @@ class SearchServiceTest {
 
     @Mock
     private PublicationRepository publicationRepository;
+
+    @Mock
+    private DocumentRepository documentRepository;
 
     @Mock
     private PublicationAuthorRepository authorRepository;
@@ -80,6 +86,12 @@ class SearchServiceTest {
 
         PageImpl<Publication> page = new PageImpl<>(List.of(pub));
         when(publicationRepository.findAll(any(Specification.class), any(Pageable.class))).thenReturn(page);
+        when(authorRepository.findByPublicationIdOrderByPositionAsc(1L)).thenReturn(List.of(
+                PublicationAuthor.builder().authorName("Amina Kasongo").position(0).build()
+        ));
+        when(documentRepository.findByPublicationId(1L)).thenReturn(List.of(
+                Document.builder().fileKey("publications/1.pdf").build()
+        ));
 
         SearchRequest req = SearchRequest.builder()
                 .query("géotechnique")
@@ -94,6 +106,8 @@ class SearchServiceTest {
         assertEquals(1, result.getTotalHits());
         assertEquals(1, result.getPublications().size());
         assertEquals("Analyse des contraintes géotechniques", result.getPublications().get(0).getTitle());
+        assertEquals(List.of("Amina Kasongo"), result.getPublications().get(0).getAuthors());
+        assertTrue(result.getPublications().get(0).isHasDocument());
         verify(publicationRepository, times(1)).findAll(any(Specification.class), any(Pageable.class));
     }
 

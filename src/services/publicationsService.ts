@@ -14,6 +14,8 @@ export interface PublicationDTO {
   urlPdf?: string | null;
   urlImageCouverture?: string | null;
   nombreTelechargements: number;
+  type?: string;
+  academicYear?: string;
   nombreVues: number;
   tailleFichier?: number | null;
   nombrePages?: number | null;
@@ -123,6 +125,8 @@ export const publicationsService = {
       pdfUrl: dto.urlPdf || '',
       imageUrl: dto.urlImageCouverture || 'https://picsum.photos/seed/galileo' + dto.id + '/600/400',
       tags: tags,
+      type: dto.type,
+      academicYear: dto.academicYear,
     };
   }
 };

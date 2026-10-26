@@ -1,6 +1,7 @@
 package com.galileo.search.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.galileo.documents.repository.DocumentRepository;
 import com.galileo.auth.entity.Role;
 import com.galileo.auth.entity.User;
 import com.galileo.auth.repository.UserRepository;
@@ -42,6 +43,7 @@ import java.util.*;
 public class SearchServiceImpl implements SearchService {
 
     private final PublicationRepository publicationRepository;
+    private final DocumentRepository documentRepository;
     private final PublicationAuthorRepository authorRepository;
     private final PublicationKeywordRepository keywordRepository;
     private final DomainRepository domainRepository;
@@ -99,11 +101,16 @@ public class SearchServiceImpl implements SearchService {
             // 3. Recherche textuelle (titre, résumé, encadreur, méthodologie)
             if (queryText != null && !queryText.trim().isEmpty()) {
                 String pattern = "%" + queryText.trim().toLowerCase() + "%";
+                Subquery<Long> authorQuery = cq.subquery(Long.class);
+                Root<PublicationAuthor> authorRoot = authorQuery.from(PublicationAuthor.class);
+                authorQuery.select(authorRoot.get("publication").get("id"))
+                        .where(cb.like(cb.lower(authorRoot.get("authorName")), pattern));
                 predicates.add(cb.or(
                         cb.like(cb.lower(root.get("title")), pattern),
                         cb.like(cb.lower(root.get("abstractText")), pattern),
                         cb.like(cb.lower(root.get("supervisor")), pattern),
-                        cb.like(cb.lower(root.get("methodology")), pattern)
+                        cb.like(cb.lower(root.get("methodology")), pattern),
+                        root.get("id").in(authorQuery)
                 ));
             }
 
@@ -382,6 +389,11 @@ public class SearchServiceImpl implements SearchService {
                 .publishedAt(p.getPublishedAt())
                 .academicYear(p.getAcademicYear())
                 .supervisor(p.getSupervisor())
+                .authors(authorRepository.findByPublicationIdOrderByPositionAsc(p.getId()).stream()
+                        .map(PublicationAuthor::getAuthorName)
+                        .filter(Objects::nonNull)
+                        .toList())
+                .hasDocument(!documentRepository.findByPublicationId(p.getId()).isEmpty())
                 .viewCount(p.getViewCount())
                 .downloadCount(p.getDownloadCount())
                 .createdAt(p.getCreatedAt())

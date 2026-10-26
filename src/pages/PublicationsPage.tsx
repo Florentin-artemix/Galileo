@@ -1,312 +1,365 @@
-
-import React, { useState, useMemo, useEffect } from 'react';
-import { NavLink } from 'react-router-dom';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { NavLink, useSearchParams } from 'react-router-dom';
 import { useLanguage } from '../contexts/LanguageContext';
 import { usePublications } from '../contexts/PublicationsContext';
-import type { Publication } from '../types';
 import Modal from '../components/Modal';
-import { searchService } from '../services/searchService';
+import SearchBarWithAutocomplete from '../components/SearchBarWithAutocomplete';
+import { searchService, type CatalogPublicationResult } from '../services/searchService';
 import { publicationsService } from '../services/publicationsService';
+import './catalog.css';
 
-const PublicationCard: React.FC<{ 
-    pub: Publication, 
-    viewMode: 'grid' | 'list',
-    onPreview: (pub: Publication) => void,
-    onCite: (pub: Publication) => void,
-}> = ({ pub, viewMode, onPreview, onCite }) => {
-    const { language, translations } = useLanguage();
-    
-    const containerClasses = viewMode === 'grid' 
-        ? "bg-light-card dark:bg-navy/50 flex flex-col"
-        : "bg-light-card dark:bg-navy/50 grid grid-cols-1 md:grid-cols-3 gap-6 items-center";
-    
-    return (
-        <div className={`border border-light-border dark:border-dark-border rounded-lg overflow-hidden transform hover:-translate-y-1 transition-transform duration-300 shadow-lg hover:shadow-xl dark:hover:shadow-teal/20 backdrop-blur-sm animate-slide-in-up ${containerClasses}`} style={{animationDelay: `${(pub.id % 6) * 50}ms`, animationFillMode: 'backwards'}}>
-            <img loading="lazy" src={pub.imageUrl} alt={`Vignette pour ${pub.title[language]}`} className={viewMode === 'grid' ? "w-full h-48 object-cover" : "w-full h-full object-cover rounded-l-lg"} />
-            
-            <div className={viewMode === 'grid' ? "p-4 flex flex-col flex-grow" : "p-4 md:col-span-2"}>
-                <div>
-                    <p className="text-sm text-light-accent dark:text-teal mb-1">{pub.domain[language]}</p>
-                    <h3 className="font-poppins text-lg font-bold mb-2 leading-tight text-light-text dark:text-off-white">{pub.title[language]}</h3>
-                    <p className="text-sm text-light-text-secondary dark:text-gray-400 mb-2">{pub.authors.join(', ')} - {new Date(pub.date).toLocaleDateString(language === 'fr' ? 'fr-FR' : 'en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
-                    <p className="text-light-text-secondary dark:text-gray-300 text-sm mb-4 line-clamp-2">{pub.summary[language]}</p>
-                </div>
-                <div className={viewMode === 'grid' ? "mt-auto pt-4" : "mt-4"}>
-                     <div className="flex flex-wrap gap-2 text-xs">
-                        <NavLink to={`/publication/${pub.id}`} className="flex-1 text-center bg-light-accent/10 dark:bg-teal/20 text-light-accent dark:text-teal font-semibold py-2 px-3 rounded-full hover:bg-light-accent dark:hover:bg-teal hover:text-white dark:hover:text-navy transition-colors duration-300 min-w-[80px]">
-                            {translations.publications_page.read_article}
-                        </NavLink>
-                        <button onClick={() => onPreview(pub)} className="flex-1 text-center bg-light-bg dark:bg-navy-dark border border-light-border dark:border-dark-border text-light-text-secondary dark:text-off-white font-semibold py-2 px-3 rounded-full hover:bg-slate-200 dark:hover:bg-teal/20 transition-colors duration-300 min-w-[80px]">
-                            {translations.publications_page.preview}
-                        </button>
-                        {pub.pdfUrl ? (
-                            <a href={pub.pdfUrl} download className="flex-1 text-center bg-light-bg dark:bg-navy-dark border border-light-border dark:border-dark-border text-light-text-secondary dark:text-off-white font-semibold py-2 px-3 rounded-full hover:bg-slate-200 dark:hover:bg-teal/20 transition-colors duration-300 min-w-[80px]">
-                                {translations.publications_page.download_pdf}
-                            </a>
-                        ) : (
-                            <button disabled className="flex-1 text-center bg-gray-200 dark:bg-gray-800 text-gray-500 font-semibold py-2 px-3 rounded-full cursor-not-allowed min-w-[80px]">
-                                {translations.publications_page.pdf_not_available}
-                            </button>
-                        )}
-                         <button onClick={() => onCite(pub)}  className="flex-1 text-center bg-light-bg dark:bg-navy-dark border border-light-border dark:border-dark-border text-light-text-secondary dark:text-off-white font-semibold py-2 px-3 rounded-full hover:bg-slate-200 dark:hover:bg-teal/20 transition-colors duration-300 min-w-[80px]">
-                            {translations.publications_page.cite}
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    );
+type SortBy = 'publishedAt' | 'title' | 'viewCount';
+type ViewMode = 'grid' | 'list';
+
+const PAGE_SIZE = 6;
+
+const publicationTypes: Record<string, string> = {
+  THESIS: 'Thèse',
+  MASTER_THESIS: 'Mémoire de master',
+  RESEARCH_PAPER: 'Article de recherche',
+  REPORT: 'Rapport',
+  INTERNSHIP_REPORT: 'Rapport de stage',
+  PROJECT: 'Projet',
+  CONFERENCE_PAPER: 'Article de conférence',
+  ARTICLE: 'Article',
+  OTHER: 'Autre'
 };
 
+const formatDate = (value: string | null | undefined, language: string) => {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toLocaleDateString(language === 'fr' ? 'fr-FR' : 'en-US', {
+    day: 'numeric', month: 'short', year: 'numeric'
+  });
+};
+
+const PublicationCard: React.FC<{
+  publication: CatalogPublicationResult;
+  viewMode: ViewMode;
+  downloading: boolean;
+  onPreview: (publication: CatalogPublicationResult) => void;
+  onCite: (publication: CatalogPublicationResult) => void;
+  onDownload: (publication: CatalogPublicationResult) => void;
+}> = ({ publication, viewMode, downloading, onPreview, onCite, onDownload }) => {
+  const { language, translations } = useLanguage();
+  const title = publication.title || translations.publications_page.title;
+  const type = publication.type ? publicationTypes[publication.type] || publication.type.replaceAll('_', ' ').toLowerCase() : null;
+  const date = formatDate(publication.publishedAt, language);
+
+  return (
+    <article className={`catalog-publication-card ${viewMode === 'list' ? 'catalog-publication-card--list' : ''}`}>
+      <div className="catalog-cover" aria-hidden="true">
+        <span className="catalog-cover__brand">GALILEO / PUBLICATION</span>
+        <span className="catalog-cover__rule" />
+        {type && <span className="catalog-cover__type">{type}</span>}
+      </div>
+      <div className="catalog-publication-card__content">
+        <div className="catalog-publication-card__details">
+          {publication.domainName && <p className="catalog-publication-card__domain">{publication.domainName}</p>}
+          <h2 className="catalog-publication-card__title">
+            <NavLink to={`/publication/${publication.id}`}>{title}</NavLink>
+          </h2>
+          {(publication.authors.length > 0 || date) && (
+            <p className="catalog-publication-card__meta">
+              {[publication.authors.join(', '), date].filter(Boolean).join(' · ')}
+            </p>
+          )}
+          {publication.abstractText && <p className="catalog-publication-card__summary">{publication.abstractText}</p>}
+        </div>
+        <div className="catalog-publication-card__actions">
+          <NavLink to={`/publication/${publication.id}`} className="catalog-read-link">
+            {translations.publications_page.read_article}
+            <span aria-hidden="true">→</span>
+          </NavLink>
+          <div className="catalog-secondary-actions">
+            <button type="button" onClick={() => onPreview(publication)} title={translations.publications_page.preview}>
+              {translations.publications_page.preview}
+            </button>
+            <button type="button" onClick={() => onCite(publication)} title={translations.publications_page.cite}>
+              {translations.publications_page.cite}
+            </button>
+            {publication.hasDocument && <button type="button" onClick={() => onDownload(publication)} disabled={downloading} title={translations.publications_page.download_pdf}>
+              {downloading ? '…' : 'PDF'}
+            </button>}
+          </div>
+        </div>
+      </div>
+    </article>
+  );
+};
 
 const PublicationsPage: React.FC = () => {
-    const { language, translations } = useLanguage();
-    const { publications, loading, error, refreshPublications } = usePublications();
-    
-    const [searchTerm, setSearchTerm] = useState('');
-    const [domainFilter, setDomainFilter] = useState('All');
-    const [authorFilter, setAuthorFilter] = useState('All');
-    const [yearFilter, setYearFilter] = useState('All');
-    const [sortBy, setSortBy] = useState('date-desc');
-    const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-    const [currentPage, setCurrentPage] = useState(1);
-    
-    const [selectedPub, setSelectedPub] = useState<Publication | null>(null);
-    const [isPreviewModalOpen, setPreviewModalOpen] = useState(false);
-    const [isCiteModalOpen, setCiteModalOpen] = useState(false);
-    
-    const [copiedCite, setCopiedCite] = useState('');
+  const { language, translations } = useLanguage();
+  const { publications } = usePublications();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const routeQuery = searchParams.get('q') || '';
+  const [searchDraft, setSearchDraft] = useState(routeQuery);
+  const [query, setQuery] = useState(routeQuery);
+  const [domain, setDomain] = useState('');
+  const [type, setType] = useState('');
+  const [academicYear, setAcademicYear] = useState('');
+  const [sortBy, setSortBy] = useState<SortBy>('publishedAt');
+  const [direction, setDirection] = useState<'asc' | 'desc'>('desc');
+  const [viewMode, setViewMode] = useState<ViewMode>('grid');
+  const [page, setPage] = useState(0);
+  const [results, setResults] = useState<CatalogPublicationResult[]>([]);
+  const [totalHits, setTotalHits] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedPublication, setSelectedPublication] = useState<CatalogPublicationResult | null>(null);
+  const [modal, setModal] = useState<'preview' | 'cite' | null>(null);
+  const [copiedFormat, setCopiedFormat] = useState('');
+  const [downloadingId, setDownloadingId] = useState<number | null>(null);
+  const [downloadError, setDownloadError] = useState('');
 
-    // Rafraîchir les publications au montage de la page
-    useEffect(() => {
-        refreshPublications();
-    }, []);
+  useEffect(() => {
+    setSearchDraft(routeQuery);
+    setQuery(routeQuery);
+    setPage(0);
+  }, [routeQuery]);
 
-    // Ce hook doit être appelé avant tout return conditionnel
-    const { domains, authors, years, filteredPublications } = useMemo(() => {
-        const uniqueDomains = [...new Set(publications.map(p => p.domain[language]))].sort();
-        const uniqueAuthors = [...new Set(publications.flatMap(p => p.authors))].sort();
-        const uniqueYears = [...new Set(publications.map(p => new Date(p.date).getFullYear().toString()))].sort((a,b) => b.localeCompare(a));
+  const domains = useMemo(() => [...new Set(
+    publications.map(publication => publication.domain[language]).filter(Boolean)
+  )].sort((a, b) => a.localeCompare(b, language)), [language, publications]);
 
-        let processedPubs = publications.filter(pub => {
-            const pubYear = new Date(pub.date).getFullYear().toString();
-            const matchesDomain = domainFilter === 'All' || pub.domain[language] === domainFilter;
-            const matchesAuthor = authorFilter === 'All' || pub.authors.includes(authorFilter);
-            const matchesYear = yearFilter === 'All' || pubYear === yearFilter;
-            const lowerCaseSearchTerm = searchTerm.toLowerCase();
-            const matchesSearch = searchTerm === '' ||
-                                  pub.title[language].toLowerCase().includes(lowerCaseSearchTerm) ||
-                                  pub.authors.some(author => author.toLowerCase().includes(lowerCaseSearchTerm)) ||
-                                  pub.tags.some(tag => tag.toLowerCase().includes(lowerCaseSearchTerm));
-            return matchesDomain && matchesAuthor && matchesYear && matchesSearch;
-        });
-        
-        processedPubs.sort((a, b) => {
-            switch (sortBy) {
-                case 'title-asc':
-                    return a.title[language].localeCompare(b.title[language]);
-                case 'views-desc':
-                     return (b.id % 5) - (a.id % 5);
-                case 'date-desc':
-                default:
-                    return new Date(b.date).getTime() - new Date(a.date).getTime();
-            }
-        });
+  const academicYears = useMemo(() => [...new Set(
+    publications.map(publication => publication.academicYear).filter((year): year is string => Boolean(year))
+  )].sort((a, b) => b.localeCompare(a)), [publications]);
 
-        return { domains: uniqueDomains, authors: uniqueAuthors, years: uniqueYears, filteredPublications: processedPubs };
-    }, [searchTerm, domainFilter, authorFilter, yearFilter, sortBy, language, publications]);
+  const loadCatalog = useCallback(async (signal?: AbortSignal) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await searchService.searchCatalog({
+        query,
+        domain,
+        type,
+        academicYear,
+        page,
+        size: PAGE_SIZE,
+        sortBy,
+        direction,
+        signal
+      });
+      if (!signal?.aborted) {
+        setResults(response.publications || []);
+        setTotalHits(response.totalHits || 0);
+        setTotalPages(response.totalPages || 0);
+      }
+    } catch {
+      if (!signal?.aborted) setError(language === 'fr' ? 'Impossible de charger les publications.' : 'Publications could not be loaded.');
+    } finally {
+      if (!signal?.aborted) setLoading(false);
+    }
+  }, [academicYear, direction, domain, language, page, query, sortBy, type]);
 
-    const itemsPerPage = 12;
-    const totalPages = Math.ceil(filteredPublications.length / itemsPerPage);
-    const paginatedPublications = filteredPublications.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
-
-    const handleReset = () => {
-        setSearchTerm('');
-        setDomainFilter('All');
-        setAuthorFilter('All');
-        setYearFilter('All');
-        setSortBy('date-desc');
-        setCurrentPage(1);
+  useEffect(() => {
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => loadCatalog(controller.signal), 180);
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
     };
+  }, [loadCatalog]);
 
-    const handlePreview = (pub: Publication) => {
-        setSelectedPub(pub);
-        setPreviewModalOpen(true);
+  const submitSearch = (value: string) => {
+    setQuery(value.trim());
+    setPage(0);
+    if (value.trim()) setSearchParams({ q: value.trim() });
+    else setSearchParams({});
+  };
+
+  const setFilter = (setter: (value: string) => void, value: string) => {
+    setter(value);
+    setPage(0);
+  };
+
+  const generateCitation = (publication: CatalogPublicationResult, format: 'bibtex' | 'ris') => {
+    const year = publication.publishedAt ? new Date(publication.publishedAt).getFullYear() : '';
+    const authors = publication.authors || [];
+    if (format === 'bibtex') {
+      const key = `${authors[0]?.split(' ').at(-1) || 'Galileo'}${year}${publication.id}`;
+      return `@article{${key},\n  title={${publication.title}},\n  author={${authors.join(' and ')}},\n  journal={GALILEO},\n  year={${year}}\n}`;
     }
-    
-    const handleCite = (pub: Publication) => {
-        setSelectedPub(pub);
-        setCiteModalOpen(true);
+    return `TY  - JOUR\n${authors.map(author => `AU  - ${author}`).join('\n')}\nTI  - ${publication.title}\n${year ? `PY  - ${year}\n` : ''}JO  - GALILEO\nER  -`;
+  };
+
+  const copyCitation = async (format: 'bibtex' | 'ris') => {
+    if (!selectedPublication) return;
+    await navigator.clipboard.writeText(generateCitation(selectedPublication, format));
+    setCopiedFormat(format);
+    window.setTimeout(() => setCopiedFormat(''), 1800);
+  };
+
+  const openModal = (publication: CatalogPublicationResult, kind: 'preview' | 'cite') => {
+    setSelectedPublication(publication);
+    setModal(kind);
+  };
+
+  const retry = () => void loadCatalog();
+
+  const downloadPublication = async (publication: CatalogPublicationResult) => {
+    setDownloadingId(publication.id);
+    setDownloadError('');
+    try {
+      const url = await publicationsService.getDownloadUrl(publication.id);
+      window.location.assign(url);
+    } catch {
+      setDownloadError(language === 'fr' ? 'Le PDF est momentanément indisponible.' : 'The PDF is temporarily unavailable.');
+    } finally {
+      setDownloadingId(null);
     }
+  };
 
-    const generateCitation = (pub: Publication, format: 'bibtex' | 'ris') => {
-        const year = new Date(pub.date).getFullYear();
-        const authors = pub.authors.join(' and ');
-        if (format === 'bibtex') {
-            return `@article{${pub.authors[0].split(' ')[0]}${year}${pub.title[language].split(' ')[0].replace(/[^a-zA-Z]/g, "")},
-  title={${pub.title[language]}},
-  author={${authors}},
-  journal={GALILEO - Revue Scientifique Étudiante},
-  year={${year}}
-}`;
-        }
-        if (format === 'ris') {
-            return `TY  - JOUR
-AU  - ${pub.authors.join('\nAU  - ')}
-TI  - ${pub.title[language]}
-PY  - ${year}
-JO  - GALILEO - Revue Scientifique Étudiante
-ER  -`;
-        }
-        return '';
-    };
+  return (
+    <main id="catalog-page" className="catalog-page min-h-[calc(100vh-74px)]">
+      <div className="catalog-content">
+        <header className="catalog-heading">
+          <p className="catalog-eyebrow">{language === 'fr' ? 'CATALOGUE SCIENTIFIQUE' : 'SCIENTIFIC CATALOG'}</p>
+          <h1>{translations.publications_page.title}</h1>
+          <p>{language === 'fr'
+            ? 'Parcourez les travaux publiés et recherchez par titre, auteur, domaine ou type de publication.'
+            : 'Browse published research and search by title, author, domain, or publication type.'}</p>
+        </header>
 
-    const handleCopy = (text: string, type: string) => {
-        navigator.clipboard.writeText(text);
-        setCopiedCite(type);
-        setTimeout(() => setCopiedCite(''), 2000);
-    }
+        <section className="catalog-controls" aria-label={language === 'fr' ? 'Recherche et filtres' : 'Search and filters'}>
+          <SearchBarWithAutocomplete
+            className="catalog-search"
+            placeholder={translations.publications_page.search_placeholder}
+            value={searchDraft}
+            onChange={setSearchDraft}
+            onSearch={submitSearch}
+          />
+          <label className="catalog-select catalog-select--domain">
+            <span className="sr-only">{translations.publications_page.filter_domain}</span>
+            <select value={domain} onChange={event => setFilter(setDomain, event.target.value)}>
+              <option value="">{translations.publications_page.all_domains}</option>
+              {domains.map(value => <option key={value} value={value}>{value}</option>)}
+            </select>
+          </label>
+          <label className="catalog-select catalog-select--type">
+            <span className="sr-only">Type de document</span>
+            <select value={type} onChange={event => setFilter(setType, event.target.value)}>
+              <option value="">Type de document</option>
+              {Object.entries(publicationTypes).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+            </select>
+          </label>
+          <label className="catalog-select catalog-select--year">
+            <span className="sr-only">Année académique</span>
+            <select value={academicYear} onChange={event => setFilter(setAcademicYear, event.target.value)}>
+              <option value="">Année</option>
+              {academicYears.map(value => <option key={value} value={value}>{value}</option>)}
+            </select>
+          </label>
+          <label className="catalog-select catalog-select--sort">
+            <span className="sr-only">Trier les publications</span>
+            <select
+              value={`${sortBy}:${direction}`}
+              onChange={event => {
+                const [field, order] = event.target.value.split(':') as [SortBy, 'asc' | 'desc'];
+                setSortBy(field);
+                setDirection(order);
+                setPage(0);
+              }}
+            >
+              <option value="publishedAt:desc">Plus récents</option>
+              <option value="title:asc">Titre A-Z</option>
+              <option value="viewCount:desc">Plus consultés</option>
+            </select>
+          </label>
+        </section>
 
-    // Afficher un loader pendant le chargement (APRÈS tous les hooks)
-    if (loading) {
-        return (
-            <div className="min-h-screen flex items-center justify-center">
-                <div className="text-center">
-                    <svg className="animate-spin h-12 w-12 mx-auto text-light-accent dark:text-teal" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    <p className="mt-4 text-light-text dark:text-off-white">{(translations.publications_page as any)?.loading || 'Chargement des publications...'}</p>
-                </div>
-            </div>
-        );
-    }
-
-    // Afficher une erreur si nécessaire (APRÈS tous les hooks)
-    if (error) {
-        return (
-            <div className="min-h-screen flex items-center justify-center">
-                <div className="text-center">
-                    <p className="text-red-500 mb-4">{error}</p>
-                    <button onClick={refreshPublications} className="bg-light-accent dark:bg-teal text-white px-4 py-2 rounded-full">
-                        Réessayer
-                    </button>
-                </div>
-            </div>
-        );
-    }
-
-    const inputClasses = "w-full bg-light-card dark:bg-navy/70 border border-light-border dark:border-dark-border rounded-md shadow-sm py-2 px-3 text-light-text dark:text-off-white focus:outline-none focus:ring-light-accent dark:focus:ring-teal focus:border-light-accent dark:focus:border-teal";
-
-    return (
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-24 animate-slide-in-up">
-            <h1 className="text-4xl font-poppins font-bold text-center mb-12 text-light-text dark:text-off-white">{translations.publications_page.title}</h1>
-            
-            <div className="bg-light-bg dark:bg-navy/30 border border-light-border dark:border-dark-border rounded-lg p-4 mb-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
-                <div className="lg:col-span-2">
-                     <label htmlFor="search-input" className="text-xs text-light-text-secondary dark:text-gray-400">{translations.publications_page.search_placeholder}</label>
-                    <input
-                        id="search-input"
-                        type="text"
-                        placeholder={translations.publications_page.search_placeholder}
-                        value={searchTerm}
-                        onChange={e => { setSearchTerm(e.target.value); setCurrentPage(1); }}
-                        className={inputClasses}
-                        aria-label={translations.publications_page.search_placeholder}
-                    />
-                </div>
-                 <div>
-                    <label className="text-xs text-light-text-secondary dark:text-gray-400">{translations.publications_page.filter_domain}</label>
-                    <select value={domainFilter} onChange={e => { setDomainFilter(e.target.value); setCurrentPage(1); }} className={inputClasses}>
-                        <option value="All">{translations.publications_page.all_domains}</option>
-                        {domains.map(d => <option key={d} value={d}>{d}</option>)}
-                    </select>
-                </div>
-                <div>
-                     <label className="text-xs text-light-text-secondary dark:text-gray-400">{translations.publications_page.filter_author}</label>
-                     <select value={authorFilter} onChange={e => { setAuthorFilter(e.target.value); setCurrentPage(1); }} className={inputClasses}>
-                        <option value="All">{translations.publications_page.all_authors}</option>
-                        {authors.map(a => <option key={a} value={a}>{a}</option>)}
-                    </select>
-                </div>
-                <button onClick={handleReset} className="w-full bg-light-accent/10 dark:bg-teal/20 text-light-accent dark:text-teal font-semibold py-2 px-3 rounded-md hover:bg-light-accent dark:hover:bg-teal hover:text-white dark:hover:text-navy transition-colors duration-300 h-10">{translations.publications_page.reset_filters}</button>
-            </div>
-            
-             <div className="flex justify-between items-center mb-6">
-                 <div className="text-sm text-light-text-secondary dark:text-gray-400">
-                    {filteredPublications.length} {filteredPublications.length > 1 ? 'résultats' : 'résultat'}
-                </div>
-                 <div className="flex items-center gap-4">
-                     <select value={sortBy} onChange={e => setSortBy(e.target.value)} className={`${inputClasses} text-sm !py-1`}>
-                         <option value="date-desc">{translations.publications_page.sort_newest}</option>
-                         <option value="views-desc">{translations.publications_page.sort_views}</option>
-                         <option value="title-asc">{translations.publications_page.sort_az}</option>
-                     </select>
-                    <div className="flex items-center gap-1 bg-light-card dark:bg-navy/70 border border-light-border dark:border-dark-border rounded-md p-1">
-                         <button onClick={() => setViewMode('grid')} className={`px-2 py-1 rounded text-sm ${viewMode === 'grid' ? 'bg-light-accent dark:bg-teal text-white dark:text-navy' : 'text-light-text-secondary dark:text-gray-400'}`}>Grid</button>
-                         <button onClick={() => setViewMode('list')} className={`px-2 py-1 rounded text-sm ${viewMode === 'list' ? 'bg-light-accent dark:bg-teal text-white dark:text-navy' : 'text-light-text-secondary dark:text-gray-400'}`}>List</button>
-                    </div>
-                </div>
-            </div>
-
-            <div className={viewMode === 'grid' ? "grid md:grid-cols-2 lg:grid-cols-3 gap-8" : "flex flex-col gap-6"}>
-                {paginatedPublications.map(pub => (
-                    <PublicationCard key={pub.id} pub={pub} viewMode={viewMode} onPreview={handlePreview} onCite={handleCite} />
-                ))}
-            </div>
-
-            {totalPages > 1 && (
-                <div className="flex justify-center items-center gap-2 mt-12">
-                    {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-                        <button key={page} onClick={() => setCurrentPage(page)} className={`w-10 h-10 rounded-full transition-colors ${currentPage === page ? 'bg-light-accent dark:bg-teal text-white dark:text-navy' : 'bg-light-card dark:bg-navy/50 hover:bg-light-accent/20 dark:hover:bg-teal/20'}`}>
-                            {page}
-                        </button>
-                    ))}
-                </div>
-            )}
-            
-            {selectedPub && (
-                 <>
-                 <Modal isOpen={isPreviewModalOpen} onClose={() => setPreviewModalOpen(false)} title={selectedPub.title[language]}>
-                     <div className="space-y-4">
-                         <p className="text-sm text-light-accent dark:text-teal">{selectedPub.authors.join(', ')}</p>
-                         <p className="text-light-text-secondary dark:text-gray-300 break-words overflow-hidden">{selectedPub.summary[language]}</p>
-                         <div className="flex flex-wrap gap-2 pt-4 border-t border-light-border dark:border-dark-border">
-                              <NavLink to={`/publication/${selectedPub.id}`} className="flex-1 text-center bg-light-accent dark:bg-teal text-white dark:text-navy font-bold py-2 px-4 rounded-full hover:bg-light-accent-hover dark:hover:bg-opacity-80 transition-all duration-300">
-                                {translations.publications_page.read_article}
-                            </NavLink>
-                             {selectedPub.pdfUrl ? (
-                                <a href={selectedPub.pdfUrl} download className="flex-1 text-center border border-light-accent dark:border-teal text-light-accent dark:text-teal font-bold py-2 px-4 rounded-full hover:bg-light-accent dark:hover:bg-teal hover:text-white dark:hover:text-navy transition-colors duration-300">
-                                    {translations.publications_page.download_pdf}
-                                </a>
-                            ) : null}
-                         </div>
-                     </div>
-                 </Modal>
-
-                 <Modal isOpen={isCiteModalOpen} onClose={() => setCiteModalOpen(false)} title={translations.publications_page.citation_title}>
-                     <div className="space-y-4">
-                         <div>
-                            <div className="flex justify-between items-center mb-1">
-                                <h4 className="font-bold text-light-text dark:text-off-white">BibTeX</h4>
-                                <button onClick={() => handleCopy(generateCitation(selectedPub, 'bibtex'), 'bibtex')} className="text-xs bg-light-accent/10 dark:bg-teal/20 text-light-accent dark:text-teal px-2 py-1 rounded-md">{copiedCite === 'bibtex' ? translations.publications_page.copied : translations.publications_page.copy}</button>
-                            </div>
-                            <pre className="bg-light-bg dark:bg-navy-dark p-2 rounded text-xs text-light-text-secondary dark:text-gray-400 whitespace-pre-wrap break-all"><code>{generateCitation(selectedPub, 'bibtex')}</code></pre>
-                         </div>
-                          <div>
-                            <div className="flex justify-between items-center mb-1">
-                                <h4 className="font-bold text-light-text dark:text-off-white">RIS</h4>
-                                 <button onClick={() => handleCopy(generateCitation(selectedPub, 'ris'), 'ris')} className="text-xs bg-light-accent/10 dark:bg-teal/20 text-light-accent dark:text-teal px-2 py-1 rounded-md">{copiedCite === 'ris' ? translations.publications_page.copied : translations.publications_page.copy}</button>
-                            </div>
-                            <pre className="bg-light-bg dark:bg-navy-dark p-2 rounded text-xs text-light-text-secondary dark:text-gray-400 whitespace-pre-wrap break-all"><code>{generateCitation(selectedPub, 'ris')}</code></pre>
-                         </div>
-                     </div>
-                 </Modal>
-                 </>
-            )}
-
+        <div className="catalog-results-meta">
+          <p aria-live="polite">
+            {loading
+              ? (language === 'fr' ? 'Chargement des publications…' : 'Loading publications…')
+              : `${totalHits} ${totalHits === 1 ? 'publication disponible' : 'publications disponibles'}`}
+          </p>
+          <div className="catalog-view-toggle" role="group" aria-label="Mode d’affichage">
+            <span>Affichage :</span>
+            <button type="button" aria-pressed={viewMode === 'grid'} onClick={() => setViewMode('grid')}>Grille</button>
+            <button type="button" aria-pressed={viewMode === 'list'} onClick={() => setViewMode('list')}>Liste</button>
+          </div>
         </div>
-    );
+        {downloadError && <p className="catalog-download-error" role="alert">{downloadError}</p>}
+
+        {error ? (
+          <div className="catalog-state catalog-state--error" role="alert">
+            <p>{error}</p>
+            <button type="button" onClick={retry}>{language === 'fr' ? 'Réessayer' : 'Retry'}</button>
+          </div>
+        ) : loading ? (
+          <div className={`catalog-grid ${viewMode === 'list' ? 'catalog-grid--list' : ''}`} aria-label="Chargement">
+            {Array.from({ length: PAGE_SIZE }, (_, index) => <div className="catalog-skeleton" key={index} />)}
+          </div>
+        ) : results.length === 0 ? (
+          <div className="catalog-state">
+            <h2>{language === 'fr' ? 'Aucune publication trouvée' : 'No publications found'}</h2>
+            <p>{language === 'fr' ? 'Essayez de modifier votre recherche ou vos filtres.' : 'Try changing your search or filters.'}</p>
+            {(query || domain || type || academicYear) && <button type="button" onClick={() => {
+              setSearchDraft('');
+              setQuery('');
+              setDomain('');
+              setType('');
+              setAcademicYear('');
+              setPage(0);
+              setSearchParams({});
+            }}>{language === 'fr' ? 'Effacer les filtres' : 'Clear filters'}</button>}
+          </div>
+        ) : (
+          <div className={`catalog-grid ${viewMode === 'list' ? 'catalog-grid--list' : ''}`}>
+            {results.map(publication => <PublicationCard
+              key={publication.id}
+              publication={publication}
+              viewMode={viewMode}
+              downloading={downloadingId === publication.id}
+              onPreview={publication => openModal(publication, 'preview')}
+              onCite={publication => openModal(publication, 'cite')}
+              onDownload={publication => void downloadPublication(publication)}
+            />)}
+          </div>
+        )}
+
+        {!error && totalPages > 1 && (
+          <nav className="catalog-pagination" aria-label="Pagination du catalogue">
+            <button type="button" disabled={page === 0 || loading} onClick={() => setPage(value => Math.max(0, value - 1))}>Précédent</button>
+            <span>Page {page + 1} sur {totalPages}</span>
+            <button type="button" disabled={page >= totalPages - 1 || loading} onClick={() => setPage(value => Math.min(totalPages - 1, value + 1))}>Suivant</button>
+          </nav>
+        )}
+      </div>
+
+      {selectedPublication && (
+        <>
+          <Modal isOpen={modal === 'preview'} onClose={() => setModal(null)} title={selectedPublication.title}>
+            <div className="space-y-4">
+              {selectedPublication.authors.length > 0 && <p className="text-sm text-[#00838f]">{selectedPublication.authors.join(', ')}</p>}
+              {selectedPublication.domainName && <p className="text-sm text-gray-500">{selectedPublication.domainName}</p>}
+              {selectedPublication.abstractText && <p className="break-words text-sm text-gray-700 dark:text-gray-300">{selectedPublication.abstractText}</p>}
+              <NavLink to={`/publication/${selectedPublication.id}`} className="inline-flex rounded-[7px] bg-[#00838f] px-4 py-2 text-sm font-semibold text-white">{translations.publications_page.read_article}</NavLink>
+            </div>
+          </Modal>
+          <Modal isOpen={modal === 'cite'} onClose={() => setModal(null)} title={translations.publications_page.citation_title}>
+            <div className="space-y-4">
+              {(['bibtex', 'ris'] as const).map(format => (
+                <section key={format}>
+                  <div className="mb-1 flex items-center justify-between">
+                    <h3 className="font-semibold">{format.toUpperCase()}</h3>
+                    <button type="button" onClick={() => void copyCitation(format)} className="rounded-[6px] border border-[#e3e8ed] px-2 py-1 text-xs text-[#14786e]">
+                      {copiedFormat === format ? translations.publications_page.copied : translations.publications_page.copy}
+                    </button>
+                  </div>
+                  <pre className="whitespace-pre-wrap break-all rounded-[6px] bg-[#f5f8fa] p-3 text-xs text-[#494f58]">{generateCitation(selectedPublication, format)}</pre>
+                </section>
+              ))}
+            </div>
+          </Modal>
+        </>
+      )}
+    </main>
+  );
 };
 
 export default PublicationsPage;
