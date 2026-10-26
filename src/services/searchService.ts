@@ -127,11 +127,11 @@ export const searchService = {
   /**
    * Recherche de publications similaires
    */
-  async getSimilarPublications(id: number, limit: number = 5): Promise<SearchResult[]> {
+  async getSimilarPublications(id: number, limit: number = 5): Promise<CatalogPublicationResult[]> {
     const response = await apiClient.get(`/search/publications/${id}/similar`, {
       params: { limit }
     });
-    return response.data.content || [];
+    return Array.isArray(response.data) ? response.data : [];
   },
 
   /**

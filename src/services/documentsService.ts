@@ -1,6 +1,6 @@
 import apiClient from './apiService';
 
-export type DocumentProcessingStatus = 'RECEIVED' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
+export type DocumentProcessingStatus = 'UPLOADED' | 'RECEIVED' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
 
 export interface DocumentDTO {
   id: number;
@@ -9,6 +9,7 @@ export interface DocumentDTO {
   fileKey: string;
   fileSize: number;
   mimeType: string;
+  pageCount?: number | null;
   version: number;
   processingStatus: DocumentProcessingStatus;
   processingError?: string;
@@ -27,12 +28,25 @@ export const documentsService = {
     return response.data;
   },
 
-  /**
-   * Récupère la liste des versions de documents d'une publication
-   */
-  async getDocumentsByPublication(publicationId: number): Promise<DocumentDTO[]> {
+  async getDocumentsByPublication(publicationId: number): Promise<DocumentDTO> {
     const response = await apiClient.get(`/documents/publication/${publicationId}`);
     return response.data;
+  },
+
+  async getDocumentForPublication(publicationId: number): Promise<DocumentDTO> {
+    return this.getDocumentsByPublication(publicationId);
+  },
+
+  async getDocumentBlob(documentId: number): Promise<Blob> {
+    const response = await apiClient.get(`/documents/${documentId}/download`, {
+      responseType: 'blob'
+    });
+    const blob = response.data as Blob;
+    const signature = await blob.slice(0, 5).text();
+    if (!signature.startsWith('%PDF-')) {
+      throw new Error('Le fichier reçu n’est pas un PDF valide.');
+    }
+    return blob;
   },
 
   /**

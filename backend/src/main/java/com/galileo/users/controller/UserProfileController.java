@@ -6,6 +6,7 @@ import com.galileo.auth.repository.UserRepository;
 import com.galileo.auth.security.CustomUserDetails;
 import com.galileo.common.dto.ApiResponse;
 import com.galileo.common.exception.BadRequestException;
+import com.galileo.common.exception.ForbiddenException;
 import com.galileo.common.exception.ResourceNotFoundException;
 import com.galileo.publications.entity.Publication;
 import com.galileo.publications.repository.PublicationRepository;
@@ -277,7 +278,8 @@ public class UserProfileController {
             m.put("publicationTitle", h.getPublication().getTitle());
             m.put("publicationDomain", h.getPublication().getDomain() != null ? h.getPublication().getDomain().getName() : "");
             m.put("readAt", h.getReadAt() != null ? h.getReadAt().toString() : "");
-            m.put("readProgress", h.getCompleted() != null && h.getCompleted() ? 100 : 50);
+            m.put("readProgress", h.getProgress() != null ? Math.round(h.getProgress() * 100) : null);
+            m.put("durationSeconds", h.getDurationSeconds());
             return m;
         }).toList();
 
@@ -295,14 +297,18 @@ public class UserProfileController {
         Pageable pageable = PageRequest.of(Math.max(0, page), Math.max(1, size));
         Page<ReadingHistory> histPage = readingHistoryRepository.findByUserIdOrderByReadAtDesc(targetId, pageable);
 
-        Page<Map<String, Object>> mapped = histPage.map(h -> Map.of(
-                "id", h.getId(),
-                "userId", String.valueOf(h.getUser().getId()),
-                "publicationId", h.getPublication().getId(),
-                "publicationTitle", h.getPublication().getTitle(),
-                "readAt", h.getReadAt() != null ? h.getReadAt().toString() : "",
-                "readProgress", h.getCompleted() != null && h.getCompleted() ? 100 : 50
-        ));
+        Page<Map<String, Object>> mapped = histPage.map(h -> {
+            Map<String, Object> item = new HashMap<>();
+            item.put("id", h.getId());
+            item.put("userId", String.valueOf(h.getUser().getId()));
+            item.put("publicationId", h.getPublication().getId());
+            item.put("publicationTitle", h.getPublication().getTitle());
+            item.put("publicationDomain", h.getPublication().getDomain() != null ? h.getPublication().getDomain().getName() : "");
+            item.put("readAt", h.getReadAt() != null ? h.getReadAt().toString() : "");
+            item.put("readProgress", h.getProgress() != null ? Math.round(h.getProgress() * 100) : null);
+            item.put("durationSeconds", h.getDurationSeconds());
+            return item;
+        });
         return ResponseEntity.ok(mapped);
     }
 
@@ -361,7 +367,11 @@ public class UserProfileController {
             return userDetails.getId();
         }
         try {
-            return Long.parseLong(userIdStr);
+            Long requestedId = Long.parseLong(userIdStr);
+            if (!requestedId.equals(userDetails.getId())) {
+                throw new ForbiddenException("Accès interdit aux données personnelles d’un autre utilisateur");
+            }
+            return requestedId;
         } catch (NumberFormatException e) {
             return userDetails.getId();
         }

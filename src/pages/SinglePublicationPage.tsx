@@ -1,239 +1,278 @@
-import React, { useState, useEffect } from 'react';
-import { useParams, NavLink } from 'react-router-dom';
-import { useLanguage } from '../contexts/LanguageContext';
-import { usePublications } from '../contexts/PublicationsContext';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { NavLink, useParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { publicationsService } from '../services/publicationsService';
+import { useLanguage } from '../contexts/LanguageContext';
 import { analyticsService } from '../services/analyticsService';
+import { documentsService, type DocumentDTO } from '../services/documentsService';
+import { publicationsService } from '../services/publicationsService';
 import { readingHistoryService } from '../services/readingHistoryService';
 import type { Publication } from '../types';
-import PdfViewer from '../components/PdfViewer';
-import FavoriteButton from '../components/FavoriteButton';
-import SimilarPublications from '../components/SimilarPublications';
-import ReadingProgress from '../components/ReadingProgress';
 import AIAssistantWidget from '../components/AIAssistantWidget';
+import FavoriteButton from '../components/FavoriteButton';
+import PdfViewer from '../components/PdfViewer';
+import ReadingProgress from '../components/ReadingProgress';
+import SimilarPublications from '../components/SimilarPublications';
+import './publication-detail.css';
 
-// Composant pour le bouton de téléchargement avec enregistrement et tracking
-const DownloadButton: React.FC<{ publicationId: number; title?: string }> = ({ publicationId, title }) => {
-  const { translations } = useLanguage();
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const handleDownload = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const url = await publicationsService.getDownloadUrl(publicationId);
-      
-      // Tracker le téléchargement pour analytics
-      await analyticsService.trackDownload(publicationId, title || `publication-${publicationId}`, 'pdf');
-      
-      // Ouvrir le téléchargement
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = '';
-      link.target = '_blank';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    } catch (err: any) {
-      setError('Erreur lors du téléchargement');
-      console.error('Erreur téléchargement:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <>
-      <button
-        onClick={handleDownload}
-        disabled={loading}
-        className="inline-block bg-light-accent dark:bg-teal text-white dark:text-navy font-bold py-3 px-6 rounded-full hover:bg-light-accent-hover dark:hover:bg-opacity-80 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
-      >
-        {loading ? '⏳ Téléchargement...' : translations.publications_page.download_pdf}
-      </button>
-      {error && <p className="text-red-500 text-sm mt-2">{error}</p>}
-    </>
-  );
-};
+type DetailState = 'loading' | 'ready' | 'not-found';
+type DocumentState = 'loading' | 'ready' | 'missing' | 'error';
 
 const SinglePublicationPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  const { language, translations } = useLanguage();
-  const { publications } = usePublications();
+  const { language } = useLanguage();
   const { isAuthenticated } = useAuth();
   const [publication, setPublication] = useState<Publication | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [detailState, setDetailState] = useState<DetailState>('loading');
+  const [document, setDocument] = useState<DocumentDTO | null>(null);
+  const [documentState, setDocumentState] = useState<DocumentState>('loading');
+  const [currentPage, setCurrentPage] = useState(1);
   const [isAIOpen, setIsAIOpen] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [downloadError, setDownloadError] = useState(false);
+
+  const publicationId = Number(id);
+  const onPageChange = useCallback((page: number) => setCurrentPage(page), []);
 
   useEffect(() => {
-    const loadPublication = async () => {
-      if (!id) return;
-      
-      // Essayer d'abord de trouver dans le contexte (déjà chargé)
-      const cachedPub = publications.find(p => p.id.toString() === id);
-      if (cachedPub) {
-        setPublication(cachedPub);
-        setLoading(false);
-        // Tracker la vue et l'historique
-        trackView(cachedPub.id, cachedPub.title[language]);
-        return;
-      }
+    let active = true;
+    if (!Number.isInteger(publicationId) || publicationId < 1) {
+      setPublication(null);
+      setDetailState('not-found');
+      return () => { active = false; };
+    }
 
-      // Sinon, charger depuis l'API
-      try {
-        setLoading(true);
-        const dto = await publicationsService.getPublicationById(parseInt(id));
-        const pub = publicationsService.dtoToPublication(dto);
-        setPublication(pub);
-        // Tracker la vue et l'historique
-        trackView(pub.id, pub.title[language]);
-      } catch (err) {
-        console.error('Erreur lors du chargement de la publication:', err);
-        setError('Publication non trouvée');
-      } finally {
-        setLoading(false);
-      }
-    };
+    setPublication(null);
+    setDocument(null);
+    setDetailState('loading');
+    setDocumentState('loading');
+    setCurrentPage(1);
 
-    loadPublication();
-  }, [id, publications]);
+    publicationsService.getPublicationById(publicationId)
+      .then(dto => {
+        if (!active) return;
+        const result = publicationsService.dtoToPublication(dto);
+        setPublication(result);
+        setDetailState('ready');
+      })
+      .catch(() => {
+        if (active) setDetailState('not-found');
+      });
 
-  // Tracker la vue pour analytics et historique
-  const trackView = async (pubId: number, title: string) => {
+    return () => { active = false; };
+  }, [publicationId]);
+
+  useEffect(() => {
+    if (!publication) return;
+    void Promise.all([
+      analyticsService.trackPublicationView(publication.id, publication.title.fr || publication.title.en),
+      isAuthenticated ? readingHistoryService.recordReading(publication.id) : Promise.resolve()
+    ]).catch(() => undefined);
+  }, [publication?.id, isAuthenticated]);
+
+  useEffect(() => {
+    let active = true;
+    if (!publication) return () => { active = false; };
+
+    setDocumentState('loading');
+    documentsService.getDocumentForPublication(publication.id)
+      .then(result => {
+        if (!active) return;
+        setDocument(result);
+        setDocumentState('ready');
+      })
+      .catch(error => {
+        if (!active) return;
+        setDocument(null);
+        setDocumentState(error?.response?.status === 404 ? 'missing' : 'error');
+      });
+
+    return () => { active = false; };
+  }, [publication?.id]);
+
+  useEffect(() => {
+    if (document?.pageCount && document.pageCount > 0) {
+      setCurrentPage(page => Math.min(page, document.pageCount!));
+    }
+  }, [document?.pageCount]);
+
+  const title = useMemo(() => {
+    if (!publication) return '';
+    return publication.title[language] || publication.title.fr || publication.title.en || '';
+  }, [language, publication]);
+  const authors = useMemo(() => publication?.authors.filter(Boolean) ?? [], [publication]);
+  const domain = publication?.domain[language] || publication?.domain.fr || publication?.domain.en || '';
+  const abstract = publication?.summary[language] || publication?.summary.fr || publication?.summary.en || '';
+  const publishedDate = publication?.date && Number.isFinite(Date.parse(publication.date))
+    ? new Date(publication.date).toLocaleDateString(language === 'fr' ? 'fr-FR' : 'en-US', {
+        year: 'numeric', month: 'long', day: 'numeric'
+      })
+    : '';
+  const isFrench = language === 'fr';
+
+  const downloadDocument = async () => {
+    if (!document || isDownloading) return;
+    setIsDownloading(true);
+    setDownloadError(false);
     try {
-      await Promise.all([
-        analyticsService.trackPublicationView(pubId, title),
-        isAuthenticated ? readingHistoryService.recordReading(pubId) : Promise.resolve()
-      ]);
-    } catch (err) {
-      console.debug('Tracking error:', err);
+      const blob = await documentsService.getDocumentBlob(document.id);
+      const url = URL.createObjectURL(blob);
+      const link = window.document.createElement('a');
+      link.href = url;
+      link.download = document.fileName || `publication-${publication?.id}.pdf`;
+      link.click();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+      void publicationsService.recordDownload(publication!.id).catch(() => undefined);
+      void analyticsService.trackDownload(publication!.id, title, 'pdf');
+    } catch {
+      setDownloadError(true);
+    } finally {
+      setIsDownloading(false);
     }
   };
 
-  if (loading) {
+  if (detailState === 'loading') {
+    return <div className="publication-detail__status" role="status">{isFrench ? 'Chargement de la publication…' : 'Loading publication…'}</div>;
+  }
+
+  if (detailState === 'not-found' || !publication) {
     return (
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-16 text-center">
-        <div className="animate-pulse">
-          <div className="h-8 bg-gray-300 dark:bg-gray-700 rounded w-1/2 mx-auto mb-4"></div>
-          <div className="h-4 bg-gray-300 dark:bg-gray-700 rounded w-1/3 mx-auto"></div>
-        </div>
+      <div className="publication-detail__status publication-detail__status--error" role="alert">
+        <h1>{isFrench ? 'Publication introuvable' : 'Publication not found'}</h1>
+        <NavLink to="/publications">{isFrench ? 'Retour aux publications' : 'Back to publications'}</NavLink>
       </div>
     );
   }
-
-  if (error || !publication) {
-    return (
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-16 text-center">
-        <h1 className="text-4xl font-poppins font-bold text-light-text dark:text-off-white">Publication non trouvée</h1>
-        <NavLink to="/publications" className="text-light-accent dark:text-teal mt-4 inline-block">Retour aux publications</NavLink>
-      </div>
-    );
-  }
-
-  const relatedPublications = publications.filter(p => p.domain[language] === publication.domain[language] && p.id !== publication.id).slice(0, 3);
 
   return (
-    <div className="animate-slide-in-up">
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-24">
-        <div className="flex flex-col lg:flex-row gap-8">
-          {/* Contenu principal */}
-          <div className="flex-1">
-            <div className="max-w-4xl bg-light-card dark:bg-navy/30 border border-light-border dark:border-dark-border rounded-lg p-6 sm:p-8 shadow-2xl dark:shadow-teal/10 overflow-hidden">
-              <div className="flex justify-between items-start mb-4">
-                <p className="text-light-accent dark:text-teal font-bold">{publication.domain[language]}</p>
-                {/* Bouton Favori */}
-                {isAuthenticated && (
-                  <FavoriteButton publicationId={publication.id} size="lg" />
-                )}
-              </div>
-              <h1 className="text-3xl md:text-4xl font-poppins font-bold mb-4 text-light-text dark:text-off-white break-words">{publication.title[language]}</h1>
-              <p className="text-light-text-secondary dark:text-gray-400 mb-2">
-                  <strong>Auteurs :</strong> {publication.authors.join(', ')}
-              </p>
-              <p className="text-light-text-secondary dark:text-gray-400 mb-6">
-                  <strong>Date de publication :</strong> {new Date(publication.date).toLocaleDateString(language === 'fr' ? 'fr-FR' : 'en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
-              </p>
-              
-              <div className="flex flex-wrap gap-2 mb-8">
-                  {publication.tags.map(tag => (
-                      <span key={tag} className="bg-light-accent/10 dark:bg-teal/20 text-light-accent dark:text-teal text-xs font-medium px-2.5 py-0.5 rounded-full">{tag}</span>
-                  ))}
-              </div>
+    <div className="publication-detail">
+      <div className="publication-detail__content">
+        <nav className="publication-detail__breadcrumb" aria-label={isFrench ? 'Fil d’Ariane' : 'Breadcrumb'}>
+          <NavLink to="/publications">{isFrench ? 'Publications' : 'Publications'}</NavLink>
+          <span aria-hidden="true">/</span>
+          <span>{isFrench ? 'Détail de la publication' : 'Publication details'}</span>
+        </nav>
 
-              <div className="prose prose-lg max-w-none text-light-text-secondary dark:text-gray-300 prose-headings:font-poppins prose-headings:text-light-text dark:prose-headings:text-off-white overflow-hidden">
-                  <h2 className="text-2xl font-poppins font-bold border-b border-light-border dark:border-dark-border pb-2 mb-4">Résumé</h2>
-                  <p className="break-words whitespace-pre-wrap">{publication.summary[language]}</p>
-              </div>
+        <header className="publication-detail__heading">
+          <div className="publication-detail__domain-line">
+            {domain && <span className="publication-detail__domain">{domain}</span>}
+            {publishedDate && <span>{isFrench ? 'Publié le' : 'Published'} {publishedDate}</span>}
+          </div>
+          <div className="publication-detail__title-row">
+            <h1>{title}</h1>
+            {isAuthenticated && (
+              <FavoriteButton
+                publication={{ id: publication.id, titre: title, auteurs: authors.join(', '), domaine: domain }}
+                size="large"
+              />
+            )}
+          </div>
+          {(authors.length > 0 || publication.type || publication.academicYear) && (
+            <p className="publication-detail__authors">
+              {authors.length > 0 ? authors.join(', ') : null}
+              {publication.type && <span>{publication.type}</span>}
+              {publication.academicYear && <span>{publication.academicYear}</span>}
+            </p>
+          )}
+          {publication.tags.length > 0 && (
+            <ul className="publication-detail__tags" aria-label={isFrench ? 'Mots-clés' : 'Keywords'}>
+              {publication.tags.map(tag => <li key={tag}>{tag}</li>)}
+            </ul>
+          )}
+        </header>
 
-              <div className="mt-12 border-t border-light-border dark:border-dark-border pt-8">
-                  <h2 className="text-2xl font-poppins font-bold mb-6 text-light-text dark:text-off-white">{translations.publications_page.consult_article}</h2>
-                  {publication.pdfUrl ? (
-                      <>
-                          <div className="mb-6 flex flex-wrap gap-4 items-center">
-                              <DownloadButton publicationId={publication.id} />
-                              <button
-                                onClick={() => setIsAIOpen(true)}
-                                className="inline-flex items-center space-x-2 bg-gradient-to-r from-light-accent to-teal text-white dark:text-navy font-bold py-3 px-6 rounded-full hover:opacity-90 shadow-md transition-all duration-300"
-                              >
-                                <span>✨ Assistant IA</span>
-                              </button>
-                              <NavLink
-                                to="/quiz"
-                                className="inline-flex items-center space-x-2 border border-light-accent dark:border-teal text-light-accent dark:text-teal font-bold py-3 px-6 rounded-full hover:bg-light-accent/10 dark:hover:bg-teal/10 transition-all duration-300"
-                              >
-                                <span>📝 Auto-évaluation</span>
-                              </NavLink>
-                              {isAuthenticated && (
-                                <FavoriteButton publicationId={publication.id} showLabel />
-                              )}
-                          </div>
-                          {/* Progression de lecture */}
-                          {isAuthenticated && (
-                            <ReadingProgress publicationId={publication.id} className="mb-6" />
-                          )}
-                          <PdfViewer fileUrl={publication.pdfUrl} />
-                      </>
-                  ) : (
-                      <p className="text-gray-500">{translations.publications_page.pdf_not_available}</p>
+        <div className="publication-detail__layout">
+          <main className="publication-detail__main">
+            {abstract.trim() && (
+              <section className="publication-detail__abstract" aria-labelledby="publication-abstract-title">
+                <h2 id="publication-abstract-title">{isFrench ? 'Résumé' : 'Abstract'}</h2>
+                <p>{abstract}</p>
+              </section>
+            )}
+
+            <section className="publication-reader" aria-labelledby="publication-reader-title">
+              <div className="publication-reader__header">
+                <h2 id="publication-reader-title">{isFrench ? 'Aperçu du document PDF' : 'PDF document'}</h2>
+                <div className="publication-reader__actions">
+                  {documentState === 'ready' && document && (
+                    <button type="button" className="publication-action publication-action--secondary" onClick={downloadDocument} disabled={isDownloading}>
+                      {isDownloading ? (isFrench ? 'Téléchargement…' : 'Downloading…') : (isFrench ? 'Télécharger PDF' : 'Download PDF')}
+                    </button>
                   )}
+                  {isAuthenticated ? (
+                    <button type="button" className="publication-action publication-action--primary" onClick={() => setIsAIOpen(true)}>
+                      {isFrench ? 'Assistant IA' : 'AI assistant'}
+                    </button>
+                  ) : (
+                    <NavLink className="publication-action publication-action--primary" to="/auth">
+                      {isFrench ? 'Se connecter pour utiliser l’assistant' : 'Sign in to use the assistant'}
+                    </NavLink>
+                  )}
+                  {isAuthenticated ? (
+                    <NavLink className="publication-action publication-action--secondary" to={`/quiz?publicationId=${publication.id}`}>
+                      {isFrench ? 'Auto-évaluation' : 'Self-assessment'}
+                    </NavLink>
+                  ) : (
+                    <NavLink className="publication-action publication-action--secondary" to="/auth">
+                      {isFrench ? 'Se connecter pour s’auto-évaluer' : 'Sign in for self-assessment'}
+                    </NavLink>
+                  )}
+                </div>
               </div>
-            </div>
-          </div>
 
-          <AIAssistantWidget
-            publicationId={publication.id}
-            publicationTitle={publication.title[language]}
-            initialMode="DOCUMENT"
-            isOpen={isAIOpen}
-            onClose={() => setIsAIOpen(false)}
-          />
+              {downloadError && <p className="publication-reader__error" role="alert">{isFrench ? 'Le téléchargement a échoué. Vérifiez votre accès au document.' : 'Download failed. Check your access to this document.'}</p>}
+              {documentState === 'loading' && <p className="publication-reader__message" role="status">{isFrench ? 'Recherche du document…' : 'Looking for the document…'}</p>}
+              {documentState === 'missing' && <p className="publication-reader__message">{isFrench ? 'Aucun document PDF n’est associé à cette publication.' : 'No PDF is attached to this publication.'}</p>}
+              {documentState === 'error' && <p className="publication-reader__error" role="alert">{isFrench ? 'Le document est indisponible ou son accès est refusé.' : 'The document is unavailable or access was denied.'}</p>}
+              {documentState === 'ready' && document && (
+                <PdfViewer
+                  key={document.id}
+                  documentId={document.id}
+                  pageCount={document.pageCount}
+                  pageNumber={currentPage}
+                  onPageChange={onPageChange}
+                />
+              )}
+            </section>
+          </main>
 
-          {/* Sidebar - Publications similaires */}
-          <div className="lg:w-80 flex-shrink-0">
-            <SimilarPublications publicationId={publication.id} limit={5} className="sticky top-24" />
-          </div>
-        </div>
+          <aside className="publication-detail__sidebar" aria-label={isFrench ? 'Informations de lecture' : 'Reading information'}>
+            <ReadingProgress
+              publicationId={publication.id}
+              totalPages={document?.pageCount}
+              currentPage={currentPage}
+              onPageChange={onPageChange}
+              isAuthenticated={isAuthenticated}
+            />
 
-        {relatedPublications.length > 0 && (
-          <div className="max-w-4xl mx-auto mt-16">
-            <h2 className="text-2xl font-poppins font-bold mb-6 text-light-text dark:text-off-white">Articles similaires</h2>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {relatedPublications.map(pub => (
-                <NavLink key={pub.id} to={`/publication/${pub.id}`} className="block bg-light-card dark:bg-navy/50 p-4 rounded-lg border border-light-border dark:border-dark-border transform hover:-translate-y-1 transition-transform duration-300 shadow-lg hover:shadow-xl dark:hover:shadow-teal/20">
-                  <div className="flex justify-between items-start mb-2">
-                    <h3 className="font-poppins font-bold text-base line-clamp-2 text-light-text dark:text-off-white">{pub.title[language]}</h3>
-                    {isAuthenticated && <FavoriteButton publicationId={pub.id} size="sm" />}
-                  </div>
-                  <p className="text-xs text-light-accent dark:text-teal">{pub.authors.join(', ')}</p>
+            <section className="publication-sidebar-card publication-assistant">
+              <h2 className="publication-sidebar-card__title">{isFrench ? 'Assistant IA sur cet article' : 'AI assistant for this article'}</h2>
+              <p>{isFrench ? 'Posez une question sur le contenu de la publication. Les réponses dépendent du texte indexé.' : 'Ask about this publication. Responses depend on its indexed text.'}</p>
+              {isAuthenticated ? (
+                <button type="button" className="publication-assistant__open" onClick={() => setIsAIOpen(true)}>
+                  {isFrench ? 'Poser une question' : 'Ask a question'}
+                  <span aria-hidden="true">→</span>
+                </button>
+              ) : (
+                <NavLink className="publication-assistant__open" to="/auth">
+                  {isFrench ? 'Se connecter' : 'Sign in'}
+                  <span aria-hidden="true">→</span>
                 </NavLink>
-              ))}
-            </div>
-          </div>
-        )}
+              )}
+              <small>{isFrench ? 'Les réponses peuvent contenir des erreurs; vérifiez les sources.' : 'AI responses can be inaccurate; verify cited sources.'}</small>
+            </section>
+
+            <SimilarPublications publicationId={publication.id} limit={5} />
+          </aside>
+        </div>
       </div>
+
+      <AIAssistantWidget
+        publicationId={publication.id}
+        publicationTitle={title}
+        initialMode="DOCUMENT"
+        isOpen={isAIOpen}
+        onClose={() => setIsAIOpen(false)}
+      />
     </div>
   );
 };

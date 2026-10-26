@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, NavLink } from 'react-router-dom';
+import { useParams, useSearchParams, NavLink } from 'react-router-dom';
 import { learningService, type QuizDTO, type QuizAttemptDTO } from '../services/learningService';
 import { publicationsService, type PublicationDTO } from '../services/publicationsService';
 
 const QuizPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
+  const [searchParams] = useSearchParams();
   const [quiz, setQuiz] = useState<QuizDTO | null>(null);
   const [selectedAnswers, setSelectedAnswers] = useState<Record<number, number>>({});
   const [attemptResult, setAttemptResult] = useState<QuizAttemptDTO | null>(null);
@@ -12,8 +13,16 @@ const QuizPage: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [publications, setPublications] = useState<PublicationDTO[]>([]);
-  const [selectedPubForGen, setSelectedPubForGen] = useState<number | undefined>(undefined);
+  const [selectedPubForGen, setSelectedPubForGen] = useState<number | undefined>(() => {
+    const publicationId = Number(searchParams.get('publicationId'));
+    return Number.isInteger(publicationId) && publicationId > 0 ? publicationId : undefined;
+  });
   const [isGenerating, setIsGenerating] = useState(false);
+
+  useEffect(() => {
+    const publicationId = Number(searchParams.get('publicationId'));
+    if (Number.isInteger(publicationId) && publicationId > 0) setSelectedPubForGen(publicationId);
+  }, [searchParams]);
 
   useEffect(() => {
     const loadPublications = async () => {

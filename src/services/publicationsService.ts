@@ -106,6 +106,10 @@ export const publicationsService = {
     return url;
   },
 
+  async recordDownload(id: number): Promise<void> {
+    await apiClient.post(`/publications/${id}/telechargement`);
+  },
+
   /**
    * Convertir un DTO backend vers le format Publication du frontend
    */

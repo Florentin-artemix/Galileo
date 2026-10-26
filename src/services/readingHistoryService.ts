@@ -12,8 +12,8 @@ export interface ReadingHistoryItem {
   publicationAuthors?: string;
   publicationDomain?: string;
   readAt: string;
-  readProgress?: number; // 0-100%
-  totalReadTime?: number; // en secondes
+  readProgress?: number | null; // 0-100%, absent when the backend has no stored value
+  durationSeconds?: number | null;
 }
 
 export interface RecordReadingDTO {
@@ -29,6 +29,11 @@ export interface PaginatedHistory {
   totalPages: number;
   number: number;
   size: number;
+}
+
+export interface ReadingPosition {
+  lastPage: number | null;
+  progress: number | null;
 }
 
 /**
@@ -100,6 +105,29 @@ export const readingHistoryService = {
       { progress }
     );
     return response.data;
+  },
+
+  async getReadingPosition(publicationId: number): Promise<ReadingPosition | null> {
+    const response = await apiClient.get('/recommendations/history');
+    const entry = (response.data as Array<{
+      publication?: { id?: number };
+      lastPage?: number | null;
+      progress?: number | null;
+    }>).find(item => item.publication?.id === publicationId);
+
+    if (!entry) return null;
+    return {
+      lastPage: typeof entry.lastPage === 'number' ? entry.lastPage : null,
+      progress: typeof entry.progress === 'number' ? entry.progress : null
+    };
+  },
+
+  async saveReadingPosition(publicationId: number, lastPage: number, progress?: number): Promise<void> {
+    await apiClient.post('/recommendations/history', {
+      publicationId,
+      lastPage,
+      ...(progress !== undefined ? { progress } : {})
+    });
   },
 
   /**

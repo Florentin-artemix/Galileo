@@ -47,3 +47,7 @@ target/
 .env
 .env.local
 .env.production
+
+# Local setup scripts
+setup-postgres.sh
+

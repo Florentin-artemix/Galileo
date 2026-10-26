@@ -26,6 +26,7 @@ import org.springframework.mock.web.MockMultipartFile;
 
 import java.io.InputStream;
 import java.util.Collections;
+import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -131,5 +132,22 @@ class DocumentServiceTest {
         assertEquals(DocumentProcessingStatus.UPLOADED, retried.getProcessingStatus());
         assertNull(retried.getProcessingError());
         verify(documentProcessingService, times(1)).processDocumentAsync(eq(42L), any());
+    }
+
+    @Test
+    @DisplayName("Document lookup by publication returns the newest version")
+    void testGetDocumentByPublicationReturnsNewestVersion() {
+        User staff = User.builder().id(3L).email("staff@mapon.cd").role(Role.STAFF).build();
+        CustomUserDetails userDetails = new CustomUserDetails(staff);
+        Publication publication = Publication.builder().id(10L).build();
+        when(publicationRepository.findById(10L)).thenReturn(Optional.of(publication));
+        Document older = Document.builder().id(20L).publication(publication).version(1).build();
+        Document newest = Document.builder().id(21L).publication(publication).version(2).build();
+        when(documentRepository.findByPublicationId(10L)).thenReturn(List.of(newest, older));
+
+        DocumentDTO result = documentService.getDocumentByPublicationId(10L, userDetails);
+
+        assertEquals(21L, result.getId());
+        assertEquals(2, result.getVersion());
     }
 }

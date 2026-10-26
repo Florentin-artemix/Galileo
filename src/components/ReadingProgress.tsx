@@ -1,182 +1,175 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { useLanguage } from '../contexts/LanguageContext';
 import { readingHistoryService } from '../services/readingHistoryService';
 
 interface ReadingProgressProps {
   publicationId: number;
-  totalPages?: number;
-  showProgress?: boolean;
+  totalPages?: number | null;
+  currentPage: number;
+  onPageChange: (page: number) => void;
+  isAuthenticated: boolean;
   className?: string;
 }
 
-/**
- * Composant de suivi de progression de lecture
- * Utilise le backend pour persister la progression
- */
 const ReadingProgress: React.FC<ReadingProgressProps> = ({
   publicationId,
-  totalPages = 100,
-  showProgress = true,
+  totalPages,
+  currentPage,
+  onPageChange,
+  isAuthenticated,
   className = ''
 }) => {
-  const [currentPage, setCurrentPage] = useState(1);
-  const [progress, setProgress] = useState(0);
-  const [isSaving, setIsSaving] = useState(false);
-  const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const { language } = useLanguage();
+  const [storedProgress, setStoredProgress] = useState<number | null>(null);
+  const [hasPosition, setHasPosition] = useState(false);
+  const [state, setState] = useState<'loading' | 'ready' | 'saving' | 'saved' | 'error' | 'guest'>(
+    isAuthenticated ? 'loading' : 'guest'
+  );
+  const loadedRef = useRef(false);
+  const savedPageRef = useRef<number | null>(null);
+  const saveQueueRef = useRef<Promise<void>>(Promise.resolve());
 
-  // Charger la progression existante
   useEffect(() => {
-    const loadProgress = async () => {
-      try {
-        const history = await readingHistoryService.getMyHistory();
-        const existing = history.find(h => h.publicationId === publicationId);
-        if (existing && existing.readProgress) {
-          setProgress(existing.readProgress);
-          setCurrentPage(Math.ceil((existing.readProgress / 100) * totalPages));
-        }
-      } catch (error) {
-        console.warn('Erreur chargement progression:', error);
-      }
-    };
-    loadProgress();
-  }, [publicationId, totalPages]);
+    let active = true;
+    loadedRef.current = false;
+    savedPageRef.current = null;
 
-  // Sauvegarder la progression (debounced)
-  const saveProgress = async (page: number) => {
-    const newProgress = Math.round((page / totalPages) * 100);
-    setProgress(newProgress);
-    setIsSaving(true);
-    
-    try {
-      await readingHistoryService.updateProgress(publicationId, newProgress);
-      setLastSaved(new Date());
-    } catch (error) {
-      console.warn('Erreur sauvegarde progression:', error);
-    } finally {
-      setIsSaving(false);
+    if (!isAuthenticated) {
+      setHasPosition(false);
+      setStoredProgress(null);
+      setState('guest');
+      return () => { active = false; };
     }
-  };
 
-  const handlePageChange = (page: number) => {
-    const validPage = Math.max(1, Math.min(page, totalPages));
-    setCurrentPage(validPage);
-    saveProgress(validPage);
-  };
+    setState('loading');
+    readingHistoryService.getReadingPosition(publicationId)
+      .then(position => {
+        if (!active) return;
+        setHasPosition(position !== null);
+        if (typeof position?.progress === 'number'
+          && (position.progress > 0 || !position.lastPage || position.lastPage <= 1)) {
+          setStoredProgress(Math.max(0, Math.min(100, position.progress * 100)));
+        } else {
+          setStoredProgress(null);
+        }
+        const restoredPage = position?.lastPage && position.lastPage > 0 ? position.lastPage : 1;
+        savedPageRef.current = restoredPage;
+        if (position?.lastPage && position.lastPage > 0) onPageChange(position.lastPage);
+        setState('ready');
+      })
+      .catch(() => {
+        if (!active) return;
+        savedPageRef.current = currentPage;
+        setState('error');
+      })
+      .finally(() => {
+        if (active) loadedRef.current = true;
+      });
 
-  const handleSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    handlePageChange(parseInt(e.target.value, 10));
-  };
+    return () => { active = false; };
+  }, [publicationId, isAuthenticated, onPageChange]);
 
-  if (!showProgress) {
-    // Mode simple: juste tracker la lecture sans UI
-    return null;
-  }
+  useEffect(() => {
+    if (!isAuthenticated || !loadedRef.current || currentPage === savedPageRef.current) return;
+
+    const timeout = window.setTimeout(() => {
+      const progress = totalPages && totalPages > 0
+        ? Math.max(0, Math.min(1, currentPage / totalPages))
+        : undefined;
+      setState('saving');
+      saveQueueRef.current = saveQueueRef.current.then(async () => {
+        await readingHistoryService.saveReadingPosition(publicationId, currentPage, progress);
+        savedPageRef.current = currentPage;
+        setHasPosition(true);
+        if (progress !== undefined) setStoredProgress(progress * 100);
+        setState('saved');
+      }).catch(() => {
+        setState('error');
+      });
+    }, 650);
+
+    return () => window.clearTimeout(timeout);
+  }, [publicationId, currentPage, totalPages, isAuthenticated]);
+
+  const percentage = totalPages && totalPages > 0
+    ? Math.max(0, Math.min(100, Math.round((currentPage / totalPages) * 100)))
+    : storedProgress === null ? null : Math.round(storedProgress);
+  const copy = language === 'fr'
+    ? {
+        title: 'Votre progression',
+        pages: totalPages ? `Page ${currentPage} sur ${totalPages}` : `Page ${currentPage}`,
+        guest: 'Connectez-vous pour synchroniser votre progression.',
+        loading: 'Chargement de la progression…',
+        empty: 'Aucune progression synchronisée pour le moment.',
+        unknown: 'Le nombre total de pages n’est pas disponible.',
+        saving: 'Enregistrement…',
+        saved: 'Progression synchronisée',
+        error: 'Progression non synchronisée',
+        unavailable: 'La progression enregistrée n’a pas pu être chargée.',
+        slider: 'Aller à une page'
+      }
+    : {
+        title: 'Your progress',
+        pages: totalPages ? `Page ${currentPage} of ${totalPages}` : `Page ${currentPage}`,
+        guest: 'Sign in to sync your reading progress.',
+        loading: 'Loading progress…',
+        empty: 'No synchronized progress yet.',
+        unknown: 'The total page count is unavailable.',
+        saving: 'Saving…',
+        saved: 'Progress synchronized',
+        error: 'Progress not synchronized',
+        unavailable: 'Your saved reading position could not be loaded.',
+        slider: 'Go to page'
+      };
 
   return (
-    <div className={`bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 ${className}`}>
-      <div className="flex items-center justify-between mb-2">
-        <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-2">
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-          </svg>
-          Progression de lecture
-        </h4>
-        
-        <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-          {isSaving && (
-            <span className="flex items-center gap-1">
-              <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-              </svg>
-              Sauvegarde...
-            </span>
-          )}
-          {!isSaving && lastSaved && (
-            <span className="text-green-500">
-              ✓ Sauvegardé
-            </span>
-          )}
-        </div>
+    <section className={`publication-sidebar-card publication-progress ${className}`} aria-labelledby="reading-progress-title">
+      <div className="publication-progress__heading">
+        <h2 id="reading-progress-title" className="publication-sidebar-card__title">{copy.title}</h2>
+        <span className="publication-progress__status" role="status">
+          {state === 'loading' ? copy.loading : state === 'saving' ? copy.saving : state === 'saved' ? copy.saved : state === 'error' ? copy.error : ''}
+        </span>
       </div>
 
-      {/* Barre de progression */}
-      <div className="relative">
-        <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-          <div
-            className="h-full bg-gradient-to-r from-blue-500 to-blue-600 transition-all duration-300"
-            style={{ width: `${progress}%` }}
-          />
+      {percentage !== null && (
+        <div
+          className="publication-progress__track"
+          role="progressbar"
+          aria-label={copy.title}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={percentage}
+        >
+          <span style={{ width: `${percentage}%` }} />
         </div>
-        
-        {/* Slider invisible par-dessus */}
+      )}
+
+      <p className="publication-progress__meta">
+        {state === 'guest'
+          ? copy.guest
+          : state === 'loading'
+            ? copy.loading
+            : state === 'error'
+              ? copy.unavailable
+            : hasPosition || percentage !== null
+              ? `${copy.pages}${percentage !== null ? ` · ${percentage}%` : ''}`
+              : totalPages
+                ? copy.empty
+                : copy.unknown}
+      </p>
+
+      {totalPages && totalPages > 1 && (
         <input
           type="range"
-          min="1"
-          max={totalPages}
-          value={currentPage}
-          onChange={handleSliderChange}
-          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-        />
-      </div>
-
-      {/* Indicateurs */}
-      <div className="flex items-center justify-between mt-2 text-xs text-gray-500 dark:text-gray-400">
-        <span>Page {currentPage} / {totalPages}</span>
-        <span className="font-medium text-blue-600 dark:text-blue-400">{progress}%</span>
-      </div>
-
-      {/* Navigation rapide */}
-      <div className="flex items-center justify-center gap-2 mt-3">
-        <button
-          onClick={() => handlePageChange(1)}
-          className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-          title="Début"
-        >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
-          </svg>
-        </button>
-        
-        <button
-          onClick={() => handlePageChange(currentPage - 10)}
-          className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-          title="-10 pages"
-        >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-          </svg>
-        </button>
-
-        <input
-          type="number"
-          value={currentPage}
-          onChange={(e) => handlePageChange(parseInt(e.target.value, 10) || 1)}
           min={1}
           max={totalPages}
-          className="w-16 px-2 py-1 text-center text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200"
+          value={Math.min(currentPage, totalPages)}
+          onChange={event => onPageChange(Number(event.target.value))}
+          aria-label={copy.slider}
+          className="publication-progress__slider"
         />
-        
-        <button
-          onClick={() => handlePageChange(currentPage + 10)}
-          className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-          title="+10 pages"
-        >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-          </svg>
-        </button>
-        
-        <button
-          onClick={() => handlePageChange(totalPages)}
-          className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-          title="Fin"
-        >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
-          </svg>
-        </button>
-      </div>
-    </div>
+      )}
+    </section>
   );
 };
 
