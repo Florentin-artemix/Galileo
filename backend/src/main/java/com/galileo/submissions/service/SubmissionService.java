@@ -67,6 +67,7 @@ public class SubmissionService {
 
         // 1. Validation stricte du type PDF et de la signature binaire
         validatePdfFile(file);
+        SubmissionMetadataValidator.validate(titre, resume);
 
         User submitter = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Utilisateur", "id", userId));
@@ -426,12 +427,12 @@ public class SubmissionService {
 
     private Domain resolveDomain(String nameOrSlug) {
         if (nameOrSlug == null || nameOrSlug.trim().isEmpty()) {
-            return domainRepository.findAll().stream().findFirst().orElse(null);
+            throw new BadRequestException("Le domaine de recherche est obligatoire");
         }
         String clean = nameOrSlug.trim();
-        return domainRepository.findBySlug(generateSlug(clean))
+        return domainRepository.findBySlug(clean)
                 .or(() -> domainRepository.findByNameIgnoreCase(clean))
-                .orElseGet(() -> domainRepository.findAll().stream().findFirst().orElse(null));
+                .orElseThrow(() -> new BadRequestException("Le domaine de recherche sélectionné est inconnu"));
     }
 
     private String generateSlug(String input) {

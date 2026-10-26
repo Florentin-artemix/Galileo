@@ -25,11 +25,16 @@ export interface SoumissionDTO {
   titre: string;
   resume: string;
   auteurPrincipal: string;
-  emailAuteur: string;
   coAuteurs?: string[];
   motsCles: string[];
   domaineRecherche: string;
-  notes?: string;
+}
+
+export interface SubmissionCreatedDTO {
+  id: number;
+  publicationId: number;
+  status: string;
+  submittedAt: string;
 }
 
 /**
@@ -142,13 +147,12 @@ export const soumissionsService = {
   /**
    * Soumettre une nouvelle publication avec un fichier PDF
    */
-  async soumettre(data: SoumissionDTO, fichierPdf: File): Promise<any> {
+  async soumettre(data: SoumissionDTO, fichierPdf: File): Promise<SubmissionCreatedDTO> {
     const formData = new FormData();
     formData.append('fichierPdf', fichierPdf);
     formData.append('titre', data.titre);
     formData.append('resume', data.resume);
     formData.append('auteurPrincipal', data.auteurPrincipal);
-    formData.append('emailAuteur', data.emailAuteur);
     if (data.coAuteurs && Array.isArray(data.coAuteurs)) {
       data.coAuteurs.forEach(coAuteur => {
         formData.append('coAuteurs', coAuteur);
@@ -161,14 +165,8 @@ export const soumissionsService = {
     if (data.domaineRecherche) {
       formData.append('domaineRecherche', data.domaineRecherche);
     }
-    if (data.notes) {
-      formData.append('notes', data.notes);
-    }
-
-    const response = await apiClient.post('/soumissions', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data'
-      }
+    const response = await apiClient.post<SubmissionCreatedDTO>('/soumissions', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
     });
     return response.data;
   },

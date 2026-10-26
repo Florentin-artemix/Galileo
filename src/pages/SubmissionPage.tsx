@@ -1,300 +1,441 @@
-import React, { useState, useCallback, useEffect } from 'react';
-import { useDropzone } from 'react-dropzone';
-import { useNavigate } from 'react-router-dom';
-import { useLanguage } from '../contexts/LanguageContext';
-import { usePublications } from '../contexts/PublicationsContext';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { isAxiosError } from 'axios';
+import { useDropzone, type FileRejection } from 'react-dropzone';
+import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import type { ArticleFormData, Publication } from '../types';
-import { NavLink } from 'react-router-dom';
+import { useLanguage } from '../contexts/LanguageContext';
+import { soumissionsService, type SubmissionCreatedDTO } from '../services/publicationsService';
 import SubmissionGuidelines from '../components/SubmissionGuidelines';
-import { soumissionsService } from '../services/publicationsService';
+import { CheckIcon, SubmissionsIcon } from '../components/dashboard/DashboardIcons';
+import './submission.css';
 
-const MAX_SIZE = 12 * 1024 * 1024; // 12MB
+const MAX_FILE_SIZE = 12 * 1024 * 1024;
+const DOMAIN_OPTIONS = [
+  ['genie-informatique', 'computerScience'],
+  ['genie-electrique', 'electricalEngineering'],
+  ['genie-mecanique', 'mechanicalEngineering'],
+  ['genie-des-mines', 'miningAndGeology'],
+  ['genie-metallurgie', 'processEngineering'],
+  ['genie-civil', 'civilEngineering'],
+] as const;
+
+interface SubmissionFormData {
+  title: string;
+  authors: string;
+  domain: string;
+  summary: string;
+  keywords: string;
+}
+
+const emptyForm: SubmissionFormData = {
+  title: '',
+  authors: '',
+  domain: '',
+  summary: '',
+  keywords: '',
+};
+
+const hasSubmissionReferences = (value: unknown): value is SubmissionCreatedDTO => {
+  if (!value || typeof value !== 'object') return false;
+  const response = value as Partial<SubmissionCreatedDTO>;
+  return Number.isInteger(response.id) && Number(response.id) > 0
+    && Number.isInteger(response.publicationId) && Number(response.publicationId) > 0
+    && typeof response.status === 'string'
+    && typeof response.submittedAt === 'string';
+};
 
 const SubmissionPage: React.FC = () => {
-    const { translations } = useLanguage();
-    const { refreshPublications } = usePublications();
-    const { isAuthenticated, loading: authLoading, user } = useAuth();
-    const navigate = useNavigate();
+  const { translations } = useLanguage();
+  const { isAuthenticated, loading: authLoading } = useAuth();
+  const navigate = useNavigate();
+  const copy = translations.submission_page;
 
-    const [step, setStep] = useState(1);
-    const [file, setFile] = useState<File | null>(null);
-    const [fileError, setFileError] = useState<string | null>(null);
-    const [isLoading, setIsLoading] = useState(false);
-    const [formData, setFormData] = useState<ArticleFormData>({
-        submitterName: '', contactEmail: '', title: '', authors: '',
-        affiliations: '', domain: '', category: 'Nos travaux',
-        summary: '', keywords: '',
-    });
-    const [generatedImageUrl, setGeneratedImageUrl] = useState('');
-    const [publishedArticle, setPublishedArticle] = useState<Publication | null>(null);
+  const [step, setStep] = useState(1);
+  const [file, setFile] = useState<File | null>(null);
+  const [fileError, setFileError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submissionError, setSubmissionError] = useState<string | null>(null);
+  const [submissionId, setSubmissionId] = useState<number | null>(null);
+  const [acceptedWithoutReference, setAcceptedWithoutReference] = useState(false);
+  const [formData, setFormData] = useState<SubmissionFormData>(emptyForm);
+  const submissionLock = useRef(false);
 
-    // 🔗 POINT D'INTÉGRATION 5: Protection de la page - Redirection si non connecté
-    useEffect(() => {
-        if (!authLoading && !isAuthenticated) {
-            navigate('/auth');
-        }
-    }, [isAuthenticated, authLoading, navigate]);
+  useEffect(() => {
+    if (!authLoading && !isAuthenticated) navigate('/auth');
+  }, [authLoading, isAuthenticated, navigate]);
 
-    const onDrop = useCallback((acceptedFiles: File[], fileRejections: any[]) => {
-        setFileError(null);
-        if (fileRejections.length > 0) {
-            if (fileRejections[0].errors[0].code === 'file-too-large') {
-                setFileError(translations.submission_page.upload.error_file_size);
-            } else {
-                setFileError(translations.submission_page.upload.error_file_type);
-            }
-            return;
-        }
-        if (acceptedFiles.length > 0) {
-            setFile(acceptedFiles[0]);
-        }
-    }, [translations]);
+  const onDrop = useCallback(async (acceptedFiles: File[], fileRejections: FileRejection[]) => {
+    setFileError(null);
+    setSubmissionError(null);
 
-    const { getRootProps, getInputProps, isDragActive } = useDropzone({
-        onDrop,
-        accept: { 'application/pdf': ['.pdf'] },
-        maxSize: MAX_SIZE,
-        multiple: false,
-    } as any);
-
-    // Afficher un loader pendant la vérification de l'authentification
-    // IMPORTANT: Ce return doit être APRÈS tous les hooks
-    if (authLoading) {
-        return (
-            <div className="min-h-screen flex items-center justify-center">
-                <div className="text-center">
-                    <svg className="animate-spin h-12 w-12 mx-auto text-light-accent dark:text-teal" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    <p className="mt-4 text-light-text dark:text-off-white">{(translations.submission_page as any)?.checking_auth || 'Vérification de l\'authentification...'}</p>
-                </div>
-            </div>
-        );
+    if (fileRejections.length > 0) {
+      const rejectedForSize = fileRejections.some(({ errors }) => errors.some(({ code }) => code === 'file-too-large'));
+      setFile(null);
+      setFileError(rejectedForSize ? copy.upload.error_file_size : copy.upload.error_file_type);
+      return;
     }
 
-    const handleNext = async () => {
-        if (step === 1 && file) {
-            setIsLoading(true);
-            try {
-                // Simulate some processing time
-                await new Promise(res => setTimeout(res, 1000));
-                
-                // Prefill title from filename
-                setFormData(prev => ({ ...prev, title: file.name.replace(/\.pdf$/i, '') }));
-                
-                // Image factice, la vraie sera gérée via l'API plus tard
-                setGeneratedImageUrl(`https://picsum.photos/seed/${encodeURIComponent(file.name)}/600/400`);
-                setStep(2);
-            } catch(e) {
-                console.error("Error during analysis/generation:", e);
-                // Use a fallback image if AI generation fails
-                setGeneratedImageUrl('https://picsum.photos/seed/fallback/600/400');
-                setStep(2);
-            } finally {
-                setIsLoading(false);
-            }
-        }
-    };
+    const selectedFile = acceptedFiles[0];
+    if (!selectedFile) return;
 
-    const handleFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-        const { name, value } = e.target;
-        setFormData(prev => ({...prev, [name]: value}));
-    };
+    try {
+      const signature = new Uint8Array(await selectedFile.slice(0, 5).arrayBuffer());
+      const isPdf = signature.length === 5
+        && signature[0] === 0x25
+        && signature[1] === 0x50
+        && signature[2] === 0x44
+        && signature[3] === 0x46
+        && signature[4] === 0x2d;
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setIsLoading(true);
-
-        try {
-            // Préparer les données pour le backend
-            const soumissionData = {
-                titre: formData.title,
-                resume: formData.summary,
-                auteurPrincipal: formData.authors.split(',')[0]?.trim() || formData.submitterName,
-                emailAuteur: formData.contactEmail,
-                coAuteurs: formData.authors.split(',').slice(1).map(a => a.trim()).filter(a => a),
-                motsCles: formData.keywords.split(',').map(k => k.trim()).filter(k => k),
-                domaineRecherche: formData.domain,
-                notes: formData.affiliations || undefined
-            };
-
-            // Envoyer au backend avec le fichier PDF
-            const response = await soumissionsService.soumettre(soumissionData, file!);
-            
-            console.log('Soumission réussie:', response);
-
-            // Créer l'objet publication pour l'affichage local
-            const newPublication: Publication = {
-                id: response.id,
-                title: { fr: formData.title, en: formData.title },
-                authors: formData.authors.split(',').map(a => a.trim()),
-                date: new Date().toISOString(),
-                domain: { fr: formData.domain, en: formData.domain },
-                summary: { fr: formData.summary, en: formData.summary },
-                pdfUrl: response.urlPdf || '',
-                imageUrl: generatedImageUrl || 'https://picsum.photos/seed/default/600/400',
-                tags: formData.keywords.split(',').map(k => k.trim()),
-            };
-
-            setPublishedArticle(newPublication);
-            
-            // Rafraîchir la liste des publications
-            refreshPublications();
-            
-            setIsLoading(false);
-            setStep(3);
-            
-        } catch (error: any) {
-            console.error('Erreur lors de la soumission:', error);
-            setIsLoading(false);
-            alert(`Erreur lors de la soumission: ${error.response?.data?.message || error.message}`);
-        }
-    };
-
-    const resetForm = () => {
-        setStep(1);
+      if (!isPdf) {
         setFile(null);
-        setFileError(null);
-        setFormData({
-            submitterName: '', contactEmail: '', title: '', authors: '',
-            affiliations: '', domain: '', category: 'Nos travaux',
-            summary: '', keywords: '',
-        });
-        setGeneratedImageUrl('');
-        setPublishedArticle(null);
+        setFileError(copy.upload.error_file_content);
+        return;
+      }
+
+      setFile(selectedFile);
+      setFormData((current) => ({
+        ...current,
+        title: current.title || selectedFile.name.replace(/\.pdf$/i, ''),
+      }));
+    } catch {
+      setFile(null);
+      setFileError(copy.upload.error_file_content);
     }
-    
-    const inputClasses = "w-full bg-light-card dark:bg-navy/70 border border-light-border dark:border-dark-border rounded-md shadow-sm py-2 px-3 text-light-text dark:text-off-white focus:outline-none focus:ring-light-accent dark:focus:ring-teal focus:border-light-accent dark:focus:border-teal";
+  }, [copy.upload.error_file_content, copy.upload.error_file_size, copy.upload.error_file_type]);
 
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop,
+    accept: { 'application/pdf': ['.pdf'] },
+    maxSize: MAX_FILE_SIZE,
+    multiple: false,
+    disabled: isSubmitting,
+    onDragEnter: () => undefined,
+    onDragOver: () => undefined,
+    onDragLeave: () => undefined,
+  });
+
+  const handleFieldChange = (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const { name, value } = event.target;
+    setFormData((current) => ({ ...current, [name]: value }));
+    setSubmissionError(null);
+  };
+
+  const errorMessageFor = (error: unknown) => {
+    if (isAxiosError(error)) {
+      if (error.response?.status === 403) return copy.workspace.accessDenied;
+      const serverMessage = error.response?.data?.message;
+      if (typeof serverMessage === 'string' && serverMessage.trim()) return serverMessage;
+      if (!error.response) return copy.workspace.errorOffline;
+    }
+    return copy.workspace.errorFallback;
+  };
+
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (submissionLock.current) return;
+
+    const title = formData.title.trim();
+    const authors = formData.authors.split(',').map((author) => author.trim()).filter(Boolean);
+    const summary = formData.summary.trim();
+    if (!file || !title || authors.length === 0 || !formData.domain || summary.length < 250 || summary.length > 500) {
+      setSubmissionError(summary.length < 250 || summary.length > 500
+        ? copy.workspace.summaryLengthError
+        : copy.workspace.requiredFields);
+      return;
+    }
+
+    submissionLock.current = true;
+    setIsSubmitting(true);
+    setSubmissionError(null);
+
+    try {
+      const response = await soumissionsService.soumettre({
+        titre: title,
+        resume: summary,
+        auteurPrincipal: authors[0],
+        coAuteurs: authors.slice(1),
+        motsCles: formData.keywords.split(',').map((keyword) => keyword.trim()).filter(Boolean),
+        domaineRecherche: formData.domain,
+      }, file);
+
+      if (hasSubmissionReferences(response)) {
+        setSubmissionId(response.id);
+      } else {
+        setAcceptedWithoutReference(true);
+      }
+      setStep(3);
+    } catch (error) {
+      setSubmissionError(errorMessageFor(error));
+    } finally {
+      submissionLock.current = false;
+      setIsSubmitting(false);
+    }
+  };
+
+  const resetForm = () => {
+    if (submissionLock.current) return;
+    setStep(1);
+    setFile(null);
+    setFileError(null);
+    setSubmissionError(null);
+    setSubmissionId(null);
+    setAcceptedWithoutReference(false);
+    setFormData(emptyForm);
+  };
+
+  const selectedDomain = DOMAIN_OPTIONS.find(([value]) => value === formData.domain);
+  const selectedDomainLabel = selectedDomain ? copy.metadata.domains[selectedDomain[1]] : '';
+  const summaryLength = formData.summary.trim().length;
+  const submissionChecklist = [
+    { label: copy.upload.title, complete: Boolean(file) },
+    { label: copy.workspace.checklistTitle, complete: Boolean(formData.title.trim() && formData.authors.trim()) },
+    { label: copy.workspace.checklistDomain, complete: Boolean(formData.domain) },
+    { label: copy.workspace.checklistSummary, complete: summaryLength >= 250 && summaryLength <= 500 },
+  ];
+
+  if (authLoading) {
     return (
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-24 animate-slide-in-up">
-            <div className="max-w-4xl w-full mx-auto">
-                <div className="text-center mb-12">
-                    <h1 className="text-4xl font-poppins font-bold text-light-text dark:text-off-white">{translations.submission_page.title}</h1>
-                    <p className="text-lg text-light-text-secondary dark:text-gray-300 mt-2">{translations.submission_page.subtitle}</p>
-                </div>
-
-                <SubmissionGuidelines />
-
-                <div className="bg-light-bg dark:bg-navy/50 border border-light-border dark:border-dark-border rounded-lg p-8 backdrop-blur-sm shadow-lg dark:shadow-teal/10">
-                    <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between mb-8 border-b border-light-border dark:border-dark-border pb-4">
-                        {Object.entries(translations.submission_page.steps).map(([key, value], index) => (
-                             <div key={key} className={`flex items-center gap-2 min-w-[180px] sm:min-w-0 ${step > index + 1 ? 'text-light-accent dark:text-teal' : step === index + 1 ? 'text-light-text dark:text-off-white' : 'text-gray-500'}`}>
-                                <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 ${step > index + 1 ? 'bg-light-accent dark:bg-teal text-white dark:text-navy border-light-accent dark:border-teal' : step === index + 1 ? 'border-light-accent dark:border-teal' : 'border-gray-500'}`}>
-                                    {step > index + 1 ? '\u2713' : index + 1}
-                                </div>
-                                <span className="font-semibold text-sm sm:text-base text-center sm:text-left">{value}</span>
-                            </div>
-                        ))}
-                    </div>
-
-                    {step === 1 && (
-                        <div>
-                            <h2 className="text-2xl font-poppins font-bold text-light-text dark:text-off-white mb-4">{translations.submission_page.upload.title}</h2>
-                            <div {...getRootProps()} className={`p-6 sm:p-10 lg:p-12 border-2 border-dashed rounded-lg cursor-pointer text-center transition-colors ${isDragActive ? 'border-light-accent dark:border-teal bg-light-accent/10 dark:bg-teal/10' : 'border-light-border dark:border-teal/30 hover:border-light-accent dark:hover:border-teal'}`}>
-                                <input {...getInputProps()} />
-                                {isLoading ? (
-                                    <div>
-                                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-light-accent dark:border-teal mx-auto"></div>
-                                        <p className="mt-4 text-light-text-secondary dark:text-gray-300">{translations.submission_page.upload.analysing}</p>
-                                    </div>
-                                ) : file ? (
-                                    <div>
-                                        <p className="text-light-text-secondary dark:text-gray-300">{translations.submission_page.upload.file_selected}</p>
-                                        <p className="font-bold text-light-accent dark:text-teal mt-2">{file.name}</p>
-                                        <button onClick={(e) => { e.stopPropagation(); setFile(null); }} className="text-sm mt-2 text-gray-500 hover:underline">{translations.submission_page.upload.change_file}</button>
-                                    </div>
-                                ) : (
-                                    <>
-                                        <p className="text-light-text-secondary dark:text-gray-300">{translations.submission_page.upload.prompt}</p>
-                                        <p className="text-sm text-gray-500 mt-2">{translations.submission_page.upload.subprompt}</p>
-                                    </>
-                                )}
-                            </div>
-                            {fileError && <p className="text-red-500 text-sm mt-2">{fileError}</p>}
-                            <div className="mt-8 flex flex-col sm:flex-row sm:justify-end gap-3 text-right sm:text-left">
-                                <button onClick={handleNext} disabled={!file || isLoading} className="bg-light-accent dark:bg-teal text-white dark:text-navy font-bold py-2 px-6 rounded-full hover:bg-light-accent-hover dark:hover:bg-opacity-80 transition-all disabled:bg-gray-500 disabled:cursor-not-allowed">
-                                    {translations.submission_page.buttons.next}
-                                </button>
-                            </div>
-                        </div>
-                    )}
-                    
-                    {step === 2 && (
-                         <form onSubmit={handleSubmit}>
-                            <h2 className="text-2xl font-poppins font-bold text-light-text dark:text-off-white mb-2">{translations.submission_page.metadata.title}</h2>
-                            <p className="text-sm text-light-text-secondary dark:text-gray-400 mb-6">{translations.submission_page.metadata.subtitle}</p>
-                            <div className="space-y-4">
-                               <input type="text" name="submitterName" placeholder={translations.submission_page.metadata.submitter_name} required value={formData.submitterName} onChange={handleFormChange} className={inputClasses}/>
-                               <input type="email" name="contactEmail" placeholder={translations.submission_page.metadata.contact_email} required value={formData.contactEmail} onChange={handleFormChange} className={inputClasses}/>
-                               <hr className="border-light-border dark:border-dark-border"/>
-                               <input type="text" name="title" placeholder={translations.submission_page.metadata.article_title} required value={formData.title} onChange={handleFormChange} className={inputClasses}/>
-                               <input type="text" name="authors" placeholder={translations.submission_page.metadata.authors} required value={formData.authors} onChange={handleFormChange} className={inputClasses}/>
-                               <select name="domain" required value={formData.domain} onChange={handleFormChange} className={inputClasses}>
-                                   <option value="">{translations.submission_page.metadata.select_domain}</option>
-                                   {Object.entries(translations.submission_page.metadata.domains).map(([key, value]) => <option key={key} value={value}>{value}</option>)}
-                               </select>
-                                <textarea name="summary" placeholder={translations.submission_page.metadata.summary} required minLength={250} maxLength={500} value={formData.summary} onChange={handleFormChange} rows={4} className={inputClasses}></textarea>
-                                <input type="text" name="keywords" placeholder={translations.submission_page.metadata.keywords} value={formData.keywords} onChange={handleFormChange} className={inputClasses}/>
-                                {generatedImageUrl && (
-                                    <div>
-                                        <label className="text-sm font-medium text-light-text-secondary dark:text-gray-300">{translations.submission_page.metadata.thumbnail_preview}</label>
-                                        <img src={generatedImageUrl} alt="Generated thumbnail" className="mt-2 rounded-lg w-full max-w-xs object-cover"/>
-                                    </div>
-                                )}
-                            </div>
-                            <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-between">
-                                <button type="button" onClick={() => setStep(1)} className="border border-light-accent dark:border-teal text-light-accent dark:text-teal font-bold py-2 px-6 rounded-full hover:bg-light-accent dark:hover:bg-teal hover:text-white dark:hover:text-navy transition-colors">
-                                    {translations.submission_page.buttons.previous}
-                                </button>
-                                <button type="submit" disabled={isLoading} className="bg-light-accent dark:bg-teal text-white dark:text-navy font-bold py-2 px-6 rounded-full hover:bg-light-accent-hover dark:hover:bg-opacity-80 transition-all disabled:bg-gray-500">
-                                    {isLoading ? translations.submission_page.buttons.submitting : translations.submission_page.buttons.submit}
-                                </button>
-                            </div>
-                        </form>
-                    )}
-
-                    {step === 3 && publishedArticle && (
-                        <div className="text-center py-8">
-                             <div className="w-16 h-16 bg-green-500/10 text-green-600 dark:text-teal rounded-full flex items-center justify-center mx-auto mb-4 text-3xl">
-                               ✓
-                             </div>
-                             <h2 className="text-2xl font-poppins font-bold text-light-accent dark:text-teal mb-3">{translations.submission_page.success.title}</h2>
-                             <p className="text-light-text-secondary dark:text-gray-300 mb-2">{translations.submission_page.success.message}</p>
-                             <p className="text-sm text-light-text-secondary dark:text-gray-400 mb-6">{translations.submission_page.success.reference}: <span className="font-mono bg-light-card dark:bg-navy-dark px-2 py-1 rounded font-bold">GAL-{new Date().getFullYear()}-{publishedArticle.id}</span></p>
-
-                             {/* Statut de traitement asynchrone du document */}
-                             <div className="max-w-md mx-auto mb-8 p-4 rounded-xl bg-blue-500/10 border border-blue-500/20 text-left text-xs space-y-1.5">
-                               <div className="font-bold text-blue-700 dark:text-teal flex items-center space-x-1">
-                                 <span>⚙️ Traitement asynchrone du document PDF :</span>
-                               </div>
-                               <p className="text-gray-600 dark:text-gray-300">
-                                 Extraction du texte, découpage par passages (chunks) et vectorisation avec le modèle Qwen text-embedding-v4 (dimension 1024) dans PostgreSQL pgvector.
-                               </p>
-                               <p className="text-light-accent dark:text-teal font-semibold pt-1">
-                                 Statut : En cours d'analyse & vectorisation
-                               </p>
-                             </div>
-
-                             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                                <NavLink to="/dashboard/student" className="bg-light-accent dark:bg-teal text-white dark:text-navy font-bold py-2.5 px-6 rounded-full hover:opacity-90 transition-all shadow-md">
-                                    📊 Suivre dans mon tableau de bord
-                                </NavLink>
-                                <NavLink to={`/publication/${publishedArticle.id}`} className="border border-light-accent dark:border-teal text-light-accent dark:text-teal font-bold py-2.5 px-6 rounded-full hover:bg-light-accent/10 dark:hover:bg-teal/10 transition-all">
-                                    {translations.submission_page.success.view_article}
-                                </NavLink>
-                                 <button onClick={resetForm} className="border border-gray-400 text-gray-600 dark:text-gray-300 font-bold py-2.5 px-6 rounded-full hover:bg-gray-100 dark:hover:bg-navy transition-colors">
-                                    {translations.submission_page.success.submit_another}
-                                </button>
-                            </div>
-                        </div>
-                    )}
-                </div>
-            </div>
-        </div>
+      <div className="submission-page submission-page--loading" role="status">
+        <span className="submission-spinner" aria-hidden="true" />
+      </div>
     );
+  }
+
+  if (!isAuthenticated) return null;
+
+  return (
+    <div className="submission-page">
+      <div className="submission-content">
+        <header className="submission-heading">
+          <p className="submission-eyebrow">
+            {step === 1 ? copy.workspace.eyebrow : `${copy.workspace.eyebrow} · ${step === 2 ? copy.steps.metadata : copy.steps.submit}`}
+          </p>
+          <h1>{step === 1 ? copy.workspace.pageTitle : step === 2 ? copy.metadata.title : copy.success.title}</h1>
+          <p>{step === 1 ? copy.workspace.pageDescription : step === 2 ? copy.metadata.subtitle : copy.success.message}</p>
+        </header>
+
+        <div className="submission-progress">
+          <ol className="submission-steps" aria-label={copy.stepsLabel}>
+            {Object.entries(copy.steps).map(([key, label], index) => {
+              const stepNumber = index + 1;
+              const complete = step > stepNumber;
+              const active = step === stepNumber;
+              return (
+                <li key={key} className={active ? 'is-active' : complete ? 'is-complete' : ''} aria-current={active ? 'step' : undefined}>
+                  <span className="submission-step-number" aria-hidden="true">
+                    {!complete && !active ? stepNumber.toString().padStart(2, '0') : ''}
+                  </span>
+                  {complete && <CheckIcon className="submission-step-check" />}
+                  <span className="submission-step-label">{label}</span>
+                </li>
+              );
+            })}
+          </ol>
+        </div>
+
+        <div className="submission-layout">
+          <section className="submission-main">
+            <section className="submission-panel" aria-label={copy.workspace.pageTitle}>
+              {step === 1 && (
+                <section className="submission-step-content" aria-labelledby="submission-upload-title">
+                  <div className="submission-section-heading submission-section-heading--upload">
+                    <span className="submission-heading-icon" aria-hidden="true"><SubmissionsIcon className="submission-document-icon" /></span>
+                    <h2 id="submission-upload-title">{copy.upload.title}</h2>
+                    <p>{copy.workspace.uploadFooter}</p>
+                  </div>
+
+                  <div
+                    {...getRootProps({
+                      className: `submission-dropzone${isDragActive ? ' is-dragging' : ''}${file ? ' has-file' : ''}`,
+                      'aria-describedby': fileError ? 'submission-file-error' : file ? undefined : 'submission-file-help',
+                      'aria-invalid': Boolean(fileError),
+                      'aria-label': copy.upload.prompt,
+                    })}
+                  >
+                    <input {...getInputProps()} />
+                    <span className="submission-file-mark" aria-hidden="true"><SubmissionsIcon className="submission-document-icon" /></span>
+                    {file ? (
+                      <>
+                        <span className="submission-dropzone-title">{copy.upload.file_selected}</span>
+                        <span className="submission-file-name">{file.name}</span>
+                        <span className="submission-file-size">{(file.size / (1024 * 1024)).toFixed(1)} MB</span>
+                        <button
+                          type="button"
+                          className="submission-text-button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setFile(null);
+                            setFileError(null);
+                            setSubmissionError(null);
+                          }}
+                        >
+                          {copy.upload.change_file}
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <span className="submission-dropzone-title">{copy.upload.prompt}</span>
+                        <span className="submission-dropzone-help" id="submission-file-help">{copy.upload.subprompt}</span>
+                        <span className="submission-file-size">{copy.workspace.maxSize}</span>
+                        <span className="submission-choose-button">{copy.workspace.chooseFile}</span>
+                      </>
+                    )}
+                  </div>
+
+                  {fileError && <p className="submission-alert" id="submission-file-error" role="alert">{fileError}</p>}
+                  <div className="submission-actions submission-actions--end">
+                    <button type="button" className="submission-button submission-button--primary" disabled={!file} onClick={() => setStep(2)}>
+                      {copy.buttons.next}
+                      <span aria-hidden="true">→</span>
+                    </button>
+                  </div>
+                </section>
+              )}
+
+              {step === 2 && (
+                <form className="submission-step-content" onSubmit={handleSubmit} noValidate>
+                  <div className="submission-section-heading">
+                    <h2>{copy.metadata.title}</h2>
+                    <p>{copy.metadata.subtitle}</p>
+                  </div>
+
+                  <div className="submission-fields">
+                    <div className="submission-field submission-field--wide">
+                      <label htmlFor="submission-title">{copy.metadata.article_title}</label>
+                      <input id="submission-title" name="title" required value={formData.title} onChange={handleFieldChange} autoComplete="off" />
+                    </div>
+                    <div className="submission-field">
+                      <label htmlFor="submission-authors">{copy.metadata.authors}</label>
+                      <input id="submission-authors" name="authors" required value={formData.authors} onChange={handleFieldChange} autoComplete="off" />
+                      <span className="submission-field-help">{copy.metadata.authorsHelp}</span>
+                    </div>
+                    <div className="submission-field">
+                      <label htmlFor="submission-domain">{copy.metadata.domain}</label>
+                      <select id="submission-domain" name="domain" required value={formData.domain} onChange={handleFieldChange}>
+                        <option value="">{copy.metadata.select_domain}</option>
+                        {DOMAIN_OPTIONS.map(([value, key]) => (
+                          <option key={value} value={value}>{copy.metadata.domains[key]}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="submission-field submission-field--wide">
+                      <label htmlFor="submission-summary">{copy.metadata.summary}</label>
+                      <textarea id="submission-summary" name="summary" required minLength={250} maxLength={500} rows={6} value={formData.summary} onChange={handleFieldChange} />
+                      <div className="submission-field-footer">
+                        <span>{copy.metadata.summaryHelp}</span>
+                        <span aria-live="polite">{formData.summary.trim().length}/500</span>
+                      </div>
+                    </div>
+                    <div className="submission-field submission-field--wide">
+                      <label htmlFor="submission-keywords">{copy.metadata.keywords}</label>
+                      <input id="submission-keywords" name="keywords" value={formData.keywords} onChange={handleFieldChange} autoComplete="off" />
+                    </div>
+                  </div>
+
+                  {submissionError && <p className="submission-alert" role="alert">{submissionError}</p>}
+                  <div className="submission-actions">
+                    <button type="button" className="submission-button submission-button--secondary" disabled={isSubmitting} onClick={() => setStep(1)}>
+                      <span aria-hidden="true">←</span>
+                      {copy.buttons.previous}
+                    </button>
+                    <button type="submit" className="submission-button submission-button--primary" disabled={isSubmitting}>
+                      {isSubmitting && <span className="submission-button-spinner" aria-hidden="true" />}
+                      {isSubmitting ? copy.buttons.submitting : copy.buttons.submit}
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {step === 3 && (
+                <section className="submission-success submission-step-content" aria-labelledby="submission-success-title" role="status">
+                  <span className="submission-success-mark" aria-hidden="true">✓</span>
+                  <h2 id="submission-success-title">{copy.success.title}</h2>
+                  <p>{copy.success.message}</p>
+                  {submissionId !== null ? (
+                    <p className="submission-reference">{copy.success.reference}: <strong>#{submissionId}</strong></p>
+                  ) : acceptedWithoutReference ? (
+                    <p className="submission-reference submission-reference--notice">{copy.workspace.errorResponse}</p>
+                  ) : null}
+                  <div className="submission-actions submission-actions--center">
+                    <NavLink to="/dashboard/student" className="submission-button submission-button--primary">
+                      {copy.buttons.dashboard}
+                      <span aria-hidden="true">→</span>
+                    </NavLink>
+                    {!acceptedWithoutReference && (
+                      <button type="button" className="submission-button submission-button--secondary" onClick={resetForm}>
+                        {copy.buttons.submit_another}
+                      </button>
+                    )}
+                  </div>
+                </section>
+              )}
+            </section>
+          </section>
+
+          <aside className="submission-aside">
+            <section className="submission-aside-section">
+              {step === 1 ? (
+                <>
+                  <p className="submission-aside-eyebrow">{copy.workspace.beforeSendTitle}</p>
+                  <h2>{copy.workspace.prepareTitle}</h2>
+                  <p className="submission-aside-description">{copy.workspace.prepareDescription}</p>
+                  <ol className="submission-guidance-list">
+                    {[
+                      [copy.workspace.formatTitle, copy.workspace.formatDescription],
+                      [copy.workspace.detailsTitle, copy.workspace.detailsDescription],
+                      [copy.workspace.summaryTitle, copy.workspace.summaryDescription],
+                    ].map(([title, description], index) => (
+                      <li key={title}>
+                        <span className="submission-guidance-number">{String(index + 1).padStart(2, '0')}</span>
+                        <span><strong>{title}</strong><small>{description}</small></span>
+                      </li>
+                    ))}
+                  </ol>
+                </>
+              ) : step === 2 ? (
+                <>
+                  <p className="submission-aside-eyebrow">{copy.workspace.submissionEyebrow}</p>
+                  <h2>{copy.workspace.beforeSendTitle}</h2>
+                  <p className="submission-aside-description">{copy.workspace.beforeSendDescription}</p>
+                  <ul className="submission-checklist">
+                    {submissionChecklist.map(({ label, complete }, index) => (
+                      <li key={label} className={complete ? 'is-complete' : ''}>
+                        <span className="submission-check-mark" aria-hidden="true">
+                          {complete ? <CheckIcon className="submission-check-icon" /> : String(index + 1).padStart(2, '0')}
+                        </span>
+                        <span>{label}</span>
+                      </li>
+                    ))}
+                    <li className="submission-aside-detail">
+                      <span>{copy.metadata.article_title}</span>
+                      <strong>{formData.title.trim() || '—'}</strong>
+                    </li>
+                    <li className="submission-aside-detail">
+                      <span>{copy.metadata.domain}</span>
+                      <strong>{selectedDomainLabel || '—'}</strong>
+                    </li>
+                  </ul>
+                  <p className="submission-aside-note">{copy.workspace.asyncNote}</p>
+                </>
+              ) : (
+                <>
+                  <p className="submission-aside-eyebrow">{copy.steps.submit}</p>
+                  <h2>{copy.success.title}</h2>
+                  <p className="submission-aside-description">{copy.success.message}</p>
+                  {submissionId !== null && <p className="submission-aside-note">{copy.success.reference}: #{submissionId}</p>}
+                </>
+              )}
+            </section>
+          </aside>
+        </div>
+
+        <div className="submission-guidelines">
+          <SubmissionGuidelines />
+        </div>
+      </div>
+    </div>
+  );
 };
 
 export default SubmissionPage;

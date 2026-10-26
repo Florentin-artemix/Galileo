@@ -64,20 +64,6 @@ export interface Event {
   resources: Resource[];
 }
 
-export type SubmissionCategory = 'Nos travaux' | 'Décryptage' | 'Récits courts' | 'Innovations & Découvertes';
-
-export interface ArticleFormData {
-    submitterName: string;
-    contactEmail: string;
-    title: string;
-    authors: string;
-    affiliations: string;
-    domain: string;
-    category: SubmissionCategory;
-    summary: string;
-    keywords: string;
-}
-
 export interface ResourceItem {
   name: Record<string, string>;
   description: Record<string, string>;

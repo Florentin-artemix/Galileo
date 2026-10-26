@@ -1,0 +1,843 @@
+.submission-page {
+  box-sizing: border-box;
+  min-height: calc(100vh - 74px);
+  background: #f8f9fa;
+  color: #171f2e;
+  font-family: Inter, sans-serif;
+}
+
+.submission-content {
+  box-sizing: border-box;
+  width: min(100%, 1360px);
+  margin: 0 auto;
+  padding: 32px 48px 48px;
+}
+
+.submission-heading {
+  display: grid;
+  gap: 8px;
+  margin: 0 0 24px;
+}
+
+.submission-heading p,
+.submission-heading h1 {
+  margin: 0;
+}
+
+.submission-eyebrow,
+.submission-aside-eyebrow {
+  color: #14786e;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.submission-aside-eyebrow {
+  color: #abd6d1;
+}
+
+.submission-heading h1 {
+  color: #171f2e;
+  font: 700 28px/1.25 Poppins, sans-serif;
+  overflow-wrap: anywhere;
+}
+
+.submission-heading > p:last-child {
+  max-width: 720px;
+  color: #555f6b;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.submission-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.8fr) minmax(300px, 1fr);
+  align-items: start;
+  gap: 14px;
+}
+
+.submission-main,
+.submission-aside {
+  min-width: 0;
+}
+
+.submission-panel {
+  min-width: 0;
+  min-height: 440px;
+  border: 1px solid #dce2e6;
+  border-radius: 8px;
+  background: #fff;
+  padding: 18px;
+}
+
+.submission-progress {
+  margin: 0 0 14px;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  background: #fff;
+  padding: 10px 14px;
+}
+
+.submission-steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.submission-steps li {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: 28px 14px minmax(0, 1fr);
+  align-items: center;
+  gap: 5px;
+  color: #66717d;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.submission-step-number {
+  display: inline-flex;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #e3e8ed;
+  border-radius: 50%;
+  background: #f5f8fa;
+  color: #66717d;
+  font-size: 11px;
+}
+
+.submission-steps li.is-active {
+  color: #1a2945;
+}
+
+.submission-steps li.is-active .submission-step-number {
+  border-color: #14786e;
+  background: #14786e;
+  color: #fff;
+}
+
+.submission-steps li.is-complete {
+  color: #14786e;
+}
+
+.submission-steps li.is-complete .submission-step-number {
+  border-color: #d9efeb;
+  background: #e5f4f1;
+  color: #14786e;
+}
+
+.submission-step-check {
+  width: 12px;
+  height: 12px;
+  color: #14786e;
+}
+
+.submission-step-label {
+  overflow-wrap: anywhere;
+}
+
+.submission-step-content {
+  min-width: 0;
+}
+
+.submission-section-heading {
+  display: grid;
+  gap: 6px;
+  margin: 0 0 20px;
+}
+
+.submission-section-heading--upload {
+  grid-template-columns: 32px minmax(0, 1fr);
+  column-gap: 10px;
+}
+
+.submission-section-heading--upload .submission-heading-icon {
+  grid-row: 1 / span 2;
+}
+
+.submission-section-heading--upload h2,
+.submission-section-heading--upload p {
+  grid-column: 2;
+}
+
+.submission-heading-icon {
+  display: inline-flex;
+  width: 32px;
+  height: 32px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 7px;
+  background: #e5f4f1;
+  color: #14786e;
+}
+
+.submission-document-icon {
+  width: 17px;
+  height: 17px;
+}
+
+.submission-section-heading h2,
+.submission-section-heading p {
+  margin: 0;
+}
+
+.submission-section-heading h2,
+.submission-success h2 {
+  color: #1a2945;
+  font: 700 20px/1.35 Poppins, sans-serif;
+  overflow-wrap: anywhere;
+}
+
+.submission-section-heading p {
+  color: #555f6b;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.submission-dropzone {
+  display: flex;
+  min-height: 214px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1.5px dashed #aebbc3;
+  border-radius: 8px;
+  background: #f8f9fa;
+  padding: 22px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 140ms ease, background-color 140ms ease;
+}
+
+.submission-dropzone:hover,
+.submission-dropzone.is-dragging,
+.submission-dropzone:focus-visible {
+  border-color: #14786e;
+  background: #f0f8f6;
+  outline: none;
+}
+
+.submission-dropzone.has-file {
+  border-style: solid;
+  border-color: #8fbab3;
+  background: #f6fbf9;
+}
+
+.submission-file-mark {
+  display: inline-flex;
+  width: 48px;
+  height: 48px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #e9ecef;
+  border-radius: 9px;
+  background: #fff;
+  color: #14786e;
+}
+
+.submission-dropzone-title {
+  max-width: 100%;
+  color: #1a2945;
+  font-size: 14px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.submission-dropzone-help,
+.submission-file-size {
+  max-width: 100%;
+  color: #66717d;
+  font-size: 11px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.submission-file-name {
+  max-width: 100%;
+  color: #14786e;
+  font-size: 13px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.submission-choose-button {
+  display: inline-flex;
+  min-height: 38px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #14786e;
+  border-radius: 6px;
+  background: #14786e;
+  padding: 0 18px;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.submission-text-button {
+  border: 0;
+  background: transparent;
+  padding: 4px;
+  color: #335cb8;
+  cursor: pointer;
+  font: 600 11px/1.4 Inter, sans-serif;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.submission-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.submission-field--wide {
+  grid-column: 1 / -1;
+}
+
+.submission-field {
+  display: grid;
+  min-width: 0;
+  gap: 7px;
+}
+
+.submission-field label {
+  color: #1a2945;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.submission-field input,
+.submission-field select,
+.submission-field textarea {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  border: 1px solid #ccd5db;
+  border-radius: 6px;
+  background: #fff;
+  padding: 11px 12px;
+  color: #171f2e;
+  font: 400 13px/1.45 Inter, sans-serif;
+}
+
+.submission-field input,
+.submission-field select {
+  min-height: 42px;
+}
+
+.submission-field textarea {
+  min-height: 140px;
+  resize: vertical;
+}
+
+.submission-field input:focus-visible,
+.submission-field select:focus-visible,
+.submission-field textarea:focus-visible,
+.submission-button:focus-visible,
+.submission-text-button:focus-visible {
+  border-color: #335cb8;
+  outline: 2px solid rgb(51 92 184 / 18%);
+  outline-offset: 1px;
+}
+
+.submission-field-help,
+.submission-field-footer {
+  color: #66717d;
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.submission-field-footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.submission-field-footer span:last-child {
+  flex: 0 0 auto;
+  color: #1a2945;
+  font-variant-numeric: tabular-nums;
+}
+
+.submission-alert {
+  margin: 16px 0 0;
+  border-left: 3px solid #b83d45;
+  background: #fff3f3;
+  padding: 10px 12px;
+  color: #842c34;
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.submission-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 24px;
+}
+
+.submission-actions--end,
+.submission-actions--center {
+  justify-content: flex-end;
+}
+
+.submission-actions--center {
+  justify-content: center;
+}
+
+.submission-button {
+  box-sizing: border-box;
+  display: inline-flex;
+  min-height: 42px;
+  max-width: 100%;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  border: 1px solid #ccd5db;
+  border-radius: 6px;
+  padding: 0 16px;
+  cursor: pointer;
+  font: 600 12px/1.35 Inter, sans-serif;
+  text-align: center;
+  text-decoration: none;
+  overflow-wrap: anywhere;
+  transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease;
+}
+
+.submission-button--primary {
+  border-color: #14786e;
+  background: #14786e;
+  color: #fff;
+}
+
+.submission-button--primary:hover:not(:disabled) {
+  border-color: #0f625a;
+  background: #0f625a;
+}
+
+.submission-button--secondary {
+  background: #fff;
+  color: #1a2945;
+}
+
+.submission-button--secondary:hover:not(:disabled) {
+  border-color: #14786e;
+  color: #14786e;
+}
+
+.submission-button:disabled {
+  cursor: not-allowed;
+  opacity: .58;
+}
+
+.submission-button-spinner,
+.submission-spinner {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 15px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: submission-spin .7s linear infinite;
+}
+
+.submission-success {
+  display: grid;
+  justify-items: center;
+  padding: 24px 0 12px;
+  text-align: center;
+}
+
+.submission-success-mark {
+  display: inline-flex;
+  width: 48px;
+  height: 48px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: #e5f3ef;
+  color: #14786e;
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.submission-success h2 {
+  margin: 16px 0 8px;
+}
+
+.submission-success > p {
+  max-width: 560px;
+  margin: 0;
+  color: #555f6b;
+  font-size: 12px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.submission-success .submission-reference {
+  margin-top: 12px;
+  color: #1a2945;
+}
+
+.submission-reference strong {
+  color: #14786e;
+  font-variant-numeric: tabular-nums;
+}
+
+.submission-success .submission-reference--notice {
+  border-left: 3px solid #d28c24;
+  background: #fff8e8;
+  padding: 10px 12px;
+  color: #684512;
+  text-align: left;
+}
+
+.submission-aside {
+  box-sizing: border-box;
+  min-height: 440px;
+  border: 1px solid #263c5c;
+  border-radius: 8px;
+  background: #1a2945;
+  padding: 20px;
+}
+
+.submission-aside-section {
+  display: grid;
+  gap: 12px;
+}
+
+.submission-aside-section h2,
+.submission-aside-section p {
+  margin: 0;
+}
+
+.submission-aside-section h2 {
+  color: #fff;
+  font: 700 18px/1.35 Poppins, sans-serif;
+  overflow-wrap: anywhere;
+}
+
+.submission-aside-description,
+.submission-aside-note {
+  color: #d2dce8;
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.submission-guidance-list,
+.submission-checklist {
+  display: grid;
+  gap: 8px;
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.submission-guidance-list li {
+  display: grid;
+  min-height: 64px;
+  grid-template-columns: 24px minmax(0, 1fr);
+  align-items: center;
+  gap: 9px;
+  border: 1px solid #2d4a70;
+  border-radius: 7px;
+  background: #142c4a;
+  padding: 8px;
+}
+
+.submission-guidance-number,
+.submission-check-mark {
+  display: inline-flex;
+  width: 24px;
+  height: 24px;
+  flex: 0 0 24px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 7px;
+  background: #205266;
+  color: #bce1dd;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.submission-guidance-list li > span:last-child {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+
+.submission-guidance-list strong {
+  color: #fff;
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.submission-guidance-list small {
+  color: #d2dce8;
+  font-size: 9px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.submission-checklist {
+  gap: 0;
+  border: 1px solid #2d4a70;
+  border-radius: 7px;
+  background: #142c4a;
+  padding: 7px 12px;
+}
+
+.submission-checklist > li:not(.submission-aside-detail) {
+  display: flex;
+  min-height: 40px;
+  align-items: center;
+  gap: 10px;
+  color: #e1e8f0;
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+.submission-checklist .submission-check-mark {
+  width: 22px;
+  height: 22px;
+  flex-basis: 22px;
+  border-radius: 6px;
+  background: #243d5d;
+  color: #9eafc1;
+  font-size: 9px;
+}
+
+.submission-checklist li.is-complete .submission-check-mark {
+  background: #205266;
+  color: #bce1dd;
+}
+
+.submission-aside-detail {
+  display: grid;
+  gap: 3px;
+  border-top: 1px solid #2d4a70;
+  padding: 9px 0 6px 32px;
+  color: #b8c7d8;
+  font-size: 9px;
+}
+
+.submission-aside-detail strong {
+  color: #fff;
+  font-size: 10px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.submission-aside-note {
+  border-left: 3px solid #14786e;
+  padding-left: 11px;
+}
+
+.submission-guidelines {
+  margin-top: 38px;
+}
+
+.submission-page--loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.submission-spinner {
+  width: 32px;
+  height: 32px;
+  border-color: #335cb8;
+  border-right-color: transparent;
+}
+
+@keyframes submission-spin {
+  to { transform: rotate(360deg); }
+}
+
+.dark .submission-page {
+  background: #101a2b;
+  color: #f4f6f7;
+}
+
+.dark .submission-heading h1,
+.dark .submission-section-heading h2,
+.dark .submission-success h2,
+.dark .submission-aside-section h2,
+.dark .submission-steps li.is-active,
+.dark .submission-summary-list dd,
+.dark .submission-field label {
+  color: #f4f6f7;
+}
+
+.dark .submission-heading > p:last-child,
+.dark .submission-section-heading p,
+.dark .submission-aside-description,
+.dark .submission-aside-note,
+.dark .submission-success > p {
+  color: #b8c2cf;
+}
+
+.dark .submission-panel,
+.dark .submission-dropzone,
+.dark .submission-field input,
+.dark .submission-field select,
+.dark .submission-field textarea,
+.dark .submission-button--secondary {
+  border-color: #34445a;
+  background: #17243a;
+  color: #f4f6f7;
+}
+
+.dark .submission-dropzone:hover,
+.dark .submission-dropzone.is-dragging,
+.dark .submission-dropzone:focus-visible,
+.dark .submission-dropzone.has-file {
+  border-color: #54b2a5;
+  background: #1b3438;
+}
+
+.dark .submission-dropzone-title,
+.dark .submission-summary-list dd,
+.dark .submission-field-footer span:last-child {
+  color: #e8edf2;
+}
+
+.dark .submission-progress,
+.dark .submission-aside {
+  border-color: #34445a;
+}
+
+.dark .submission-progress {
+  background: #17243a;
+}
+
+.dark .submission-aside {
+  background: #1a2945;
+}
+
+.dark .submission-step-number {
+  border-color: #53657c;
+  background: #17243a;
+  color: #b8c2cf;
+}
+
+.dark .submission-dropzone-help,
+.dark .submission-file-size,
+.dark .submission-field-help,
+.dark .submission-field-footer,
+.dark .submission-steps li,
+.dark .submission-summary-list dt {
+  color: #b8c2cf;
+}
+
+.dark .submission-success .submission-reference {
+  color: #e8edf2;
+}
+
+.dark .submission-success .submission-reference--notice {
+  border-color: #d6a34b;
+  background: #3b3020;
+  color: #f1d29b;
+}
+
+@media (max-width: 980px) {
+  .submission-content {
+    padding-right: 28px;
+    padding-left: 28px;
+  }
+
+  .submission-layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 22px;
+  }
+
+  .submission-aside {
+    min-height: 0;
+  }
+
+}
+
+@media (max-width: 640px) {
+  .submission-content {
+    padding: 24px 16px 36px;
+  }
+
+  .submission-heading {
+    margin-bottom: 18px;
+  }
+
+  .submission-heading h1 {
+    font-size: 24px;
+  }
+
+  .submission-panel {
+    min-height: 380px;
+    padding: 15px 12px;
+  }
+
+  .submission-steps {
+    gap: 3px;
+  }
+
+  .submission-steps li {
+    grid-template-columns: 24px 10px minmax(0, 1fr);
+    gap: 3px;
+    font-size: 9px;
+  }
+
+  .submission-step-number {
+    width: 24px;
+    height: 24px;
+    flex-basis: 24px;
+  }
+
+  .submission-step-check {
+    width: 10px;
+    height: 10px;
+  }
+
+  .submission-fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .submission-field--wide {
+    grid-column: auto;
+  }
+
+  .submission-dropzone {
+    min-height: 190px;
+    padding: 18px 12px;
+  }
+
+  .submission-actions,
+  .submission-actions--end,
+  .submission-actions--center {
+    align-items: stretch;
+    flex-direction: column-reverse;
+  }
+
+  .submission-button {
+    width: 100%;
+  }
+
+  .submission-aside {
+    padding: 16px;
+  }
+
+  .submission-guidelines {
+    margin-top: 28px;
+  }
+}
