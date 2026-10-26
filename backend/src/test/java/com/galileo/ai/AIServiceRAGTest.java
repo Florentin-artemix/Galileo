@@ -37,6 +37,7 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -209,5 +210,7 @@ class AIServiceRAGTest {
         assertThrows(ForbiddenException.class, () ->
                 aiService.chat(request, userDetails)
         );
+        verify(messageRepository, never()).findTop12ByConversationIdOrderByCreatedAtDesc(777L);
+        verify(claudeAIService, never()).generateTextWithHistory(any(), anyList(), anyDouble(), anyInt());
     }
 }

@@ -2,7 +2,7 @@ import apiClient from './apiService';
 
 export type AIMode = 'GENERAL' | 'DOCUMENT' | 'RESEARCH' | 'LEARNING';
 export type AISummaryType = 'QUICK' | 'STRUCTURED' | 'EDUCATIONAL';
-export type AIExplanationLevel = 'BEGINNER' | 'INTERMEDIATE' | 'EXPERT';
+export type AIExplanationLevel = 'SIMPLIFIE' | 'INTERMEDIAIRE' | 'AVANCE';
 
 export interface SourceReference {
   chunkId: number;
@@ -44,9 +44,13 @@ export interface AISummaryResponse {
 }
 
 export interface AIExplainRequest {
-  text: string;
+  passage: string;
   level?: AIExplanationLevel;
   publicationId?: number;
+}
+
+export interface AIExplainResponse {
+  explanation: string;
 }
 
 export interface AICompareRequest {
@@ -58,7 +62,7 @@ export interface AIMessageDTO {
   id: number;
   role: 'USER' | 'ASSISTANT' | 'SYSTEM';
   content: string;
-  sourceReferences?: SourceReference[];
+  metadata?: string | null;
   createdAt: string;
 }
 
@@ -67,9 +71,14 @@ export interface AIConversationDTO {
   title: string;
   mode: AIMode;
   publicationId?: number;
+  publicationTitle?: string;
   createdAt: string;
   updatedAt: string;
   messages?: AIMessageDTO[];
+}
+
+export interface AICompareResponse {
+  comparison: string;
 }
 
 export const aiService = {
@@ -92,7 +101,7 @@ export const aiService = {
   /**
    * Explication d'un passage selon le niveau de complexité
    */
-  async explainPassage(request: AIExplainRequest): Promise<{ explanation: string; level: string }> {
+  async explainPassage(request: AIExplainRequest): Promise<AIExplainResponse> {
     const response = await apiClient.post('/ai/explain', request);
     return response.data;
   },
@@ -100,7 +109,7 @@ export const aiService = {
   /**
    * Comparaison synthétique de plusieurs publications
    */
-  async comparePublications(request: AICompareRequest): Promise<{ comparison: string; publicationCount: number }> {
+  async comparePublications(request: AICompareRequest): Promise<AICompareResponse> {
     const response = await apiClient.post('/ai/compare', request);
     return response.data;
   },
@@ -116,9 +125,13 @@ export const aiService = {
   /**
    * Récupérer une conversation avec l'intégralité de ses messages
    */
-  async getConversation(id: number): Promise<AIConversationDTO> {
-    const response = await apiClient.get(`/ai/conversations/${id}`);
+  async getConversationMessages(id: number): Promise<AIMessageDTO[]> {
+    const response = await apiClient.get(`/ai/conversations/${id}/messages`);
     return response.data;
+  },
+
+  async deleteConversation(id: number): Promise<void> {
+    await apiClient.delete(`/ai/conversations/${id}`);
   }
 };
 

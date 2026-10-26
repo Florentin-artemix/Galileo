@@ -8,7 +8,7 @@ public interface LearningService {
 
     QuizDTO generateQuiz(QuizGenerateRequest request, Long userId);
 
-    QuizDTO getQuiz(Long quizId);
+    QuizDTO getQuiz(Long quizId, Long userId);
 
     List<QuizDTO> getQuizzesForPublication(Long publicationId);
 

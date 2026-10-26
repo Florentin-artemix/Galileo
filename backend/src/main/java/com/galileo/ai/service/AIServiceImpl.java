@@ -58,6 +58,7 @@ public class AIServiceImpl implements AIService {
     private EntityManager entityManager;
 
     private static final int DAILY_QUOTA_PER_USER = 100;
+    private static final int MAX_HISTORY_CHARACTERS = 12_000;
 
     @Override
     @Transactional
@@ -89,12 +90,14 @@ public class AIServiceImpl implements AIService {
 
         // Récupération ou création de la conversation
         AIConversation conversation;
+        List<AIChatTurn> previousTurns = List.of();
         if (request.getConversationId() != null) {
             conversation = conversationRepository.findById(request.getConversationId())
                     .orElseThrow(() -> new ResourceNotFoundException("Conversation IA", "id", request.getConversationId()));
             if (!conversation.getUser().getId().equals(user.getId()) && user.getRole() != Role.ADMIN) {
                 throw new ForbiddenException("Cette conversation ne vous appartient pas");
             }
+            previousTurns = loadRecentConversationTurns(conversation.getId());
         } else {
             String title = request.getMessage().length() > 60
                     ? request.getMessage().substring(0, 57) + "..."
@@ -160,7 +163,14 @@ public class AIServiceImpl implements AIService {
         }
 
         long startTime = System.currentTimeMillis();
-        ClaudeAIService.ClaudeResult result = claudeAIService.generateText(systemPrompt, finalUserPrompt, 0.3, 2048);
+        ClaudeAIService.ClaudeResult result;
+        if (previousTurns.isEmpty()) {
+            result = claudeAIService.generateText(systemPrompt, finalUserPrompt, 0.3, 2048);
+        } else {
+            List<AIChatTurn> turns = new ArrayList<>(previousTurns);
+            turns.add(AIChatTurn.user(finalUserPrompt));
+            result = claudeAIService.generateTextWithHistory(systemPrompt, turns, 0.3, 2048);
+        }
         long duration = System.currentTimeMillis() - startTime;
 
         if (!result.isSuccess()) {
@@ -523,6 +533,34 @@ public class AIServiceImpl implements AIService {
             case LEARNING -> base + "Tu es un tuteur pédagogique bienveillant. Tu découpes les explications de manière claire, progressive et structurée, adaptée aux étudiants.";
             case GENERAL -> base + "Tu réponds à toute question académique ou scientifique générale de façon claire, neutre et documentée.";
         };
+    }
+
+    private List<AIChatTurn> loadRecentConversationTurns(Long conversationId) {
+        List<AIMessage> storedMessages = new ArrayList<>(
+                messageRepository.findTop12ByConversationIdOrderByCreatedAtDesc(conversationId));
+
+        List<AIChatTurn> turns = new ArrayList<>();
+        int remainingCharacters = MAX_HISTORY_CHARACTERS;
+        for (AIMessage message : storedMessages) {
+            String role = message.getRole() != null ? message.getRole().toUpperCase(Locale.ROOT) : "";
+            String content = message.getContent();
+            if (content == null || content.isEmpty() || remainingCharacters <= 0) continue;
+
+            int retainedLength = Math.min(content.length(), remainingCharacters);
+            String retainedContent = retainedLength == content.length()
+                    ? content
+                    : content.substring(content.length() - retainedLength);
+
+            if ("USER".equals(role)) {
+                turns.add(0, AIChatTurn.user(retainedContent));
+            } else if ("ASSISTANT".equals(role)) {
+                turns.add(0, AIChatTurn.assistant(retainedContent));
+            } else {
+                continue;
+            }
+            remainingCharacters -= retainedLength;
+        }
+        return turns;
     }
 
     private void checkDailyQuota(Long userId) {

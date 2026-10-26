@@ -94,11 +94,22 @@ public class ClaudeAIService {
     }
 
     public ClaudeResult generateText(String systemPrompt, String userMessage, double temperature, int maxTokens) {
+        return generateTextInternal(systemPrompt, List.of(AIChatTurn.user(userMessage)), userMessage, temperature, maxTokens, false);
+    }
+
+    public ClaudeResult generateTextWithHistory(String systemPrompt, List<AIChatTurn> messages, double temperature, int maxTokens) {
+        return generateTextInternal(systemPrompt, messages, null, temperature, maxTokens, true);
+    }
+
+    private ClaudeResult generateTextInternal(String systemPrompt, List<AIChatTurn> messages, String singleUserMessage,
+                                              double temperature, int maxTokens, boolean useHistory) {
         // 1. Si la clé primaire est absente, basculer directement sur OpenRouter si disponible
         if (!isConfigured()) {
             if (openRouterAIService != null && openRouterAIService.isConfigured()) {
                 log.info("Clé Claude non configurée. Bascule directe sur le fournisseur de secours OpenRouter");
-                return openRouterAIService.generateText(systemPrompt, userMessage, temperature, maxTokens);
+                return useHistory
+                        ? openRouterAIService.generateTextWithHistory(systemPrompt, messages, temperature, maxTokens)
+                        : openRouterAIService.generateText(systemPrompt, singleUserMessage, temperature, maxTokens);
             }
             return ClaudeResult.builder()
                     .content("L'assistant IA Claude n'est pas encore configuré sur cette instance (clé API absente).")
@@ -113,7 +124,7 @@ public class ClaudeAIService {
         }
 
         // 2. Appel au fournisseur primaire (Claude)
-        ClaudeResult primaryResult = callClaude(systemPrompt, userMessage, temperature, maxTokens);
+        ClaudeResult primaryResult = callClaude(systemPrompt, messages, temperature, maxTokens);
 
         if (primaryResult.isSuccess()) {
             return primaryResult;
@@ -123,7 +134,9 @@ public class ClaudeAIService {
         if (primaryResult.isRecoverableError()) {
             if (openRouterAIService != null && openRouterAIService.isConfigured()) {
                 log.warn("Échec du fournisseur primaire Claude ({}), déclenchement du fallback vers OpenRouter", primaryResult.getError());
-                ClaudeResult fallbackResult = openRouterAIService.generateText(systemPrompt, userMessage, temperature, maxTokens);
+                ClaudeResult fallbackResult = useHistory
+                        ? openRouterAIService.generateTextWithHistory(systemPrompt, messages, temperature, maxTokens)
+                        : openRouterAIService.generateText(systemPrompt, singleUserMessage, temperature, maxTokens);
                 if (fallbackResult.isSuccess()) {
                     log.info("Bascule OpenRouter réussie avec le modèle {}", fallbackResult.getModel());
                     return fallbackResult;
@@ -150,7 +163,7 @@ public class ClaudeAIService {
         return primaryResult;
     }
 
-    private ClaudeResult callClaude(String systemPrompt, String userMessage, double temperature, int maxTokens) {
+    private ClaudeResult callClaude(String systemPrompt, List<AIChatTurn> messages, double temperature, int maxTokens) {
         try {
             String normalizedBaseUrl = baseUrl != null ? baseUrl.replaceAll("/+$", "") : "https://api.bedrock.com.de";
             String url;
@@ -162,10 +175,13 @@ public class ClaudeAIService {
                 url = normalizedBaseUrl + "/v1/messages";
             }
 
+            List<Map<String, String>> providerMessages = messages.stream()
+                    .map(message -> Map.of("role", message.role(), "content", message.content()))
+                    .toList();
             Map<String, Object> requestMap = Map.of(
                     "model", model,
                     "system", systemPrompt != null ? systemPrompt : "Tu es un assistant scientifique expert de la plateforme académique Galileo.",
-                    "messages", List.of(Map.of("role", "user", "content", userMessage)),
+                    "messages", providerMessages,
                     "temperature", temperature,
                     "max_tokens", maxTokens
             );

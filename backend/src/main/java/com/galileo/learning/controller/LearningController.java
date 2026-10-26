@@ -36,8 +36,12 @@ public class LearningController {
     }
 
     @GetMapping("/quizzes/{id}")
-    public ResponseEntity<QuizDTO> getQuiz(@PathVariable Long id) {
-        return ResponseEntity.ok(learningService.getQuiz(id));
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<QuizDTO> getQuiz(
+            @PathVariable Long id,
+            @AuthenticationPrincipal CustomUserDetails userDetails
+    ) {
+        return ResponseEntity.ok(learningService.getQuiz(id, userDetails.getId()));
     }
 
     @GetMapping("/quizzes/publication/{publicationId}")

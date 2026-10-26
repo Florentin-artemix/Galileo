@@ -4,6 +4,8 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.galileo.ai.service.ClaudeAIService;
+import com.galileo.common.exception.AIServiceTimeoutException;
+import com.galileo.common.exception.AIServiceUnavailableException;
 import com.galileo.auth.entity.User;
 import com.galileo.auth.repository.UserRepository;
 import com.galileo.common.exception.BadRequestException;
@@ -28,6 +30,8 @@ import java.util.*;
 @Service
 @RequiredArgsConstructor
 public class LearningServiceImpl implements LearningService {
+
+    private static final int QUIZ_PASSING_SCORE_PERCENT = 60;
 
     private final QuizRepository quizRepository;
     private final QuizQuestionRepository questionRepository;
@@ -86,6 +90,13 @@ public class LearningServiceImpl implements LearningService {
         String userPrompt = "Génère exactement " + count + " questions QCM à partir de ce texte :\n" + contentForQuiz;
 
         ClaudeAIService.ClaudeResult result = claudeAIService.generateText(systemPrompt, userPrompt, 0.2, 2048);
+        if (result == null || !result.isSuccess()) {
+            String error = result != null ? result.getError() : null;
+            if (error != null && error.toLowerCase(Locale.ROOT).contains("timeout")) {
+                throw new AIServiceTimeoutException("Le délai de génération du quiz a été dépassé. Veuillez réessayer.");
+            }
+            throw new AIServiceUnavailableException("Le service de génération du quiz est temporairement indisponible.");
+        }
 
         List<GeneratedQuestion> parsedQuestions = parseQuizQuestions(result.getContent(), count);
 
@@ -118,14 +129,15 @@ public class LearningServiceImpl implements LearningService {
             savedQuestions.add(questionRepository.save(question));
         }
 
-        return toQuizDTO(quiz, savedQuestions, true);
+        return toQuizDTO(quiz, savedQuestions, false);
     }
 
     @Override
     @Transactional(readOnly = true)
-    public QuizDTO getQuiz(Long quizId) {
+    public QuizDTO getQuiz(Long quizId, Long userId) {
         Quiz quiz = quizRepository.findById(quizId)
                 .orElseThrow(() -> new ResourceNotFoundException("Quiz", "id", quizId));
+        ensureQuizAccess(quiz, userId);
         List<QuizQuestion> questions = questionRepository.findByQuizIdOrderByPositionAsc(quizId);
         return toQuizDTO(quiz, questions, false);
     }
@@ -151,6 +163,7 @@ public class LearningServiceImpl implements LearningService {
     public QuizResultDTO submitQuizAttempt(Long quizId, QuizSubmitRequest request, Long userId) {
         Quiz quiz = quizRepository.findById(quizId)
                 .orElseThrow(() -> new ResourceNotFoundException("Quiz", "id", quizId));
+        ensureQuizAccess(quiz, userId);
 
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Utilisateur", "id", userId));
@@ -176,13 +189,13 @@ public class LearningServiceImpl implements LearningService {
                     .question(q.getQuestion())
                     .userAnswer(selected != null ? selected : "Non répondu")
                     .correctAnswer(q.getAnswer())
-                    .isCorrect(isCorrect)
+                    .correct(isCorrect)
                     .explanation(q.getExplanation())
                     .build());
         }
 
         float score = ((float) correctCount / questions.size()) * 100.0f;
-        boolean passed = score >= 60.0f;
+        boolean passed = score >= QUIZ_PASSING_SCORE_PERCENT;
 
         String answersJson = "{}";
         try {
@@ -206,6 +219,7 @@ public class LearningServiceImpl implements LearningService {
                 .attemptId(attempt.getId())
                 .quizId(quiz.getId())
                 .score(score)
+                .passingScore(QUIZ_PASSING_SCORE_PERCENT)
                 .totalQuestions(questions.size())
                 .correctCount(correctCount)
                 .passed(passed)
@@ -379,48 +393,64 @@ public class LearningServiceImpl implements LearningService {
         if (selected == null || expected == null) return false;
         String s = selected.trim().toUpperCase();
         String e = expected.trim().toUpperCase();
-        return s.equals(e) || (s.length() >= 2 && e.startsWith(s.substring(0, 2)));
+        return s.equals(e);
+    }
+
+    private void ensureQuizAccess(Quiz quiz, Long userId) {
+        if (quiz.getPublication() == null
+                && (quiz.getUser() == null || userId == null || !Objects.equals(quiz.getUser().getId(), userId))) {
+            throw new ForbiddenException("Ce quiz privé n'est pas accessible avec ce compte.");
+        }
     }
 
     private List<GeneratedQuestion> parseQuizQuestions(String rawJson, int expectedCount) {
         List<GeneratedQuestion> questions = new ArrayList<>();
-        String cleaned = cleanJsonString(rawJson);
+        JsonNode root;
 
         try {
-            JsonNode root = objectMapper.readTree(cleaned);
-            if (root.isArray()) {
-                for (JsonNode qNode : root) {
-                    String qText = qNode.path("question").asText();
-                    List<String> options = new ArrayList<>();
-                    JsonNode opts = qNode.path("options");
-                    if (opts.isArray()) {
-                        for (JsonNode opt : opts) options.add(opt.asText());
-                    }
-                    String ans = qNode.path("answer").asText();
-                    String expl = qNode.path("explanation").asText();
-
-                    if (!qText.isEmpty() && !options.isEmpty()) {
-                        questions.add(new GeneratedQuestion(qText, options, ans, expl));
-                    }
-                }
-            }
+            root = objectMapper.readTree(cleanJsonString(rawJson));
         } catch (Exception e) {
-            log.warn("Parsing JSON du quiz échoué ({}), génération du fallback : {}", e.getMessage(), rawJson);
+            throw invalidGeneratedQuiz();
         }
 
-        // Si le parsing a échoué ou est incomplet, générer questions de secours cohérentes
-        if (questions.isEmpty()) {
-            for (int i = 1; i <= expectedCount; i++) {
-                questions.add(new GeneratedQuestion(
-                        "Question " + i + " : Quel est l'enjeu principal abordé dans ce document ?",
-                        List.of("A. Améliorer la précision méthodologique", "B. Réduire les coûts énergétiques", "C. Optimiser l'algorithme d'apprentissage", "D. Faciliter l'analyse des données"),
-                        "A. Améliorer la précision méthodologique",
-                        "L'auteur met l'accent sur la rigueur méthodologique comme levier d'optimisation."
-                ));
+        if (root == null || !root.isArray() || root.size() != expectedCount) {
+            throw invalidGeneratedQuiz();
+        }
+
+        for (JsonNode qNode : root) {
+            if (!qNode.isObject()) {
+                throw invalidGeneratedQuiz();
             }
+
+            String qText = qNode.path("question").asText("").trim();
+            String answer = qNode.path("answer").asText("").trim();
+            String explanation = qNode.path("explanation").asText("").trim();
+            JsonNode rawOptions = qNode.path("options");
+            if (!rawOptions.isArray()) {
+                throw invalidGeneratedQuiz();
+            }
+
+            List<String> options = new ArrayList<>();
+            for (JsonNode option : rawOptions) {
+                String value = option.asText("").trim();
+                if (value.isEmpty()) {
+                    throw invalidGeneratedQuiz();
+                }
+                options.add(value);
+            }
+
+            boolean answerIsAvailable = options.stream().anyMatch(option -> option.equalsIgnoreCase(answer));
+            if (qText.isEmpty() || options.size() < 2 || answer.isEmpty() || !answerIsAvailable || explanation.isEmpty()) {
+                throw invalidGeneratedQuiz();
+            }
+            questions.add(new GeneratedQuestion(qText, options, answer, explanation));
         }
 
         return questions;
+    }
+
+    private AIServiceUnavailableException invalidGeneratedQuiz() {
+        return new AIServiceUnavailableException("Le service de génération a renvoyé un questionnaire incomplet. Veuillez réessayer.");
     }
 
     private String cleanJsonString(String raw) {
@@ -471,6 +501,7 @@ public class LearningServiceImpl implements LearningService {
                 .publicationTitle(q.getPublication() != null ? q.getPublication().getTitle() : null)
                 .topic(q.getTopic())
                 .type(q.getType())
+                .passingScore(QUIZ_PASSING_SCORE_PERCENT)
                 .questions(qDtos)
                 .createdAt(q.getCreatedAt())
                 .build();

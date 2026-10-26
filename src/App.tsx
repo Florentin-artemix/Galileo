@@ -140,10 +140,38 @@ const AppContent: React.FC = () => {
                 }
               />
               {/* Assistant IA & Apprentissage Interactif */}
-              <Route path="/ai-assistant" element={<AIAssistantPage />} />
-              <Route path="/quiz" element={<QuizPage />} />
-              <Route path="/quiz/:id" element={<QuizPage />} />
-              <Route path="/learning-paths" element={<LearningPathsPage />} />
+              <Route
+                path="/ai-assistant"
+                element={
+                  <RequireRole allowed={['ADMIN', 'STAFF', 'STUDENT', 'RESEARCHER', 'TEACHER', 'VIEWER']}>
+                    <AIAssistantPage />
+                  </RequireRole>
+                }
+              />
+              <Route
+                path="/quiz"
+                element={
+                  <RequireRole allowed={['ADMIN', 'STAFF', 'STUDENT', 'RESEARCHER', 'TEACHER', 'VIEWER']}>
+                    <QuizPage />
+                  </RequireRole>
+                }
+              />
+              <Route
+                path="/quiz/:id"
+                element={
+                  <RequireRole allowed={['ADMIN', 'STAFF', 'STUDENT', 'RESEARCHER', 'TEACHER', 'VIEWER']}>
+                    <QuizPage />
+                  </RequireRole>
+                }
+              />
+              <Route
+                path="/learning-paths"
+                element={
+                  <RequireRole allowed={['ADMIN', 'STAFF', 'STUDENT', 'RESEARCHER', 'TEACHER', 'VIEWER']}>
+                    <LearningPathsPage />
+                  </RequireRole>
+                }
+              />
             </Routes>
           </Suspense>
         </main>

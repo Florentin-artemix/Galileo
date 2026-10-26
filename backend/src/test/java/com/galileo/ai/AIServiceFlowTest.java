@@ -11,6 +11,7 @@ import com.galileo.ai.repository.AIInteractionRepository;
 import com.galileo.ai.repository.AIMessageRepository;
 import com.galileo.ai.repository.PublicationSummaryCacheRepository;
 import com.galileo.ai.service.AIServiceImpl;
+import com.galileo.ai.service.AIChatTurn;
 import com.galileo.ai.service.ClaudeAIService;
 import com.galileo.auth.entity.Role;
 import com.galileo.auth.entity.User;
@@ -44,6 +45,8 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -171,6 +174,51 @@ class AIServiceFlowTest {
         AIInteraction savedInteraction = interactionCaptor.getValue();
         assertEquals("claude", savedInteraction.getProvider());
         assertEquals("claude-sonnet-5", savedInteraction.getModel());
+    }
+
+    @Test
+    @DisplayName("A continued conversation sends recent user and assistant turns before the current question")
+    void testChatContinuesWithBoundedConversationHistory() {
+        when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
+        when(interactionRepository.countByUserIdAndCreatedAtAfter(eq(1L), any())).thenReturn(0L);
+
+        AIConversation conversation = AIConversation.builder()
+                .id(30L)
+                .user(testUser)
+                .mode(AIMode.GENERAL)
+                .title("Question initiale")
+                .build();
+        when(conversationRepository.findById(30L)).thenReturn(Optional.of(conversation));
+        when(messageRepository.findTop12ByConversationIdOrderByCreatedAtDesc(30L)).thenReturn(List.of(
+                AIMessage.builder().id(2L).role("ASSISTANT").content("La réponse précédente").build(),
+                AIMessage.builder().id(1L).role("USER").content("Question précédente").build()
+        ));
+
+        when(claudeAIService.generateTextWithHistory(any(), anyList(), anyDouble(), anyInt()))
+                .thenReturn(ClaudeAIService.ClaudeResult.builder()
+                        .content("Réponse avec le contexte précédent")
+                        .success(true)
+                        .provider("claude")
+                        .model("claude-sonnet-5")
+                        .build());
+
+        AIChatRequest request = AIChatRequest.builder()
+                .conversationId(30L)
+                .mode(AIMode.GENERAL)
+                .message("Précise le deuxième point")
+                .build();
+
+        aiService.chat(request, testUserDetails);
+
+        verify(claudeAIService).generateTextWithHistory(any(), argThat(turns ->
+                turns.size() == 3
+                        && "user".equals(turns.get(0).role())
+                        && "Question précédente".equals(turns.get(0).content())
+                        && "assistant".equals(turns.get(1).role())
+                        && "La réponse précédente".equals(turns.get(1).content())
+                        && "user".equals(turns.get(2).role())
+                        && "Précise le deuxième point".equals(turns.get(2).content())
+        ), anyDouble(), anyInt());
     }
 
     @Test

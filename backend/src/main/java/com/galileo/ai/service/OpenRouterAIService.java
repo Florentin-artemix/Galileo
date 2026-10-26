@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 
 import java.io.IOException;
 import java.net.SocketTimeoutException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -58,6 +59,10 @@ public class OpenRouterAIService {
     }
 
     public ClaudeAIService.ClaudeResult generateText(String systemPrompt, String userMessage, double temperature, int maxTokens) {
+        return generateTextWithHistory(systemPrompt, List.of(AIChatTurn.user(userMessage)), temperature, maxTokens);
+    }
+
+    public ClaudeAIService.ClaudeResult generateTextWithHistory(String systemPrompt, List<AIChatTurn> history, double temperature, int maxTokens) {
         if (!isConfigured()) {
             return ClaudeAIService.ClaudeResult.builder()
                     .content("Le service de secours OpenRouter n'est pas configuré (clé API absente).")
@@ -77,12 +82,17 @@ public class OpenRouterAIService {
                     ? normalizedBaseUrl
                     : normalizedBaseUrl + "/chat/completions";
 
+            List<Map<String, String>> providerMessages = new ArrayList<>();
+            providerMessages.add(Map.of(
+                    "role", "system",
+                    "content", systemPrompt != null ? systemPrompt : "Tu es un assistant scientifique expert de la plateforme académique Galileo."
+            ));
+            history.stream()
+                    .map(message -> Map.of("role", message.role(), "content", message.content()))
+                    .forEach(providerMessages::add);
             Map<String, Object> requestMap = Map.of(
                     "model", model,
-                    "messages", List.of(
-                            Map.of("role", "system", "content", systemPrompt != null ? systemPrompt : "Tu es un assistant scientifique expert de la plateforme académique Galileo."),
-                            Map.of("role", "user", "content", userMessage)
-                    ),
+                    "messages", providerMessages,
                     "temperature", temperature,
                     "max_tokens", maxTokens
             );

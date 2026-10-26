@@ -34,6 +34,7 @@ public class LearningDTOs {
         private String publicationTitle;
         private String topic;
         private String type;
+        private Integer passingScore;
         private List<QuestionDTO> questions;
         private LocalDateTime createdAt;
     }
@@ -67,6 +68,7 @@ public class LearningDTOs {
         private Long attemptId;
         private Long quizId;
         private Float score;
+        private Integer passingScore;
         private Integer totalQuestions;
         private Integer correctCount;
         private boolean passed;
@@ -82,7 +84,7 @@ public class LearningDTOs {
         private String question;
         private String userAnswer;
         private String correctAnswer;
-        private boolean isCorrect;
+        private boolean correct;
         private String explanation;
     }
 

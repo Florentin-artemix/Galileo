@@ -2,31 +2,41 @@ import apiClient from './apiService';
 
 export interface QuizQuestionDTO {
   id: number;
-  questionText: string;
+  question: string;
   options: string[];
-  explanation?: string;
-  points: number;
+  answer?: string | null;
+  explanation?: string | null;
+  position?: number;
 }
 
 export interface QuizDTO {
   id: number;
-  publicationId: number;
-  publicationTitle?: string;
-  title: string;
-  description?: string;
-  difficultyLevel: 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED';
+  publicationId?: number | null;
+  publicationTitle?: string | null;
+  topic: string;
+  type: string;
   passingScore: number;
   questions: QuizQuestionDTO[];
 }
 
+export interface QuizCorrectionDTO {
+  questionId: number;
+  question: string;
+  userAnswer: string;
+  correctAnswer: string;
+  correct: boolean;
+  explanation: string;
+}
+
 export interface QuizAttemptDTO {
-  id: number;
+  attemptId: number;
   quizId: number;
   score: number;
-  totalPoints: number;
-  percentage: number;
+  passingScore: number;
+  totalQuestions: number;
+  correctCount: number;
   passed: boolean;
-  completedAt: string;
+  corrections: QuizCorrectionDTO[];
 }
 
 export interface LearningModuleDTO {
@@ -73,10 +83,8 @@ export const learningService = {
   /**
    * Génère un nouveau quiz académique via IA Claude
    */
-  async generateQuiz(publicationId: number, count: number = 5, difficulty: string = 'INTERMEDIATE'): Promise<QuizDTO> {
-    const response = await apiClient.post('/learning/quizzes/generate', null, {
-      params: { publicationId, count, difficulty }
-    });
+  async generateQuiz(request: { publicationId: number; questionCount: number; type: string }): Promise<QuizDTO> {
+    const response = await apiClient.post('/learning/quizzes/generate', request);
     return response.data;
   },
 
@@ -91,7 +99,7 @@ export const learningService = {
   /**
    * Soumet une tentative de quiz avec correction automatique
    */
-  async submitQuizAttempt(quizId: number, answers: Record<number, number>): Promise<QuizAttemptDTO> {
+  async submitQuizAttempt(quizId: number, answers: Record<number, string>): Promise<QuizAttemptDTO> {
     const response = await apiClient.post(`/learning/quizzes/${quizId}/attempt`, { answers });
     return response.data;
   },

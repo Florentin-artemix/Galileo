@@ -9,4 +9,5 @@ import java.util.List;
 @Repository
 public interface AIMessageRepository extends JpaRepository<AIMessage, Long> {
     List<AIMessage> findByConversationIdOrderByCreatedAtAsc(Long conversationId);
+    List<AIMessage> findTop12ByConversationIdOrderByCreatedAtDesc(Long conversationId);
 }
