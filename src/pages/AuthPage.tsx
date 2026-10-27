@@ -151,13 +151,13 @@ const AuthPage: React.FC = () => {
           navigate('/');
         }
       } else {
-        await authService.signup(email, password, 'STUDENT', {
+        await authService.signup(email, password, role, {
           displayName: name,
           program,
           motivation
         });
         setSuccessMessage('Compte créé avec succès !');
-        navigate('/dashboard/student');
+        navigate(role === 'VIEWER' ? '/' : '/dashboard/student');
       }
     } catch (err: any) {
       console.error('Authentication error:', err);

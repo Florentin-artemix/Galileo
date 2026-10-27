@@ -16,7 +16,6 @@ public class DocumentDTO {
     private Long id;
     private Long publicationId;
     private String fileName;
-    private String fileKey;
     private Long fileSize;
     private String mimeType;
     private Integer pageCount;

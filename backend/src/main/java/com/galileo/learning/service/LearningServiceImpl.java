@@ -59,7 +59,8 @@ public class LearningServiceImpl implements LearningService {
         if (request.getPublicationId() != null) {
             pub = publicationRepository.findById(request.getPublicationId())
                     .orElseThrow(() -> new ResourceNotFoundException("Publication", "id", request.getPublicationId()));
-            ensurePublicationAccess(pub, user);
+            // Le quiz peut être généré depuis le texte intégral du PDF : on vérifie l'accès document complet.
+            ensurePublicationFullDocumentAccess(pub, user);
 
             List<Document> docs = documentRepository.findByPublicationId(pub.getId());
             if (!docs.isEmpty() && docs.get(0).getExtractedText() != null && !docs.get(0).getExtractedText().isEmpty()) {
@@ -152,7 +153,8 @@ public class LearningServiceImpl implements LearningService {
     public List<QuizDTO> getQuizzesForPublication(Long publicationId, Long userId) {
         Publication publication = publicationRepository.findById(publicationId)
                 .orElseThrow(() -> new ResourceNotFoundException("Publication", "id", publicationId));
-        ensurePublicationAccess(publication, findUser(userId));
+        // La liste des quizzes donne accès aux questions et corrections dérivées du PDF.
+        ensurePublicationFullDocumentAccess(publication, findUser(userId));
 
         return quizRepository.findByPublicationId(publicationId).stream()
                 .map(q -> toQuizDTO(q, questionRepository.findByQuizIdOrderByPositionAsc(q.getId()), false))
@@ -420,7 +422,9 @@ public class LearningServiceImpl implements LearningService {
 
     private void ensureQuizAccess(Quiz quiz, Long userId) {
         if (quiz.getPublication() != null) {
-            ensurePublicationAccess(quiz.getPublication(), findUser(userId));
+            // Un quiz de publication dérive potentiellement du texte intégral du PDF :
+            // on vérifie l'accès au document complet, pas seulement aux métadonnées.
+            ensurePublicationFullDocumentAccess(quiz.getPublication(), findUser(userId));
             return;
         }
 
@@ -433,10 +437,26 @@ public class LearningServiceImpl implements LearningService {
         return userId != null ? userRepository.findById(userId).orElse(null) : null;
     }
 
-    private void ensurePublicationAccess(Publication publication, User user) {
+    /**
+     * Vérifie l'accès aux métadonnées d'une publication (titre, résumé, auteurs).
+     * Utilisé pour les opérations qui n'accèdent PAS au texte intégral extrait du PDF.
+     */
+    private void ensurePublicationMetadataAccess(Publication publication, User user) {
         CustomUserDetails userDetails = user != null ? new CustomUserDetails(user) : null;
         if (!publicationService.isAuthorizedToAccess(publication, userDetails)) {
             throw new ForbiddenException("Vous n'avez pas l'autorisation d'accéder à cette publication");
+        }
+    }
+
+    /**
+     * Vérifie l'accès au texte intégral d'une publication (PDF extrait).
+     * Utilisé pour les opérations qui consomment le contenu du PDF : génération de quiz,
+     * lecture de quiz dérivé du PDF, soumission d'une tentative sur un tel quiz.
+     */
+    private void ensurePublicationFullDocumentAccess(Publication publication, User user) {
+        CustomUserDetails userDetails = user != null ? new CustomUserDetails(user) : null;
+        if (!publicationService.isAuthorizedToReadFullDocument(publication, userDetails)) {
+            throw new ForbiddenException("Vous n'avez pas l'autorisation de lire le contenu intégral de cette publication");
         }
     }
 

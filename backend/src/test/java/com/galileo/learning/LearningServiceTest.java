@@ -84,6 +84,8 @@ class LearningServiceTest {
     void allowPublicationAccessByDefault() {
         lenient().when(publicationService.isAuthorizedToAccess(any(Publication.class), any(CustomUserDetails.class)))
                 .thenReturn(true);
+        lenient().when(publicationService.isAuthorizedToReadFullDocument(any(Publication.class), any(CustomUserDetails.class)))
+                .thenReturn(true);
     }
 
     @Test
@@ -169,7 +171,7 @@ class LearningServiceTest {
         Quiz quiz = Quiz.builder().id(22L).publication(publication).build();
         when(userRepository.findById(5L)).thenReturn(Optional.of(student));
         when(publicationRepository.findById(12L)).thenReturn(Optional.of(publication));
-        when(publicationService.isAuthorizedToAccess(eq(publication), any(CustomUserDetails.class))).thenReturn(false);
+        when(publicationService.isAuthorizedToReadFullDocument(eq(publication), any(CustomUserDetails.class))).thenReturn(false);
         when(quizRepository.findById(22L)).thenReturn(Optional.of(quiz));
 
         QuizGenerateRequest generationRequest = QuizGenerateRequest.builder()
@@ -189,6 +191,31 @@ class LearningServiceTest {
         verify(claudeAIService, never()).generateText(anyString(), anyString(), anyDouble(), anyInt());
         verify(quizRepository, never()).findByPublicationId(12L);
         verify(questionRepository, never()).findByQuizIdOrderByPositionAsc(22L);
+        verify(attemptRepository, never()).save(any(QuizAttempt.class));
+    }
+
+    @Test
+    @DisplayName("A VIEWER or user without full document rights cannot generate, list, get or submit publication quiz")
+    void viewerCannotAccessPublicationQuiz() {
+        User viewer = User.builder().id(9L).email("viewer@mapon.cd").role(Role.VIEWER).build();
+        Publication publication = Publication.builder().id(12L).title("Revue publique").build();
+        Quiz quiz = Quiz.builder().id(33L).publication(publication).build();
+
+        when(userRepository.findById(9L)).thenReturn(Optional.of(viewer));
+        when(publicationRepository.findById(12L)).thenReturn(Optional.of(publication));
+        when(publicationService.isAuthorizedToReadFullDocument(eq(publication), any(CustomUserDetails.class))).thenReturn(false);
+        when(quizRepository.findById(33L)).thenReturn(Optional.of(quiz));
+
+        QuizGenerateRequest genRequest = QuizGenerateRequest.builder().publicationId(12L).build();
+        assertThrows(ForbiddenException.class, () -> learningService.generateQuiz(genRequest, 9L));
+        assertThrows(ForbiddenException.class, () -> learningService.getQuizzesForPublication(12L, 9L));
+        assertThrows(ForbiddenException.class, () -> learningService.getQuiz(33L, 9L));
+        assertThrows(ForbiddenException.class, () -> learningService.submitQuizAttempt(
+                33L, QuizSubmitRequest.builder().answers(Map.of()).build(), 9L));
+
+        verify(documentRepository, never()).findByPublicationId(12L);
+        verify(claudeAIService, never()).generateText(anyString(), anyString(), anyDouble(), anyInt());
+        verify(questionRepository, never()).findByQuizIdOrderByPositionAsc(33L);
         verify(attemptRepository, never()).save(any(QuizAttempt.class));
     }
 

@@ -5,9 +5,21 @@ export type AISummaryType = 'QUICK' | 'STRUCTURED' | 'EDUCATIONAL';
 export type AIExplanationLevel = 'SIMPLIFIE' | 'INTERMEDIAIRE' | 'AVANCE';
 
 export interface SourceReference {
-  chunkId: number;
+  chunkId?: number;
+  attachmentId?: number;
+  attachmentChunkId?: number;
+  fileName?: string;
   pageNumber: number;
   excerpt: string;
+}
+
+export interface AIConversationAttachment {
+  id: number;
+  conversationId: number;
+  fileName: string;
+  pageCount: number;
+  extractedCharacters: number;
+  createdAt: string;
 }
 
 export interface AIChatRequest {
@@ -128,6 +140,29 @@ export const aiService = {
   async getConversationMessages(id: number): Promise<AIMessageDTO[]> {
     const response = await apiClient.get(`/ai/conversations/${id}/messages`);
     return response.data;
+  },
+
+  async createConversation(request: { publicationId?: number; mode?: AIMode; title?: string }): Promise<AIConversationDTO> {
+    const response = await apiClient.post('/ai/conversations', request);
+    return response.data;
+  },
+
+  async getConversationAttachments(id: number): Promise<AIConversationAttachment[]> {
+    const response = await apiClient.get(`/ai/conversations/${id}/attachments`);
+    return response.data;
+  },
+
+  async uploadConversationAttachment(id: number, file: File): Promise<AIConversationAttachment> {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await apiClient.post(`/ai/conversations/${id}/attachments`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+    return response.data;
+  },
+
+  async deleteConversationAttachment(id: number, attachmentId: number): Promise<void> {
+    await apiClient.delete(`/ai/conversations/${id}/attachments/${attachmentId}`);
   },
 
   async deleteConversation(id: number): Promise<void> {

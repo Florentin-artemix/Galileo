@@ -141,4 +141,42 @@ class SearchServiceTest {
         assertFalse(result.isFallbackUsed());
         verify(embeddingProvider, never()).generateEmbedding(anyString());
     }
+
+    @Test
+    @DisplayName("VIEWER receives public similar publications but not institutional metadata")
+    void viewerOnlySeesPublicSimilarPublicationMetadata() {
+        Publication source = Publication.builder()
+                .id(10L)
+                .status(PublicationStatus.PUBLISHED)
+                .accessLevel(AccessLevel.PUBLIC)
+                .build();
+        Publication publicResult = Publication.builder()
+                .id(11L)
+                .title("Public publication")
+                .status(PublicationStatus.PUBLISHED)
+                .accessLevel(AccessLevel.PUBLIC)
+                .build();
+        Publication institutionalResult = Publication.builder()
+                .id(12L)
+                .title("Institutional publication")
+                .status(PublicationStatus.PUBLISHED)
+                .accessLevel(AccessLevel.INSTITUTIONAL)
+                .build();
+        CustomUserDetails viewer = new CustomUserDetails(User.builder()
+                .id(23L)
+                .email("viewer@example.test")
+                .role(Role.VIEWER)
+                .build());
+        when(publicationRepository.findById(10L)).thenReturn(java.util.Optional.of(source));
+        when(publicationRepository.findTop5ByStatusAndIdNotOrderByViewCountDesc(PublicationStatus.PUBLISHED, 10L))
+                .thenReturn(List.of(institutionalResult, publicResult));
+        when(authorRepository.findByPublicationIdOrderByPositionAsc(11L)).thenReturn(List.of());
+        when(documentRepository.findByPublicationId(11L)).thenReturn(List.of());
+
+        List<com.galileo.publications.dto.PublicationDTO> similar =
+                searchService.getSimilarPublications(10L, 5, viewer);
+
+        assertEquals(1, similar.size());
+        assertEquals(11L, similar.get(0).getId());
+    }
 }

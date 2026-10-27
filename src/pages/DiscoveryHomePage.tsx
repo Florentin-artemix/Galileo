@@ -29,7 +29,8 @@ const uniqueRecentHistory = (items: ReadingHistoryItem[]) => {
 
 const DiscoveryHomePage: React.FC = () => {
   const { language } = useLanguage();
-  const { user } = useAuth();
+  const { isAuthenticated, role, user } = useAuth();
+  const canReadFullText = isAuthenticated && role !== 'VIEWER';
   const { publications, loading, error } = usePublications();
   const isFrench = language === 'fr';
   const accountId = user?.uid || user?.id || null;
@@ -142,7 +143,9 @@ const DiscoveryHomePage: React.FC = () => {
                 ? feature.summary[language] || feature.summary.fr || feature.summary.en || (isFrench ? 'Publication académique sélectionnée dans le catalogue.' : 'A selected academic publication from the catalog.')
                 : (isFrench ? 'Un espace pour explorer la recherche et interroger vos documents avec l’IA.' : 'Explore research and ask questions about your documents with AI.')}</p>
               <NavLink to={feature ? `/publication/${feature.id}` : '/ai-assistant'} className="discovery-button discovery-button--primary">
-                {feature ? (isFrench ? 'Lire la publication' : 'Read publication') : (isFrench ? 'Découvrir l’IA' : 'Explore AI')}
+                {feature
+                  ? (canReadFullText ? (isFrench ? 'Lire la publication' : 'Read publication') : (isFrench ? 'Voir la notice' : 'View details'))
+                  : (isFrench ? 'Découvrir l’IA' : 'Explore AI')}
                 <span aria-hidden="true">→</span>
               </NavLink>
             </div>
@@ -238,7 +241,7 @@ const DiscoveryHomePage: React.FC = () => {
                     <p className="discovery-publication-card__summary">{publication.summary[language] || publication.summary.fr || publication.summary.en}</p>
                   )}
                   <div className="discovery-publication-card__footer">
-                    {publication.pdfUrl ? <span className="discovery-status">{isFrench ? 'PDF disponible' : 'PDF available'}</span> : <span />}
+                    {canReadFullText && publication.pdfUrl ? <span className="discovery-status">{isFrench ? 'PDF disponible' : 'PDF available'}</span> : <span />}
                     {formatDate(publication.date) && <time dateTime={publication.date}>{formatDate(publication.date)}</time>}
                   </div>
                 </article>

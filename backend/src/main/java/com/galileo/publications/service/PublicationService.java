@@ -310,7 +310,7 @@ public class PublicationService {
         Publication pub = publicationRepository.findById(publicationId)
                 .orElseThrow(() -> new ResourceNotFoundException("Publication", "id", publicationId));
 
-        if (!isAuthorizedToAccess(pub, currentUser)) {
+        if (!isAuthorizedToReadFullDocument(pub, currentUser)) {
             throw new ForbiddenException("Téléchargement non autorisé pour cette publication");
         }
 
@@ -320,7 +320,7 @@ public class PublicationService {
         }
 
         Document doc = docs.get(0);
-        return storageService.generatePresignedUrl(doc.getFileKey(), 60);
+        return "/api/documents/" + doc.getId() + "/download";
     }
 
     public boolean isAuthorizedToAccess(Publication pub, CustomUserDetails user) {
@@ -332,7 +332,7 @@ public class PublicationService {
         }
 
         // Auteur
-        if (user != null) {
+        if (isAuthenticatedMember(user)) {
             boolean isAuthor = authorRepository.findByPublicationIdOrderByPositionAsc(pub.getId()).stream()
                     .anyMatch(a -> a.getUser() != null && a.getUser().getId().equals(user.getId()));
             if (isAuthor) return true;
@@ -348,14 +348,47 @@ public class PublicationService {
             return true;
         }
         if (pub.getAccessLevel() == AccessLevel.INSTITUTIONAL) {
-            return user != null;
+            return isAuthenticatedMember(user);
         }
 
         return false;
     }
 
+    public boolean isAuthorizedToReadFullDocument(Publication pub, CustomUserDetails user) {
+        if (pub == null || !isAuthenticatedMember(user)) {
+            return false;
+        }
+
+        if (user.getRole() == Role.STAFF || user.getRole() == Role.ADMIN) {
+            return true;
+        }
+
+        boolean isAuthor = authorRepository.findByPublicationIdOrderByPositionAsc(pub.getId()).stream()
+                .anyMatch(author -> author.getUser() != null && author.getUser().getId().equals(user.getId()));
+        if (isAuthor) {
+            return true;
+        }
+
+        if (pub.getStatus() != PublicationStatus.PUBLISHED) {
+            return false;
+        }
+
+        return pub.getAccessLevel() == AccessLevel.PUBLIC
+                || pub.getAccessLevel() == AccessLevel.INSTITUTIONAL;
+    }
+
+    private boolean isAuthenticatedMember(CustomUserDetails user) {
+        if (user == null || user.getRole() == null) {
+            return false;
+        }
+        return switch (user.getRole()) {
+            case STUDENT, RESEARCHER, TEACHER, STAFF, ADMIN -> true;
+            default -> false;
+        };
+    }
+
     private boolean canModify(Publication pub, CustomUserDetails user) {
-        if (user == null) return false;
+        if (!isAuthenticatedMember(user)) return false;
         if (user.getRole() == Role.STAFF || user.getRole() == Role.ADMIN) return true;
         return authorRepository.findByPublicationIdOrderByPositionAsc(pub.getId()).stream()
                 .anyMatch(a -> a.getUser() != null && a.getUser().getId().equals(user.getId()));
@@ -486,7 +519,9 @@ public class PublicationService {
             Document doc = docs.get(0);
             map.put("documentId", doc.getId());
             map.put("documentStatus", doc.getProcessingStatus().name());
-            map.put("urlPdf", storageService.generatePresignedUrl(doc.getFileKey(), 60));
+            map.put("urlPdf", isAuthorizedToReadFullDocument(pub, currentUser)
+                    ? "/api/documents/" + doc.getId() + "/download"
+                    : null);
             map.put("tailleFichier", doc.getFileSize());
             map.put("nombrePages", doc.getPageCount());
         } else {

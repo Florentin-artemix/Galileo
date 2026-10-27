@@ -11,6 +11,7 @@ import com.galileo.ai.repository.AIInteractionRepository;
 import com.galileo.ai.repository.AIMessageRepository;
 import com.galileo.ai.repository.PublicationSummaryCacheRepository;
 import com.galileo.ai.service.AIServiceImpl;
+import com.galileo.ai.service.AIConversationAttachmentService;
 import com.galileo.ai.service.AIChatTurn;
 import com.galileo.ai.service.ClaudeAIService;
 import com.galileo.auth.entity.Role;
@@ -63,6 +64,9 @@ class AIServiceFlowTest {
 
     @Mock
     private AIMessageRepository messageRepository;
+
+    @Mock
+    private AIConversationAttachmentService conversationAttachmentService;
 
     @Mock
     private AIInteractionRepository interactionRepository;
@@ -242,7 +246,7 @@ class AIServiceFlowTest {
         when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
         when(interactionRepository.countByUserIdAndCreatedAtAfter(eq(1L), any())).thenReturn(0L);
         when(publicationRepository.findById(50L)).thenReturn(Optional.of(pub));
-        when(publicationService.isAuthorizedToAccess(pub, testUserDetails)).thenReturn(true);
+        when(publicationService.isAuthorizedToReadFullDocument(pub, testUserDetails)).thenReturn(true);
 
         when(embeddingProvider.generateEmbedding(anyString())).thenReturn(new float[]{0.1f, 0.2f});
         when(documentRepository.findByPublicationId(50L)).thenReturn(List.of(doc));
@@ -397,7 +401,7 @@ class AIServiceFlowTest {
         when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
         when(interactionRepository.countByUserIdAndCreatedAtAfter(eq(1L), any())).thenReturn(0L);
         when(publicationRepository.findById(999L)).thenReturn(Optional.of(pub));
-        when(publicationService.isAuthorizedToAccess(pub, testUserDetails)).thenReturn(false);
+        when(publicationService.isAuthorizedToReadFullDocument(pub, testUserDetails)).thenReturn(false);
 
         AIChatRequest request = AIChatRequest.builder()
                 .publicationId(999L)

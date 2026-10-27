@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import {
   aiService,
   getAIErrorMessage,
+  type AIConversationAttachment,
   type AIMode,
   type AIExplanationLevel,
   type SourceReference
@@ -47,6 +48,9 @@ const AIAssistantPage: React.FC = () => {
   const [pendingMessage, setPendingMessage] = useState<string | null>(null);
   const [chatError, setChatError] = useState<string | null>(null);
   const [conversationId, setConversationId] = useState<number | undefined>();
+  const [attachments, setAttachments] = useState<AIConversationAttachment[]>([]);
+  const [attachmentBusy, setAttachmentBusy] = useState(false);
+  const [attachmentError, setAttachmentError] = useState<string | null>(null);
   const [publications, setPublications] = useState<PublicationDTO[]>([]);
   const [publicationsLoading, setPublicationsLoading] = useState(true);
   const [publicationsError, setPublicationsError] = useState<string | null>(null);
@@ -66,6 +70,7 @@ const AIAssistantPage: React.FC = () => {
   const [comparisonError, setComparisonError] = useState<string | null>(null);
   const [isComparing, setIsComparing] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const attachmentInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     let disposed = false;
@@ -114,6 +119,9 @@ const AIAssistantPage: React.FC = () => {
             text: message.content,
             timestamp: formatTime(message.createdAt)
           })));
+        void aiService.getConversationAttachments(latestConversation.id)
+          .then(items => { if (!disposed) setAttachments(items); })
+          .catch(() => { if (!disposed) setAttachmentError('Les PDF joints à cette conversation ne sont pas disponibles.'); });
         const lastAssistantMessage = [...history].reverse().find(message => message.role === 'ASSISTANT');
         let historicalSourceCount = 0;
         try {
@@ -144,6 +152,7 @@ const AIAssistantPage: React.FC = () => {
     if (nextMode !== mode && conversationId) {
       setConversationId(undefined);
       setMessages([]);
+      setAttachments([]);
       setLatestSources([]);
       setHistoricalReferencesUnavailable(false);
     }
@@ -164,6 +173,7 @@ const AIAssistantPage: React.FC = () => {
     if (nextId !== selectedPublicationId) {
       setConversationId(undefined);
       setMessages([]);
+      setAttachments([]);
       setLatestSources([]);
       setHistoricalReferencesUnavailable(false);
     }
@@ -175,8 +185,8 @@ const AIAssistantPage: React.FC = () => {
     event.preventDefault();
     const textToSend = input.trim();
     if (!textToSend || pendingMessage) return;
-    if (mode === 'DOCUMENT' && !selectedPublicationId) {
-      setChatError('Sélectionnez une publication pour utiliser le mode Document.');
+    if (mode === 'DOCUMENT' && !selectedPublicationId && attachments.length === 0) {
+      setChatError('Sélectionnez une publication ou joignez un PDF pour utiliser le mode Document.');
       return;
     }
 
@@ -216,6 +226,58 @@ const AIAssistantPage: React.FC = () => {
       setChatError(getAIErrorMessage(error));
     } finally {
       setPendingMessage(null);
+    }
+  };
+
+  const handleAttachmentSelection = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.currentTarget.files?.[0];
+    event.currentTarget.value = '';
+    if (!file) return;
+    if (!file.name.toLowerCase().endsWith('.pdf')) {
+      setAttachmentError('Seuls les fichiers PDF sont acceptés.');
+      return;
+    }
+    if (file.size > 20 * 1024 * 1024) {
+      setAttachmentError('Le PDF joint ne peut pas dépasser 20 Mo.');
+      return;
+    }
+
+    setAttachmentError(null);
+    setAttachmentBusy(true);
+    try {
+      let activeConversationId = conversationId;
+      if (!activeConversationId) {
+        const created = await aiService.createConversation({
+          mode: 'DOCUMENT',
+          publicationId: selectedPublicationId
+        });
+        activeConversationId = created.id;
+        setConversationId(created.id);
+        setMessages([]);
+      }
+      const uploaded = await aiService.uploadConversationAttachment(activeConversationId, file);
+      setAttachments(previous => [...previous, uploaded]);
+      setMode('DOCUMENT');
+    } catch (error) {
+      setAttachmentError(getAIErrorMessage(error));
+    } finally {
+      setAttachmentBusy(false);
+    }
+  };
+
+  const handleRemoveAttachment = async (attachmentId: number) => {
+    if (!conversationId || attachmentBusy) return;
+    setAttachmentBusy(true);
+    setAttachmentError(null);
+    try {
+      await aiService.deleteConversationAttachment(conversationId, attachmentId);
+      const remaining = attachments.filter(attachment => attachment.id !== attachmentId);
+      setAttachments(remaining);
+      if (remaining.length === 0 && !selectedPublicationId) setMode('GENERAL');
+    } catch (error) {
+      setAttachmentError(getAIErrorMessage(error));
+    } finally {
+      setAttachmentBusy(false);
     }
   };
 
@@ -341,8 +403,8 @@ const AIAssistantPage: React.FC = () => {
                         <div className="ai-message-sources">
                           <strong>Références renvoyées</strong>
                           {message.sources.map((source, index) => (
-                            <p key={`${source.chunkId}-${index}`}>
-                              <span>Page {source.pageNumber}</span> {source.excerpt}
+                            <p key={`${source.attachmentChunkId || source.chunkId}-${index}`}>
+                              <span>{source.fileName ? `${source.fileName} · page ${source.pageNumber}` : `Page ${source.pageNumber}`}</span> {source.excerpt}
                             </p>
                           ))}
                         </div>
@@ -364,6 +426,36 @@ const AIAssistantPage: React.FC = () => {
 
               <form className="ai-composer" onSubmit={handleSendMessage}>
                 {chatError && <div className="ai-status ai-status-error" role="alert">{chatError}</div>}
+                {attachmentError && <div className="ai-status ai-status-error" role="alert">{attachmentError}</div>}
+                {attachments.length > 0 && (
+                  <ul className="ai-attachment-list" aria-label="PDF joints à la conversation">
+                    {attachments.map(attachment => (
+                      <li key={attachment.id}>
+                        <span title={`${attachment.pageCount} pages, ${attachment.extractedCharacters} caractères extraits`}>
+                          {attachment.fileName} · {attachment.pageCount} p.
+                        </span>
+                        <button type="button" onClick={() => void handleRemoveAttachment(attachment.id)} disabled={attachmentBusy || Boolean(pendingMessage)} aria-label={`Retirer ${attachment.fileName}`}>
+                          Retirer
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <div className="ai-attachment-toolbar">
+                  <input
+                    ref={attachmentInputRef}
+                    className="ai-sr-only"
+                    type="file"
+                    accept="application/pdf,.pdf"
+                    onChange={event => void handleAttachmentSelection(event)}
+                    disabled={attachmentBusy || Boolean(pendingMessage) || historyLoading}
+                    aria-label="Joindre un PDF à la conversation"
+                  />
+                  <button type="button" onClick={() => attachmentInputRef.current?.click()} disabled={attachmentBusy || Boolean(pendingMessage) || historyLoading || attachments.length >= 5}>
+                    {attachmentBusy ? 'Traitement du PDF…' : 'Joindre un PDF'}
+                  </button>
+                  <span>PDF · 20 Mo max · 5 fichiers</span>
+                </div>
                 <label className="ai-sr-only" htmlFor="ai-chat-input">Votre message</label>
                 <textarea
                   id="ai-chat-input"
@@ -375,16 +467,16 @@ const AIAssistantPage: React.FC = () => {
                       event.currentTarget.form?.requestSubmit();
                     }
                   }}
-                  placeholder={mode === 'DOCUMENT' ? 'Posez une question sur la publication liée…' : 'Écrivez votre message…'}
+                  placeholder={mode === 'DOCUMENT' ? 'Posez une question sur le document lié ou le PDF joint…' : 'Écrivez votre message…'}
                   maxLength={4000}
                   disabled={Boolean(pendingMessage) || historyLoading}
                   rows={2}
                 />
                 <div className="ai-composer-footer">
                   <span>{mode === 'DOCUMENT'
-                    ? activePublicationTitle || 'Sélectionnez une publication liée'
+                    ? activePublicationTitle || (attachments.length > 0 ? `${attachments.length} PDF joint(s)` : 'Sélectionnez une publication ou joignez un PDF')
                     : 'Contexte documentaire facultatif'}</span>
-                  <button type="submit" disabled={!input.trim() || Boolean(pendingMessage) || historyLoading || (mode === 'DOCUMENT' && !selectedPublicationId)}>
+                  <button type="submit" disabled={!input.trim() || Boolean(pendingMessage) || historyLoading || (mode === 'DOCUMENT' && !selectedPublicationId && attachments.length === 0)}>
                     Envoyer
                   </button>
                 </div>
@@ -514,8 +606,8 @@ const AIAssistantPage: React.FC = () => {
             {latestSources.length > 0 ? (
               <ul>
                 {latestSources.map((source, index) => (
-                  <li key={`${source.chunkId}-${index}`}>
-                    <strong>Page {source.pageNumber}</strong>
+                  <li key={`${source.attachmentChunkId || source.chunkId}-${index}`}>
+                    <strong>{source.fileName ? `${source.fileName} · page ${source.pageNumber}` : `Page ${source.pageNumber}`}</strong>
                     <span>{source.excerpt}</span>
                   </li>
                 ))}

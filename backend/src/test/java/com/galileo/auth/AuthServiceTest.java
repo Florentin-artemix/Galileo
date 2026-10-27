@@ -60,13 +60,14 @@ class AuthServiceTest {
     }
 
     @Test
-    @DisplayName("Registration MUST strictly enforce Role.STUDENT and prevent privilege escalation")
-    void registerShouldStrictlyEnforceStudentRole() {
+    @DisplayName("Public registration must not grant requested privileged roles")
+    void registerShouldNotGrantRequestedPrivilegedRole() {
         RegisterRequest request = new RegisterRequest();
         request.setEmail("newuser@mapon.cd");
         request.setPassword("Secret12345");
         request.setFirstName("Jean");
         request.setLastName("Mukeba");
+        request.setRole(Role.ADMIN);
 
         when(userRepository.existsByEmail("newuser@mapon.cd")).thenReturn(false);
         when(passwordEncoder.encode("Secret12345")).thenReturn("hashed-pwd");
@@ -89,6 +90,31 @@ class AuthServiceTest {
         verify(userRepository).save(argThat(user -> user.getRole() == Role.STUDENT));
         verify(refreshTokenRepository).save(argThat(token -> "hashed-fake-refresh-token".equals(token.getTokenHash())));
         verify(userProfileRepository).save(any());
+    }
+
+    @Test
+    @DisplayName("Public registration may create a least-privilege VIEWER account")
+    void registerShouldHonorViewerRole() {
+        RegisterRequest request = new RegisterRequest();
+        request.setEmail("viewer@mapon.cd");
+        request.setPassword("Secret12345");
+        request.setRole(Role.VIEWER);
+
+        when(userRepository.existsByEmail("viewer@mapon.cd")).thenReturn(false);
+        when(passwordEncoder.encode("Secret12345")).thenReturn("hashed-pwd");
+        when(userRepository.save(any(User.class))).thenAnswer(invocation -> {
+            User user = invocation.getArgument(0);
+            user.setId(101L);
+            return user;
+        });
+        when(tokenProvider.generateAccessToken(any(User.class))).thenReturn("viewer-jwt-token");
+        when(tokenProvider.generateRefreshTokenValue()).thenReturn("viewer-refresh-token");
+        when(tokenProvider.hashToken("viewer-refresh-token")).thenReturn("hashed-viewer-refresh-token");
+
+        AuthResponse response = authService.register(request);
+
+        assertEquals("VIEWER", response.getUser().getRole());
+        verify(userRepository).save(argThat(user -> user.getRole() == Role.VIEWER));
     }
 
     @Test

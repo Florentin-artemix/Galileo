@@ -2,8 +2,11 @@
 import React, { useState, useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useAuth } from '../contexts/AuthContext';
 import { usePublications } from '../contexts/PublicationsContext';
 import { eventService, EventData } from '../services/eventService';
+import { documentsService } from '../services/documentsService';
+import { publicationsService } from '../services/publicationsService';
 import type { Publication } from '../types';
 
 // Type Event compatible avec l'API
@@ -30,6 +33,32 @@ const DomainCard: React.FC<{title: string; description: string; link: string}> =
 
 const PublicationTeaserCard: React.FC<{ pub: Publication }> = ({ pub }) => {
     const { language, translations } = useLanguage();
+    const { isAuthenticated, role } = useAuth();
+    const [isDownloading, setIsDownloading] = useState(false);
+    const [downloadError, setDownloadError] = useState(false);
+    const canReadFullText = isAuthenticated && role !== 'VIEWER';
+
+    const downloadPdf = async () => {
+        if (!canReadFullText || !pub.pdfUrl || isDownloading) return;
+        setIsDownloading(true);
+        setDownloadError(false);
+        try {
+            const document = await documentsService.getDocumentForPublication(pub.id);
+            const blob = await documentsService.getDocumentBlob(document.id);
+            const url = URL.createObjectURL(blob);
+            const link = window.document.createElement('a');
+            link.href = url;
+            link.download = document.fileName || `publication-${pub.id}.pdf`;
+            link.click();
+            window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+            void publicationsService.recordDownload(pub.id).catch(() => undefined);
+        } catch {
+            setDownloadError(true);
+        } finally {
+            setIsDownloading(false);
+        }
+    };
+
     return (
         <div className="bg-light-card dark:bg-navy/50 border border-light-border dark:border-dark-border rounded-lg p-4 shadow-sm hover:shadow-lg flex flex-col h-full animate-slide-in-up transition-shadow duration-300">
             <img loading="lazy" src={pub.imageUrl} alt={pub.title[language]} className="w-full h-32 object-cover rounded-md mb-4"/>
@@ -39,21 +68,22 @@ const PublicationTeaserCard: React.FC<{ pub: Publication }> = ({ pub }) => {
              <div className="flex flex-wrap gap-1 text-xs mb-4">
                 {pub.tags.slice(0, 3).map(tag => <span key={tag} className="bg-light-accent/10 dark:bg-teal/10 text-light-accent dark:text-teal px-2 py-0.5 rounded-full">{tag}</span>)}
             </div>
-            <div className="mt-auto grid grid-cols-3 gap-2 text-xs">
+            <div className={`mt-auto grid ${canReadFullText && pub.pdfUrl ? 'grid-cols-3' : 'grid-cols-1'} gap-2 text-xs`}>
                 <NavLink to={`/publication/${pub.id}`} className="text-center bg-light-accent/10 dark:bg-teal/10 text-light-accent dark:text-teal font-semibold py-2 px-2 rounded-full hover:bg-light-accent dark:hover:bg-teal hover:text-white dark:hover:text-navy transition-colors duration-300">
-                    {translations.home_page.read_article}
+                    {canReadFullText ? translations.home_page.read_article : (language === 'fr' ? 'Voir la notice' : 'View details')}
                 </NavLink>
-                {pub.pdfUrl &&
-                    <a href={pub.pdfUrl} target="_blank" rel="noopener noreferrer" aria-label={`Preview ${pub.title[language]}`} className="text-center bg-light-card dark:bg-navy-dark border border-light-border dark:border-dark-border text-light-text-secondary dark:text-gray-300 font-semibold py-2 px-2 rounded-full hover:bg-gray-200 dark:hover:bg-navy transition-colors duration-300">
+                {canReadFullText && pub.pdfUrl &&
+                    <NavLink to={`/publication/${pub.id}`} aria-label={`Preview ${pub.title[language]}`} className="text-center bg-light-card dark:bg-navy-dark border border-light-border dark:border-dark-border text-light-text-secondary dark:text-gray-300 font-semibold py-2 px-2 rounded-full hover:bg-gray-200 dark:hover:bg-navy transition-colors duration-300">
                         {translations.home_page.preview_article}
-                    </a>
+                    </NavLink>
                 }
-                {pub.pdfUrl &&
-                    <a href={pub.pdfUrl} download aria-label={`Download ${pub.title[language]}`} className="text-center bg-light-card dark:bg-navy-dark border border-light-border dark:border-dark-border text-light-text-secondary dark:text-gray-300 font-semibold py-2 px-2 rounded-full hover:bg-gray-200 dark:hover:bg-navy transition-colors duration-300">
-                        {translations.home_page.download_article}
-                    </a>
+                {canReadFullText && pub.pdfUrl &&
+                    <button type="button" onClick={() => void downloadPdf()} disabled={isDownloading} aria-label={`Download ${pub.title[language]}`} className="text-center bg-light-card dark:bg-navy-dark border border-light-border dark:border-dark-border text-light-text-secondary dark:text-gray-300 font-semibold py-2 px-2 rounded-full hover:bg-gray-200 dark:hover:bg-navy transition-colors duration-300 disabled:opacity-60">
+                        {isDownloading ? (language === 'fr' ? 'Téléchargement…' : 'Downloading…') : translations.home_page.download_article}
+                    </button>
                 }
             </div>
+            {downloadError && <p className="mt-2 text-xs text-red-700 dark:text-red-300" role="alert">{language === 'fr' ? 'Le téléchargement du PDF a échoué.' : 'PDF download failed.'}</p>}
         </div>
     );
 };

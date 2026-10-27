@@ -3,6 +3,7 @@ package com.galileo.auth;
 import com.galileo.admin.controller.AdminController;
 import com.galileo.ai.controller.AIController;
 import com.galileo.ai.service.AIService;
+import com.galileo.ai.service.AIConversationAttachmentService;
 import com.galileo.analytics.controller.AnalyticsController;
 import com.galileo.analytics.repository.AnalyticsEventRepository;
 import com.galileo.auth.controller.AuthController;
@@ -91,6 +92,9 @@ class SecurityAccessTest {
 
     @MockBean
     private AIService aiService;
+
+    @MockBean
+    private AIConversationAttachmentService attachmentService;
 
     @MockBean
     private JwtTokenProvider jwtTokenProvider;

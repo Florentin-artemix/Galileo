@@ -15,12 +15,12 @@ import SimilarPublications from '../components/SimilarPublications';
 import './publication-detail.css';
 
 type DetailState = 'loading' | 'ready' | 'not-found';
-type DocumentState = 'loading' | 'ready' | 'missing' | 'error';
+type DocumentState = 'loading' | 'ready' | 'missing' | 'error' | 'restricted';
 
 const SinglePublicationPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const { language } = useLanguage();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, loading: authLoading, role } = useAuth();
   const [publication, setPublication] = useState<Publication | null>(null);
   const [detailState, setDetailState] = useState<DetailState>('loading');
   const [document, setDocument] = useState<DocumentDTO | null>(null);
@@ -30,6 +30,7 @@ const SinglePublicationPage: React.FC = () => {
   const [downloadError, setDownloadError] = useState(false);
 
   const publicationId = Number(id);
+  const canReadFullText = !authLoading && isAuthenticated && role !== 'VIEWER';
   const onPageChange = useCallback((page: number) => setCurrentPage(page), []);
 
   useEffect(() => {
@@ -62,15 +63,29 @@ const SinglePublicationPage: React.FC = () => {
 
   useEffect(() => {
     if (!publication) return;
-    void Promise.all([
-      analyticsService.trackPublicationView(publication.id, publication.title.fr || publication.title.en),
-      isAuthenticated ? readingHistoryService.recordReading(publication.id) : Promise.resolve()
-    ]).catch(() => undefined);
-  }, [publication?.id, isAuthenticated]);
+    void analyticsService.trackPublicationView(publication.id, publication.title.fr || publication.title.en);
+  }, [publication?.id]);
+
+  useEffect(() => {
+    if (!publication || !canReadFullText) return;
+    void readingHistoryService.recordReading(publication.id).catch(() => undefined);
+  }, [publication?.id, canReadFullText]);
 
   useEffect(() => {
     let active = true;
     if (!publication) return () => { active = false; };
+
+    if (authLoading) {
+      setDocument(null);
+      setDocumentState('loading');
+      return () => { active = false; };
+    }
+
+    if (!canReadFullText) {
+      setDocument(null);
+      setDocumentState('restricted');
+      return () => { active = false; };
+    }
 
     setDocumentState('loading');
     documentsService.getDocumentForPublication(publication.id)
@@ -86,7 +101,7 @@ const SinglePublicationPage: React.FC = () => {
       });
 
     return () => { active = false; };
-  }, [publication?.id]);
+  }, [publication?.id, authLoading, canReadFullText]);
 
   useEffect(() => {
     if (document?.pageCount && document.pageCount > 0) {
@@ -115,7 +130,7 @@ const SinglePublicationPage: React.FC = () => {
   ].filter(Boolean);
 
   const downloadDocument = async () => {
-    if (!document || isDownloading) return;
+    if (!canReadFullText || !document || isDownloading) return;
     setIsDownloading(true);
     setDownloadError(false);
     try {
@@ -168,7 +183,7 @@ const SinglePublicationPage: React.FC = () => {
           ) : (
             <NavLink className="publication-action publication-action--secondary" to="/auth">{isFrench ? 'Enregistrer' : 'Save'}</NavLink>
           )}
-          {documentState === 'ready' && document && (
+          {canReadFullText && documentState === 'ready' && document && (
             <button type="button" className="publication-action publication-action--primary" onClick={downloadDocument} disabled={isDownloading}>
               {isDownloading ? (isFrench ? 'Téléchargement…' : 'Downloading…') : (isFrench ? 'Télécharger PDF' : 'Download PDF')}
             </button>
@@ -178,13 +193,13 @@ const SinglePublicationPage: React.FC = () => {
 
       <div className="publication-detail__content">
         {downloadError && <p className="publication-reader__error publication-reader__error--top" role="alert">{isFrench ? 'Le téléchargement a échoué. Vérifiez votre accès au document.' : 'Download failed. Check your access to this document.'}</p>}
-        <div className="publication-reader-layout">
+        <div className={`publication-reader-layout${canReadFullText ? '' : ' publication-reader-layout--restricted'}`}>
           <aside className="publication-reader-outline" aria-label={isFrench ? 'Navigation et informations du document' : 'Document navigation and information'}>
             <section className="publication-reader-outline__section">
               <p className="publication-reader-outline__eyebrow">{isFrench ? 'DANS CE DOCUMENT' : 'IN THIS DOCUMENT'}</p>
               <nav aria-label={isFrench ? 'Sections du document' : 'Document sections'}>
                 {abstract.trim() && <a className="publication-reader-outline__link publication-reader-outline__link--active" href="#publication-summary">{isFrench ? 'Résumé' : 'Abstract'}<span>1</span></a>}
-                <a className="publication-reader-outline__link" href="#publication-document">{isFrench ? 'Document PDF' : 'PDF document'}<span>{currentPage}</span></a>
+                {canReadFullText && <a className="publication-reader-outline__link" href="#publication-document">{isFrench ? 'Document PDF' : 'PDF document'}<span>{currentPage}</span></a>}
               </nav>
             </section>
 
@@ -202,18 +217,20 @@ const SinglePublicationPage: React.FC = () => {
                     ? (isFrench ? 'Recherche du PDF…' : 'Checking PDF…')
                     : documentState === 'missing'
                       ? (isFrench ? 'PDF indisponible' : 'PDF unavailable')
+                    : documentState === 'restricted'
+                      ? (isFrench ? 'Accès au texte intégral restreint' : 'Full-text access restricted')
                       : (isFrench ? 'Accès au PDF indisponible' : 'PDF access unavailable')}
               </span>
             </section>
 
-            <ReadingProgress
-              publicationId={publication.id}
-              totalPages={document?.pageCount}
-              currentPage={currentPage}
-              onPageChange={onPageChange}
-              isAuthenticated={isAuthenticated}
-              className="publication-reader-outline__progress"
-            />
+            {canReadFullText && <ReadingProgress
+                publicationId={publication.id}
+                totalPages={document?.pageCount}
+                currentPage={currentPage}
+                onPageChange={onPageChange}
+                isAuthenticated={isAuthenticated}
+                className="publication-reader-outline__progress"
+              />}
           </aside>
 
           <main className="publication-reader-document">
@@ -245,17 +262,25 @@ const SinglePublicationPage: React.FC = () => {
             <section id="publication-document" className="publication-reader" aria-labelledby="publication-reader-title">
               <div className="publication-reader__header">
                 <h2 id="publication-reader-title">{isFrench ? 'Document original' : 'Original document'}</h2>
-                {isAuthenticated ? (
+                {canReadFullText && (
                   <NavLink className="publication-action publication-action--secondary" to={`/quiz?publicationId=${publication.id}`}>
                     {isFrench ? 'Auto-évaluation' : 'Self-assessment'}
                   </NavLink>
-                ) : (
-                  <NavLink className="publication-action publication-action--secondary" to="/auth">
-                    {isFrench ? 'Se connecter pour s’auto-évaluer' : 'Sign in for self-assessment'}
-                  </NavLink>
                 )}
               </div>
-              {documentState === 'loading' && <p className="publication-reader__message" role="status">{isFrench ? 'Recherche du document…' : 'Looking for the document…'}</p>}
+              {!canReadFullText && !authLoading && (
+                <div className="publication-reader__message" role="note">
+                  <p>{isAuthenticated
+                    ? (isFrench ? 'Votre compte Visiteur ne permet pas la lecture intégrale. Contactez Galileo pour demander un accès.' : 'Your Viewer account does not include full-text access. Contact Galileo to request access.')
+                    : (isFrench ? 'La lecture intégrale nécessite un compte autorisé.' : 'Full-text access requires an authorized account.')}</p>
+                  <NavLink className="publication-action publication-action--secondary" to={isAuthenticated ? '/contact' : '/auth'}>
+                    {isAuthenticated ? (isFrench ? 'Demander un accès' : 'Request access') : (isFrench ? 'Se connecter' : 'Sign in')}
+                  </NavLink>
+                </div>
+              )}
+              {documentState === 'loading' && <p className="publication-reader__message" role="status">{authLoading
+                ? (isFrench ? 'Vérification de l’accès…' : 'Checking access…')
+                : (isFrench ? 'Recherche du document…' : 'Looking for the document…')}</p>}
               {documentState === 'missing' && <p className="publication-reader__message">{isFrench ? 'Aucun document PDF n’est associé à cette publication.' : 'No PDF is attached to this publication.'}</p>}
               {documentState === 'error' && <p className="publication-reader__error" role="alert">{isFrench ? 'Le document est indisponible ou son accès est refusé.' : 'The document is unavailable or access was denied.'}</p>}
               {documentState === 'ready' && document && (
@@ -270,7 +295,7 @@ const SinglePublicationPage: React.FC = () => {
             </section>
           </main>
 
-          <PublicationAIPanel publicationId={publication.id} pageCount={document?.pageCount} onOpenPage={onPageChange} />
+          {canReadFullText && <PublicationAIPanel publicationId={publication.id} pageCount={document?.pageCount} onOpenPage={onPageChange} />}
         </div>
         <section className="publication-detail__related" aria-label={isFrench ? 'Publications similaires' : 'Related publications'}>
           <SimilarPublications publicationId={publication.id} limit={5} className="publication-similar--horizontal" />

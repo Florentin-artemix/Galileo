@@ -1,10 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { NavLink, useSearchParams } from 'react-router-dom';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useAuth } from '../contexts/AuthContext';
 import { usePublications } from '../contexts/PublicationsContext';
 import Modal from '../components/Modal';
 import SearchBarWithAutocomplete from '../components/SearchBarWithAutocomplete';
 import { searchService, type CatalogPublicationResult } from '../services/searchService';
+import { documentsService } from '../services/documentsService';
 import { publicationsService } from '../services/publicationsService';
 import './catalog.css';
 
@@ -37,11 +39,12 @@ const formatDate = (value: string | null | undefined, language: string) => {
 const PublicationCard: React.FC<{
   publication: CatalogPublicationResult;
   viewMode: ViewMode;
+  canReadFullText: boolean;
   downloading: boolean;
   onPreview: (publication: CatalogPublicationResult) => void;
   onCite: (publication: CatalogPublicationResult) => void;
   onDownload: (publication: CatalogPublicationResult) => void;
-}> = ({ publication, viewMode, downloading, onPreview, onCite, onDownload }) => {
+}> = ({ publication, viewMode, canReadFullText, downloading, onPreview, onCite, onDownload }) => {
   const { language, translations } = useLanguage();
   const title = publication.title || translations.publications_page.title;
   const type = publication.type ? publicationTypes[publication.type] || publication.type.replaceAll('_', ' ').toLowerCase() : null;
@@ -69,7 +72,9 @@ const PublicationCard: React.FC<{
         </div>
         <div className="catalog-publication-card__actions">
           <NavLink to={`/publication/${publication.id}`} className="catalog-read-link">
-            {translations.publications_page.read_article}
+            {canReadFullText
+              ? translations.publications_page.read_article
+              : (language === 'fr' ? 'Voir la notice' : 'View details')}
             <span aria-hidden="true">→</span>
           </NavLink>
           <div className="catalog-secondary-actions">
@@ -79,7 +84,7 @@ const PublicationCard: React.FC<{
             <button type="button" onClick={() => onCite(publication)} title={translations.publications_page.cite}>
               {translations.publications_page.cite}
             </button>
-            {publication.hasDocument && <button type="button" onClick={() => onDownload(publication)} disabled={downloading} title={translations.publications_page.download_pdf}>
+            {canReadFullText && publication.hasDocument && <button type="button" onClick={() => onDownload(publication)} disabled={downloading} title={translations.publications_page.download_pdf}>
               {downloading ? '…' : 'PDF'}
             </button>}
           </div>
@@ -91,7 +96,9 @@ const PublicationCard: React.FC<{
 
 const PublicationsPage: React.FC = () => {
   const { language, translations } = useLanguage();
+  const { isAuthenticated, role } = useAuth();
   const { publications } = usePublications();
+  const canReadFullText = isAuthenticated && role !== 'VIEWER';
   const [searchParams, setSearchParams] = useSearchParams();
   const routeQuery = searchParams.get('q') || '';
   const [searchDraft, setSearchDraft] = useState(routeQuery);
@@ -201,11 +208,19 @@ const PublicationsPage: React.FC = () => {
   const retry = () => void loadCatalog();
 
   const downloadPublication = async (publication: CatalogPublicationResult) => {
+    if (!canReadFullText) return;
     setDownloadingId(publication.id);
     setDownloadError('');
     try {
-      const url = await publicationsService.getDownloadUrl(publication.id);
-      window.location.assign(url);
+      const document = await documentsService.getDocumentForPublication(publication.id);
+      const blob = await documentsService.getDocumentBlob(document.id);
+      const url = URL.createObjectURL(blob);
+      const link = window.document.createElement('a');
+      link.href = url;
+      link.download = document.fileName || `publication-${publication.id}.pdf`;
+      link.click();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+      void publicationsService.recordDownload(publication.id).catch(() => undefined);
     } catch {
       setDownloadError(language === 'fr' ? 'Le PDF est momentanément indisponible.' : 'The PDF is temporarily unavailable.');
     } finally {
@@ -314,6 +329,7 @@ const PublicationsPage: React.FC = () => {
               key={publication.id}
               publication={publication}
               viewMode={viewMode}
+              canReadFullText={canReadFullText}
               downloading={downloadingId === publication.id}
               onPreview={publication => openModal(publication, 'preview')}
               onCite={publication => openModal(publication, 'cite')}
@@ -338,7 +354,11 @@ const PublicationsPage: React.FC = () => {
               {selectedPublication.authors.length > 0 && <p className="text-sm text-[#00838f]">{selectedPublication.authors.join(', ')}</p>}
               {selectedPublication.domainName && <p className="text-sm text-gray-500">{selectedPublication.domainName}</p>}
               {selectedPublication.abstractText && <p className="break-words text-sm text-gray-700 dark:text-gray-300">{selectedPublication.abstractText}</p>}
-              <NavLink to={`/publication/${selectedPublication.id}`} className="inline-flex rounded-[7px] bg-[#00838f] px-4 py-2 text-sm font-semibold text-white">{translations.publications_page.read_article}</NavLink>
+              <NavLink to={`/publication/${selectedPublication.id}`} className="inline-flex rounded-[7px] bg-[#00838f] px-4 py-2 text-sm font-semibold text-white">
+                {canReadFullText
+                  ? translations.publications_page.read_article
+                  : (language === 'fr' ? 'Voir la notice' : 'View details')}
+              </NavLink>
             </div>
           </Modal>
           <Modal isOpen={modal === 'cite'} onClose={() => setModal(null)} title={translations.publications_page.citation_title}>

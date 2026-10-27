@@ -4,6 +4,8 @@ import com.galileo.auth.entity.Role;
 import com.galileo.auth.entity.User;
 import com.galileo.auth.security.CustomUserDetails;
 import com.galileo.common.exception.BadRequestException;
+import com.galileo.common.exception.ForbiddenException;
+import com.galileo.common.exception.ResourceNotFoundException;
 import com.galileo.documents.dto.DocumentDTO;
 import com.galileo.documents.entity.Document;
 import com.galileo.documents.entity.DocumentProcessingStatus;
@@ -149,5 +151,93 @@ class DocumentServiceTest {
 
         assertEquals(21L, result.getId());
         assertEquals(2, result.getVersion());
+    }
+
+    @Test
+    @DisplayName("An anonymous visitor cannot stream even a public publication PDF by key")
+    void anonymousVisitorCannotStreamPublicDocumentByKey() {
+        Publication publication = Publication.builder()
+                .id(10L)
+                .status(com.galileo.publications.entity.PublicationStatus.PUBLISHED)
+                .accessLevel(AccessLevel.PUBLIC)
+                .build();
+        Document document = Document.builder()
+                .id(42L)
+                .publication(publication)
+                .fileKey("publications/10/secret.pdf")
+                .build();
+        when(documentRepository.findByFileKey("publications/10/secret.pdf"))
+                .thenReturn(Optional.of(document));
+
+        assertThrows(ForbiddenException.class, () ->
+                documentService.getDocumentStreamByKey("publications/10/secret.pdf", null));
+        verify(storageService, never()).downloadFile(anyString());
+    }
+
+    @Test
+    @DisplayName("An authenticated VIEWER still cannot stream a public publication PDF")
+    void viewerCannotStreamPublicDocumentByKey() {
+        User viewerUser = User.builder().id(9L).email("viewer@example.test").role(Role.VIEWER).build();
+        CustomUserDetails viewer = new CustomUserDetails(viewerUser);
+        Publication publication = Publication.builder()
+                .id(10L)
+                .status(com.galileo.publications.entity.PublicationStatus.PUBLISHED)
+                .accessLevel(AccessLevel.PUBLIC)
+                .build();
+        Document document = Document.builder()
+                .id(42L)
+                .publication(publication)
+                .fileKey("publications/10/secret.pdf")
+                .build();
+        when(documentRepository.findByFileKey("publications/10/secret.pdf"))
+                .thenReturn(Optional.of(document));
+
+        assertThrows(ForbiddenException.class, () ->
+                documentService.getDocumentStreamByKey("publications/10/secret.pdf", viewer));
+        verify(storageService, never()).downloadFile(anyString());
+    }
+
+    @Test
+    @DisplayName("Authorized document URL uses the protected API proxy, never a storage URL")
+    void authorizedDocumentUrlUsesProtectedProxy() {
+        User studentUser = User.builder().id(7L).email("student@example.test").role(Role.STUDENT).build();
+        CustomUserDetails student = new CustomUserDetails(studentUser);
+        Publication publication = Publication.builder()
+                .id(10L)
+                .status(com.galileo.publications.entity.PublicationStatus.PUBLISHED)
+                .accessLevel(AccessLevel.PUBLIC)
+                .build();
+        Document document = Document.builder()
+                .id(42L)
+                .publication(publication)
+                .fileKey("publications/10/paper.pdf")
+                .build();
+        when(documentRepository.findById(42L)).thenReturn(Optional.of(document));
+        when(authorRepository.findByPublicationIdOrderByPositionAsc(10L)).thenReturn(List.of());
+
+        assertEquals("/api/documents/42/download", documentService.getPresignedDownloadUrl(42L, student));
+        verify(storageService, never()).generatePresignedUrl(anyString(), anyInt());
+    }
+
+    @Test
+    @DisplayName("Unregistered storage keys cannot be used to stream arbitrary objects")
+    void unregisteredStorageKeyIsRejected() {
+        when(documentRepository.findByFileKey("publications/10/orphan.pdf"))
+                .thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class, () ->
+                documentService.getDocumentStreamByKey("publications/10/orphan.pdf", null));
+        verify(storageService, never()).downloadFile(anyString());
+    }
+
+    @Test
+    @DisplayName("Known public image namespaces remain streamable without a document row")
+    void publicImageKeyRemainsStreamable() {
+        InputStream image = InputStream.nullInputStream();
+        when(documentRepository.findByFileKey("blog/cover.webp")).thenReturn(Optional.empty());
+        when(storageService.downloadFile("blog/cover.webp")).thenReturn(image);
+
+        assertSame(image, documentService.getDocumentStreamByKey("blog/cover.webp", null));
+        verify(storageService).downloadFile("blog/cover.webp");
     }
 }

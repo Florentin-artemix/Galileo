@@ -53,11 +53,12 @@ public class AuthService {
             throw new BadRequestException("Le mot de passe doit contenir au moins 8 caractères");
         }
 
-        // Sécurité des rôles : L'inscription publique attribue STRICTEMENT le rôle STUDENT
+        // L'inscription publique ne conserve que le rôle de consultation non privilégié.
+        Role registrationRole = request.getRole() == Role.VIEWER ? Role.VIEWER : Role.STUDENT;
         User user = User.builder()
                 .email(normalizedEmail)
                 .passwordHash(passwordEncoder.encode(request.getPassword()))
-                .role(Role.STUDENT)
+                .role(registrationRole)
                 .isActive(true)
                 .emailVerified(false)
                 .build();

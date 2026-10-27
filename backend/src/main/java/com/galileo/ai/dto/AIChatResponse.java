@@ -66,6 +66,9 @@ public class AIChatResponse {
     @AllArgsConstructor
     public static class SourceReference {
         private Long chunkId;
+        private Long attachmentId;
+        private Long attachmentChunkId;
+        private String fileName;
         private Integer pageNumber;
         private Integer pageStart;
         private Integer pageEnd;

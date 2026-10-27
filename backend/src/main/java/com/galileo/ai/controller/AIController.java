@@ -3,15 +3,18 @@ package com.galileo.ai.controller;
 import com.galileo.ai.dto.*;
 import com.galileo.ai.entity.AIMode;
 import com.galileo.ai.service.AIService;
+import com.galileo.ai.service.AIConversationAttachmentService;
 import com.galileo.auth.security.CustomUserDetails;
 import com.galileo.common.dto.ApiResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.Map;
@@ -23,6 +26,7 @@ import java.util.Map;
 public class AIController {
 
     private final AIService aiService;
+    private final AIConversationAttachmentService attachmentService;
 
     @PostMapping("/chat")
     public ResponseEntity<AIChatResponse> chat(
@@ -30,6 +34,33 @@ public class AIController {
             @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
         return ResponseEntity.ok(aiService.chat(request, userDetails));
+    }
+
+    @PostMapping(path = "/conversations/{id}/attachments", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<AIConversationAttachmentDTO> uploadConversationAttachment(
+            @PathVariable Long id,
+            @RequestParam("file") MultipartFile file,
+            @AuthenticationPrincipal CustomUserDetails userDetails
+    ) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(attachmentService.upload(id, file, userDetails));
+    }
+
+    @GetMapping("/conversations/{id}/attachments")
+    public ResponseEntity<List<AIConversationAttachmentDTO>> getConversationAttachments(
+            @PathVariable Long id,
+            @AuthenticationPrincipal CustomUserDetails userDetails
+    ) {
+        return ResponseEntity.ok(attachmentService.list(id, userDetails));
+    }
+
+    @DeleteMapping("/conversations/{id}/attachments/{attachmentId}")
+    public ResponseEntity<Void> deleteConversationAttachment(
+            @PathVariable Long id,
+            @PathVariable Long attachmentId,
+            @AuthenticationPrincipal CustomUserDetails userDetails
+    ) {
+        attachmentService.delete(id, attachmentId, userDetails);
+        return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/summarize")

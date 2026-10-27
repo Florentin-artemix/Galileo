@@ -84,7 +84,7 @@ public class SearchServiceImpl implements SearchService {
             }
 
             // 2. Niveaux d'accès autorisés
-            if (currentUser == null) {
+            if (!isAuthenticatedMember(currentUser)) {
                 predicates.add(cb.equal(root.get("accessLevel"), AccessLevel.PUBLIC));
             } else if (currentUser.getRole() != Role.ADMIN && currentUser.getRole() != Role.STAFF) {
                 Subquery<Long> authorSubquery = cq.subquery(Long.class);
@@ -225,7 +225,7 @@ public class SearchServiceImpl implements SearchService {
 
             // Filtrage d'accès appliqué directement dans la sélection SQL pour ne pas saturer le LIMIT avec des documents inaccessibles
             String accessClause;
-            if (currentUser == null) {
+            if (!isAuthenticatedMember(currentUser)) {
                 accessClause = "AND p.access_level = 'PUBLIC'";
             } else if (currentUser.getRole() == Role.ADMIN || currentUser.getRole() == Role.STAFF) {
                 accessClause = "";
@@ -249,7 +249,9 @@ public class SearchServiceImpl implements SearchService {
             Query nativeQuery = entityManager.createNativeQuery(nativeSql);
             nativeQuery.setParameter("vectorStr", vectorStr);
             nativeQuery.setParameter("lim", fetchLimit);
-            if (currentUser != null && currentUser.getRole() != Role.ADMIN && currentUser.getRole() != Role.STAFF) {
+            if (isAuthenticatedMember(currentUser)
+                    && currentUser.getRole() != Role.ADMIN
+                    && currentUser.getRole() != Role.STAFF) {
                 nativeQuery.setParameter("userId", currentUser.getId());
             }
 
@@ -334,7 +336,7 @@ public class SearchServiceImpl implements SearchService {
         if (user != null && (user.getRole() == Role.STAFF || user.getRole() == Role.ADMIN)) {
             return true;
         }
-        if (user != null) {
+        if (isAuthenticatedMember(user)) {
             boolean isAuthor = authorRepository.findByPublicationIdOrderByPositionAsc(pub.getId()).stream()
                     .anyMatch(a -> a.getUser() != null && a.getUser().getId().equals(user.getId()));
             if (isAuthor) return true;
@@ -346,9 +348,19 @@ public class SearchServiceImpl implements SearchService {
             return true;
         }
         if (pub.getAccessLevel() == AccessLevel.INSTITUTIONAL) {
-            return user != null;
+            return isAuthenticatedMember(user);
         }
         return false;
+    }
+
+    private boolean isAuthenticatedMember(CustomUserDetails user) {
+        if (user == null || user.getRole() == null) {
+            return false;
+        }
+        return switch (user.getRole()) {
+            case STUDENT, RESEARCHER, TEACHER, STAFF, ADMIN -> true;
+            default -> false;
+        };
     }
 
     private void recordSearchHistory(Long userId, String query, SearchRequest req, int resultCount) {

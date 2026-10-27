@@ -25,6 +25,9 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.InvalidPathException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
@@ -121,7 +124,7 @@ public class DocumentService {
         Document document = documentRepository.findById(documentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Document", "id", documentId));
 
-        if (!isAuthorizedToAccess(document.getPublication(), user)) {
+        if (!isAuthorizedToReadFullDocument(document.getPublication(), user)) {
             throw new ForbiddenException("Accès non autorisé à ce document");
         }
 
@@ -133,7 +136,7 @@ public class DocumentService {
         Publication publication = publicationRepository.findById(publicationId)
                 .orElseThrow(() -> new ResourceNotFoundException("Publication", "id", publicationId));
 
-        if (!isAuthorizedToAccess(publication, user)) {
+        if (!isAuthorizedToReadFullDocument(publication, user)) {
             throw new ForbiddenException("Accès non autorisé à cette publication");
         }
 
@@ -153,7 +156,7 @@ public class DocumentService {
         Document document = documentRepository.findById(documentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Document", "id", documentId));
 
-        if (!isAuthorizedToAccess(document.getPublication(), user)) {
+        if (!isAuthorizedToReadFullDocument(document.getPublication(), user)) {
             throw new ForbiddenException("Téléchargement non autorisé pour ce document");
         }
 
@@ -163,11 +166,35 @@ public class DocumentService {
     @Transactional(readOnly = true)
     public InputStream getDocumentStreamByKey(String fileKey, CustomUserDetails user) {
         Document document = documentRepository.findByFileKey(fileKey).orElse(null);
-        if (document != null && !isAuthorizedToAccess(document.getPublication(), user)) {
-            throw new ForbiddenException("Téléchargement non autorisé pour cette clé");
+        if (document != null) {
+            if (!isAuthorizedToReadFullDocument(document.getPublication(), user)) {
+                throw new ForbiddenException("Téléchargement non autorisé pour cette clé");
+            }
+            return storageService.downloadFile(fileKey);
+        }
+
+        if (!isPublicAssetKey(fileKey)) {
+            throw new ResourceNotFoundException("Document", "fileKey", fileKey);
         }
 
         return storageService.downloadFile(fileKey);
+    }
+
+    private boolean isPublicAssetKey(String fileKey) {
+        if (fileKey == null || fileKey.isBlank()) {
+            return false;
+        }
+
+        try {
+            Path path = Paths.get(fileKey).normalize();
+            if (path.isAbsolute() || path.startsWith("..") || path.getNameCount() < 2) {
+                return false;
+            }
+            String category = path.getName(0).toString();
+            return category.equals("blog") || category.equals("avatars");
+        } catch (InvalidPathException e) {
+            return false;
+        }
     }
 
     @Transactional(readOnly = true)
@@ -175,11 +202,11 @@ public class DocumentService {
         Document document = documentRepository.findById(documentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Document", "id", documentId));
 
-        if (!isAuthorizedToAccess(document.getPublication(), user)) {
+        if (!isAuthorizedToReadFullDocument(document.getPublication(), user)) {
             throw new ForbiddenException("Téléchargement non autorisé pour ce document");
         }
 
-        return storageService.generatePresignedUrl(document.getFileKey(), 60);
+        return "/api/documents/" + document.getId() + "/download";
     }
 
     @Transactional
@@ -216,20 +243,18 @@ public class DocumentService {
         return retryDocumentProcessing(docs.get(0).getId(), user);
     }
 
-    public boolean isAuthorizedToAccess(Publication pub, CustomUserDetails user) {
-        if (pub == null) return false;
+    public boolean isAuthorizedToReadFullDocument(Publication pub, CustomUserDetails user) {
+        if (pub == null || !isAuthenticatedMember(user)) return false;
 
         // STAFF et ADMIN ont accès à toutes les publications
-        if (user != null && (user.getRole() == Role.STAFF || user.getRole() == Role.ADMIN)) {
+        if (user.getRole() == Role.STAFF || user.getRole() == Role.ADMIN) {
             return true;
         }
 
         // L'auteur a toujours accès à sa propre publication
-        if (user != null) {
-            boolean isAuthor = authorRepository.findByPublicationIdOrderByPositionAsc(pub.getId()).stream()
-                    .anyMatch(a -> a.getUser() != null && a.getUser().getId().equals(user.getId()));
-            if (isAuthor) return true;
-        }
+        boolean isAuthor = authorRepository.findByPublicationIdOrderByPositionAsc(pub.getId()).stream()
+                .anyMatch(a -> a.getUser() != null && a.getUser().getId().equals(user.getId()));
+        if (isAuthor) return true;
 
         // Si la publication n'est pas encore publiée, seul l'auteur ou le STAFF peut la voir
         if (pub.getStatus() != PublicationStatus.PUBLISHED) {
@@ -241,15 +266,25 @@ public class DocumentService {
             return true;
         }
         if (pub.getAccessLevel() == AccessLevel.INSTITUTIONAL) {
-            return user != null; // Compte authentifié requis
+            return true;
         }
 
         // RESTRICTED ou PRIVATE : réservé aux auteurs ou staff (déjà vérifié ci-dessus)
         return false;
     }
 
+    private boolean isAuthenticatedMember(CustomUserDetails user) {
+        if (user == null || user.getRole() == null) {
+            return false;
+        }
+        return switch (user.getRole()) {
+            case STUDENT, RESEARCHER, TEACHER, STAFF, ADMIN -> true;
+            default -> false;
+        };
+    }
+
     private boolean canModifyPublication(Publication pub, CustomUserDetails user) {
-        if (user == null) return false;
+        if (!isAuthenticatedMember(user)) return false;
         if (user.getRole() == Role.STAFF || user.getRole() == Role.ADMIN) return true;
         return authorRepository.findByPublicationIdOrderByPositionAsc(pub.getId()).stream()
                 .anyMatch(a -> a.getUser() != null && a.getUser().getId().equals(user.getId()));
@@ -260,7 +295,6 @@ public class DocumentService {
                 .id(d.getId())
                 .publicationId(d.getPublication() != null ? d.getPublication().getId() : null)
                 .fileName(d.getFileName())
-                .fileKey(d.getFileKey())
                 .fileSize(d.getFileSize())
                 .mimeType(d.getMimeType())
                 .pageCount(d.getPageCount())

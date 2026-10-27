@@ -179,17 +179,23 @@ class AdminUserManagementTest {
     }
 
     @Test
-    @DisplayName("PUT /api/admin/users/{id}/role with VIEWER role returns 400 Bad Request (not a valid account role)")
-    void testUpdateUserRoleViewerFails() throws Exception {
+    @DisplayName("PUT /api/admin/users/{id}/role with VIEWER role updates user successfully")
+    void testUpdateUserRoleViewerSuccess() throws Exception {
         User adminUser = createSampleUser(99L, "admin@mapon.cd", Role.ADMIN);
         CustomUserDetails adminPrincipal = new CustomUserDetails(adminUser);
+        User target = createSampleUser(10L, "target@mapon.cd", Role.STUDENT);
+
+        when(userRepository.findById(10L)).thenReturn(Optional.of(target));
+        when(userRepository.save(any(User.class))).thenReturn(target);
 
         mockMvc.perform(put("/api/admin/users/10/role")
                         .with(user(adminPrincipal))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"role\":\"VIEWER\"}"))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("Rôle invalide")));
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+
+        verify(userRepository).save(argThat(u -> u.getRole() == Role.VIEWER));
     }
 
     @Test

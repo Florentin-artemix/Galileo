@@ -98,17 +98,17 @@ export const authService = {
   async signup(
     email: string,
     password: string,
-    _requestedRole: UserRole = 'STUDENT',
+    requestedRole: UserRole = 'STUDENT',
     extra?: { displayName?: string; firstName?: string; lastName?: string; program?: string; motivation?: string }
   ): Promise<User> {
-    // Le rôle public est toujours sécurisé côté client et vérifié côté serveur (STUDENT)
+    // Public signup can request the non-privileged VIEWER role only.
     const response = await fetch(`${apiBase}/auth/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         email,
         password,
-        role: 'STUDENT',
+        role: requestedRole === 'VIEWER' ? 'VIEWER' : 'STUDENT',
         firstName: extra?.firstName || extra?.displayName?.split(' ')[0] || '',
         lastName: extra?.lastName || extra?.displayName?.split(' ').slice(1).join(' ') || ''
       })

@@ -15,6 +15,7 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ documentId, pageCount, pageNumber
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [frameLoaded, setFrameLoaded] = useState(false);
   const [zoom, setZoom] = useState(100);
+  const [loadAttempt, setLoadAttempt] = useState(0);
 
   useEffect(() => {
     let active = true;
@@ -31,14 +32,17 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ documentId, pageCount, pageNumber
         setStatus('ready');
       })
       .catch(() => {
-        if (active) setStatus('error');
+        if (active) {
+          setFileUrl(null);
+          setStatus('error');
+        }
       });
 
     return () => {
       active = false;
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [documentId]);
+  }, [documentId, loadAttempt]);
 
   const previous = () => {
     setFrameLoaded(false);
@@ -85,7 +89,16 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ documentId, pageCount, pageNumber
           </div>
         )}
         {status === 'error' ? (
-          <div className="publication-pdf__message publication-pdf__message--error" role="alert">{labels.error}</div>
+          <div className="publication-pdf__message publication-pdf__message--error" role="alert">
+            <span>{labels.error}</span>
+            <button
+              type="button"
+              className="publication-action publication-action--secondary"
+              onClick={() => setLoadAttempt(attempt => attempt + 1)}
+            >
+              {language === 'fr' ? 'Réessayer' : 'Try again'}
+            </button>
+          </div>
         ) : fileUrl ? (
           <iframe
             key={`${documentId}-${pageNumber}-${zoom}`}

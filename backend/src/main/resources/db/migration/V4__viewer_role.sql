@@ -1,0 +1,5 @@
+ALTER TABLE users DROP CONSTRAINT chk_user_role;
+
+ALTER TABLE users
+    ADD CONSTRAINT chk_user_role
+    CHECK (role IN ('VIEWER', 'STUDENT', 'RESEARCHER', 'TEACHER', 'STAFF', 'ADMIN'));

@@ -1,6 +1,7 @@
 package com.galileo.ai;
 
 import com.galileo.ai.dto.AIChatRequest;
+import com.galileo.ai.dto.AIChatResponse;
 import com.galileo.ai.dto.AISummaryRequest;
 import com.galileo.ai.dto.AISummaryResponse;
 import com.galileo.ai.entity.AIMode;
@@ -10,6 +11,7 @@ import com.galileo.ai.repository.AIInteractionRepository;
 import com.galileo.ai.repository.AIMessageRepository;
 import com.galileo.ai.repository.PublicationSummaryCacheRepository;
 import com.galileo.ai.service.AIServiceImpl;
+import com.galileo.ai.service.AIConversationAttachmentService;
 import com.galileo.ai.service.ClaudeAIService;
 import com.galileo.auth.entity.Role;
 import com.galileo.auth.entity.User;
@@ -20,6 +22,7 @@ import com.galileo.documents.entity.Document;
 import com.galileo.documents.repository.DocumentChunkRepository;
 import com.galileo.documents.repository.DocumentRepository;
 import com.galileo.embedding.provider.EmbeddingProvider;
+import jakarta.persistence.EntityManager;
 import com.galileo.publications.entity.AccessLevel;
 import com.galileo.publications.entity.Publication;
 import com.galileo.publications.entity.PublicationStatus;
@@ -68,6 +71,9 @@ class AIServiceRAGTest {
     private AIMessageRepository messageRepository;
 
     @Mock
+    private AIConversationAttachmentService conversationAttachmentService;
+
+    @Mock
     private AIInteractionRepository interactionRepository;
 
     @Mock
@@ -75,6 +81,9 @@ class AIServiceRAGTest {
 
     @Mock
     private PublicationService publicationService;
+
+    @Mock
+    private EntityManager entityManager;
 
     @InjectMocks
     private AIServiceImpl aiService;
@@ -95,7 +104,7 @@ class AIServiceRAGTest {
         when(userRepository.findById(9L)).thenReturn(Optional.of(student));
         when(interactionRepository.countByUserIdAndCreatedAtAfter(eq(9L), any())).thenReturn(0L);
         when(publicationRepository.findById(100L)).thenReturn(Optional.of(pub));
-        when(publicationService.isAuthorizedToAccess(pub, userDetails)).thenReturn(false);
+        when(publicationService.isAuthorizedToReadFullDocument(pub, userDetails)).thenReturn(false);
 
         AIChatRequest request = AIChatRequest.builder()
                 .publicationId(100L)
@@ -137,7 +146,7 @@ class AIServiceRAGTest {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(interactionRepository.countByUserIdAndCreatedAtAfter(eq(1L), any())).thenReturn(5L);
         when(publicationRepository.findById(200L)).thenReturn(Optional.of(pub));
-        when(publicationService.isAuthorizedToAccess(pub, userDetails)).thenReturn(true);
+        when(publicationService.isAuthorizedToReadFullDocument(pub, userDetails)).thenReturn(true);
         when(documentRepository.findByPublicationId(200L)).thenReturn(List.of(doc));
         when(summaryCacheRepository.findByPublicationIdAndSummaryType(200L, "RAPIDE"))
                 .thenReturn(Optional.of(cache));
@@ -212,5 +221,70 @@ class AIServiceRAGTest {
         );
         verify(messageRepository, never()).findTop12ByConversationIdOrderByCreatedAtDesc(777L);
         verify(claudeAIService, never()).generateTextWithHistory(any(), anyList(), anyDouble(), anyInt());
+    }
+
+    @Test
+    @DisplayName("Attached PDF passages are sent to the model with their actual page citations")
+    void attachedPdfContextAndPageReferenceReachModel() {
+        User user = User.builder().id(12L).email("reader@mapon.cd").role(Role.STUDENT).build();
+        CustomUserDetails userDetails = new CustomUserDetails(user);
+        com.galileo.ai.entity.AIConversation conversation = com.galileo.ai.entity.AIConversation.builder()
+                .id(303L).user(user).mode(AIMode.DOCUMENT).title("Attached PDF").build();
+        when(userRepository.findById(12L)).thenReturn(Optional.of(user));
+        when(interactionRepository.countByUserIdAndCreatedAtAfter(eq(12L), any())).thenReturn(0L);
+        when(conversationRepository.findById(303L)).thenReturn(Optional.of(conversation));
+        when(conversationAttachmentService.hasAttachments(303L, 12L)).thenReturn(true);
+        when(conversationAttachmentService.retrieveRelevantChunks(303L, 12L, "What value did Nova report?"))
+                .thenReturn(List.of(new com.galileo.ai.service.AIConversationAttachmentService.RetrievedAttachmentChunk(
+                        80L, 44L, "study.pdf", 2, "Nova reported a value of 42 in the second experiment.", 1.0)));
+        when(claudeAIService.generateText(any(), any(), anyDouble(), anyInt())).thenReturn(
+                ClaudeAIService.ClaudeResult.builder().content("Nova reported 42 [study.pdf, page 2].")
+                        .success(true).provider("test").model("mock").inputTokens(10).outputTokens(10).build());
+
+        AIChatResponse response = aiService.chat(AIChatRequest.builder()
+                .conversationId(303L)
+                .mode(AIMode.GENERAL)
+                .message("What value did Nova report?")
+                .build(), userDetails);
+
+        org.mockito.ArgumentCaptor<String> prompt = org.mockito.ArgumentCaptor.forClass(String.class);
+        verify(claudeAIService).generateText(any(), prompt.capture(), anyDouble(), anyInt());
+        assertTrue(prompt.getValue().contains("study.pdf, page 2"));
+        assertTrue(prompt.getValue().contains("Nova reported a value of 42"));
+        assertTrue(prompt.getValue().contains("What value did Nova report?"));
+        assertEquals(AIMode.DOCUMENT, response.getMode());
+        assertEquals(1, response.getSourceReferences().size());
+        assertEquals("study.pdf", response.getSourceReferences().get(0).getFileName());
+        assertEquals(2, response.getSourceReferences().get(0).getPageNumber());
+        verifyNoInteractions(embeddingProvider, entityManager);
+    }
+
+    @Test
+    @DisplayName("No matching passage from attached PDFs returns a deterministic abstention without external generation")
+    void missingAttachmentEvidenceAbstainsWithoutCallingProvider() {
+        User user = User.builder().id(13L).email("reader2@mapon.cd").role(Role.STUDENT).build();
+        CustomUserDetails userDetails = new CustomUserDetails(user);
+        com.galileo.ai.entity.AIConversation conversation = com.galileo.ai.entity.AIConversation.builder()
+                .id(304L).user(user).mode(AIMode.DOCUMENT).title("Attached PDF").build();
+        when(userRepository.findById(13L)).thenReturn(Optional.of(user));
+        when(interactionRepository.countByUserIdAndCreatedAtAfter(eq(13L), any())).thenReturn(0L);
+        when(conversationRepository.findById(304L)).thenReturn(Optional.of(conversation));
+        when(conversationAttachmentService.hasAttachments(304L, 13L)).thenReturn(true);
+        when(conversationAttachmentService.retrieveRelevantChunks(304L, 13L, "Explain a topic absent from the source"))
+                .thenReturn(List.of());
+        when(conversationAttachmentService.list(304L, userDetails)).thenReturn(List.of(
+                com.galileo.ai.dto.AIConversationAttachmentDTO.builder().fileName("study.pdf").build()));
+
+        AIChatResponse response = aiService.chat(AIChatRequest.builder()
+                .conversationId(304L)
+                .message("Explain a topic absent from the source")
+                .build(), userDetails);
+
+        assertTrue(response.getResponse().contains("ne permettent donc pas de répondre"));
+        assertTrue(response.getSourceReferences().isEmpty());
+        verify(claudeAIService, never()).generateText(any(), any(), anyDouble(), anyInt());
+        verify(claudeAIService, never()).generateTextWithHistory(any(), anyList(), anyDouble(), anyInt());
+        verify(interactionRepository, never()).save(any());
+        verifyNoInteractions(embeddingProvider, entityManager);
     }
 }

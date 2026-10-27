@@ -329,6 +329,80 @@
   padding: 8px 10px;
 }
 
+.ai-attachment-toolbar {
+  display: flex;
+  min-height: 32px;
+  align-items: center;
+  gap: 10px;
+  border-bottom: 1px solid var(--ai-line);
+  padding-bottom: 6px;
+}
+
+.ai-attachment-toolbar button,
+.ai-attachment-list button {
+  min-height: 30px;
+  border: 1px solid var(--ai-line);
+  border-radius: 5px;
+  background: var(--ai-surface);
+  color: var(--ai-ink);
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.ai-attachment-toolbar button {
+  padding: 0 10px;
+}
+
+.ai-attachment-toolbar button:hover,
+.ai-attachment-list button:hover {
+  border-color: var(--ai-teal);
+  color: var(--ai-teal);
+}
+
+.ai-attachment-toolbar button:disabled,
+.ai-attachment-list button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.ai-attachment-toolbar span {
+  color: var(--ai-muted);
+  font-size: 10px;
+}
+
+.ai-attachment-list {
+  display: grid;
+  gap: 5px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ai-attachment-list li {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border: 1px solid var(--ai-line);
+  border-radius: 5px;
+  padding: 4px 6px 4px 9px;
+}
+
+.ai-attachment-list li span {
+  overflow: hidden;
+  color: var(--ai-ink);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ai-attachment-list button {
+  flex: 0 0 auto;
+  padding: 0 8px;
+}
+
 .ai-assistant-page textarea,
 .ai-assistant-page select {
   width: 100%;

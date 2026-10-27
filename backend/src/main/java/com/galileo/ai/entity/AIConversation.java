@@ -8,7 +8,9 @@ import lombok.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "ai_conversations")
+@Table(name = "ai_conversations", uniqueConstraints = {
+        @UniqueConstraint(columnNames = {"id", "user_id"})
+})
 @Getter
 @Setter
 @NoArgsConstructor
