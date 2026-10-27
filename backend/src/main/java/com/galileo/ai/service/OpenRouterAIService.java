@@ -36,9 +36,9 @@ public class OpenRouterAIService {
 
     public OpenRouterAIService() {
         this.httpClient = new OkHttpClient.Builder()
-                .connectTimeout(10, TimeUnit.SECONDS)
-                .readTimeout(25, TimeUnit.SECONDS)
-                .callTimeout(30, TimeUnit.SECONDS)
+                .connectTimeout(15, TimeUnit.SECONDS)
+                .readTimeout(90, TimeUnit.SECONDS)
+                .callTimeout(120, TimeUnit.SECONDS)
                 .build();
     }
 
@@ -181,5 +181,69 @@ public class OpenRouterAIService {
                     .fallbackUsed(true)
                     .build();
         }
+    }
+
+    public String extractTextFromPdfImages(List<String> base64JpegPages, String documentTitle) {
+        if (!isConfigured() || base64JpegPages == null || base64JpegPages.isEmpty()) {
+            return "";
+        }
+        try {
+            String normalizedBaseUrl = baseUrl != null ? baseUrl.replaceAll("/+$", "") : "https://openrouter.ai/api/v1";
+            String url = normalizedBaseUrl.endsWith("/chat/completions")
+                    ? normalizedBaseUrl
+                    : normalizedBaseUrl + "/chat/completions";
+
+            List<Map<String, Object>> contentParts = new ArrayList<>();
+            for (int i = 0; i < base64JpegPages.size(); i++) {
+                contentParts.add(Map.of(
+                        "type", "text",
+                        "text", " Image de la Page " + (i + 1) + " :"
+                ));
+                contentParts.add(Map.of(
+                        "type", "image_url",
+                        "image_url", Map.of("url", "data:image/jpeg;base64," + base64JpegPages.get(i))
+                ));
+            }
+            contentParts.add(Map.of(
+                    "type", "text",
+                    "text", "Transcris fidèlement et intégralement tout le texte visible sur chacune de ces pages/diapositives du document PDF « "
+                            + documentTitle + " ». Formate obligatoirement chaque page avec l'en-tête exact [Page X] suivi de tout son texte."
+            ));
+
+            List<Map<String, Object>> messages = List.of(
+                    Map.of("role", "system", "content", "Tu es un système d'extraction documentaire académique haute précision pour Galileo."),
+                    Map.of("role", "user", "content", contentParts)
+            );
+            Map<String, Object> requestMap = Map.of(
+                    "model", model,
+                    "messages", messages,
+                    "temperature", 0.1,
+                    "max_tokens", 4000
+            );
+
+            String requestBody = objectMapper.writeValueAsString(requestMap);
+            Request request = new Request.Builder()
+                    .url(url)
+                    .header("Authorization", "Bearer " + apiKey.trim())
+                    .header("HTTP-Referer", "https://galileo.mapon.cd")
+                    .header("X-Title", "Galileo Academic Platform")
+                    .header("Content-Type", "application/json")
+                    .post(RequestBody.create(requestBody, MediaType.parse("application/json")))
+                    .build();
+
+            try (Response response = httpClient.newCall(request).execute()) {
+                if (!response.isSuccessful() || response.body() == null) {
+                    return "";
+                }
+                JsonNode root = objectMapper.readTree(response.body().string());
+                JsonNode choices = root.path("choices");
+                if (choices.isArray() && choices.size() > 0) {
+                    return choices.get(0).path("message").path("content").asText("").trim();
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Impossible de transcrire les images du PDF via OpenRouter : {}", e.getMessage());
+        }
+        return "";
     }
 }

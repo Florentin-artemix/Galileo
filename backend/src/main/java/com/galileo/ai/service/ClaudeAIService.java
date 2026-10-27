@@ -39,9 +39,9 @@ public class ClaudeAIService {
     public ClaudeAIService(@Autowired(required = false) OpenRouterAIService openRouterAIService) {
         this.openRouterAIService = openRouterAIService;
         this.httpClient = new OkHttpClient.Builder()
-                .connectTimeout(10, TimeUnit.SECONDS)
-                .readTimeout(25, TimeUnit.SECONDS)
-                .callTimeout(30, TimeUnit.SECONDS)
+                .connectTimeout(15, TimeUnit.SECONDS)
+                .readTimeout(90, TimeUnit.SECONDS)
+                .callTimeout(120, TimeUnit.SECONDS)
                 .build();
     }
 
@@ -276,5 +276,87 @@ public class ClaudeAIService {
 
     public String askDocumentAssistant(String systemPrompt, String userMessage) {
         return generateText(systemPrompt, userMessage, 0.3, 2048).getContent();
+    }
+
+    public String extractTextFromPdfImages(List<String> base64JpegPages, String documentTitle) {
+        if (base64JpegPages == null || base64JpegPages.isEmpty()) {
+            return "";
+        }
+        if (isConfigured()) {
+            try {
+                String normalizedBaseUrl = baseUrl != null ? baseUrl.replaceAll("/+$", "") : "https://api.bedrock.com.de";
+                String url;
+                if (normalizedBaseUrl.endsWith("/v1/messages")) {
+                    url = normalizedBaseUrl;
+                } else if (normalizedBaseUrl.endsWith("/v1")) {
+                    url = normalizedBaseUrl + "/messages";
+                } else {
+                    url = normalizedBaseUrl + "/v1/messages";
+                }
+
+                List<Map<String, Object>> contentBlocks = new java.util.ArrayList<>();
+                for (int i = 0; i < base64JpegPages.size(); i++) {
+                    contentBlocks.add(Map.of(
+                            "type", "text",
+                            "text", "Page " + (i + 1) + " :"
+                    ));
+                    contentBlocks.add(Map.of(
+                            "type", "image",
+                            "source", Map.of(
+                                    "type", "base64",
+                                    "media_type", "image/jpeg",
+                                    "data", base64JpegPages.get(i)
+                            )
+                    ));
+                }
+                contentBlocks.add(Map.of(
+                        "type", "text",
+                        "text", "Transcris fidèlement et intégralement tout le texte visible sur chacune de ces pages/diapositives du document PDF « "
+                                + documentTitle + " ». Formate obligatoirement chaque page avec l'en-tête exact [Page X] suivi de tout son texte."
+                ));
+
+                Map<String, Object> requestMap = Map.of(
+                        "model", model,
+                        "system", "Tu es un système d'extraction documentaire académique haute précision pour Galileo.",
+                        "messages", List.of(Map.of("role", "user", "content", contentBlocks)),
+                        "temperature", 0.1,
+                        "max_tokens", 4000
+                );
+
+                String requestBody = objectMapper.writeValueAsString(requestMap);
+                Request request = new Request.Builder()
+                        .url(url)
+                        .header("x-api-key", apiKey.trim())
+                        .header("anthropic-version", "2023-06-01")
+                        .header("Content-Type", "application/json")
+                        .post(RequestBody.create(requestBody, MediaType.parse("application/json")))
+                        .build();
+
+                try (Response response = httpClient.newCall(request).execute()) {
+                    if (response.isSuccessful() && response.body() != null) {
+                        JsonNode root = objectMapper.readTree(response.body().string());
+                        JsonNode blocks = root.path("content");
+                        StringBuilder sb = new StringBuilder();
+                        if (blocks.isArray()) {
+                            for (JsonNode block : blocks) {
+                                if ("text".equals(block.path("type").asText())) {
+                                    sb.append(block.path("text").asText());
+                                }
+                            }
+                        }
+                        String extracted = sb.toString().trim();
+                        if (!extracted.isEmpty()) {
+                            return extracted;
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                log.warn("Échec de l'extraction Vision Claude pour le PDF « {} » : {}", documentTitle, e.getMessage());
+            }
+        }
+        if (openRouterAIService != null && openRouterAIService.isConfigured()) {
+            return openRouterAIService.extractTextFromPdfImages(base64JpegPages, documentTitle);
+        }
+        return "";
     }
 }

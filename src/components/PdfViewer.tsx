@@ -44,16 +44,21 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ documentId, pageCount, pageNumber
     };
   }, [documentId, loadAttempt]);
 
+  useEffect(() => {
+    if (status !== 'ready' || !fileUrl || frameLoaded) return;
+    const timer = window.setTimeout(() => {
+      setFrameLoaded(true);
+    }, 600);
+    return () => window.clearTimeout(timer);
+  }, [status, fileUrl, frameLoaded, pageNumber, zoom]);
+
   const previous = () => {
-    setFrameLoaded(false);
     onPageChange(Math.max(1, pageNumber - 1));
   };
   const next = () => {
-    setFrameLoaded(false);
     onPageChange(pageCount ? Math.min(pageCount, pageNumber + 1) : pageNumber + 1);
   };
   const changeZoom = (amount: number) => {
-    setFrameLoaded(false);
     setZoom(value => Math.max(60, Math.min(300, value + amount)));
   };
   const labels = language === 'fr'

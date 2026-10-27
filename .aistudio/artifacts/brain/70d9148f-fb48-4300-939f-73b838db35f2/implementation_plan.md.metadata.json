@@ -1,6 +1,6 @@
 {
-  "summary":  "Plan de correction pour masquer le bloc d'accueil de l'assistant IA dès le démarrage d'une conversation (et corriger le défilement des messages) et résoudre l'écran blanc lors de l'ouverture d'une publication (/#/publication/1).",
-  "updatedAt":  "2026-10-27T11:47:04.662049662Z",
+  "summary":  "Plan de correction pour débloquer l'affichage du lecteur PDF sur mobile et desktop en remplaçant l'iframe blob bloquée sur « Chargement du document... » par un rendu PDF direct sur canevas (PDF.js) avec repli natif.",
+  "updatedAt":  "2026-10-27T13:03:55.392162527Z",
   "requestFeedback":  true,
   "userFacing":  true
 }

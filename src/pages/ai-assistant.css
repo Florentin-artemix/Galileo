@@ -288,6 +288,58 @@
   margin: 0;
 }
 
+.ai-page .ai-formatted {
+  display: grid;
+  gap: 8px;
+  white-space: normal;
+}
+
+.ai-page .ai-formatted__heading {
+  margin: 6px 0 2px;
+  color: var(--ai-navy);
+  font-family: Poppins, sans-serif;
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.ai-page .ai-formatted__paragraph {
+  margin: 0;
+}
+
+.ai-page .ai-formatted__list {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding-left: 18px;
+}
+
+.ai-page .ai-formatted__list-item--nested {
+  margin-left: 14px;
+  list-style-type: circle;
+}
+
+.ai-page .ai-formatted__bold {
+  color: var(--ai-navy);
+  font-weight: 700;
+}
+
+.ai-page .ai-formatted__code {
+  border-radius: 4px;
+  background: #eef4f6;
+  padding: 1px 5px;
+  color: var(--ai-navy);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+}
+
+.ai-page .ai-formatted__divider {
+  width: 100%;
+  margin: 4px 0;
+  border: 0;
+  border-top: 1px solid var(--ai-line);
+}
+
 .ai-message-row time {
   padding: 0 3px;
   color: #737b84;

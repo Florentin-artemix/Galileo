@@ -8,6 +8,7 @@ import {
   type SourceReference
 } from '../services/aiService';
 import { publicationsService, type PublicationDTO } from '../services/publicationsService';
+import FormattedAIMessage from '../components/FormattedAIMessage';
 import './ai-assistant.css';
 
 type AssistantAction = 'CHAT' | 'SUMMARIZE' | 'EXPLAIN' | 'COMPARE';
@@ -165,19 +166,8 @@ const AIAssistantPage: React.FC = () => {
   const comparePublicationPdfMissing = Boolean(comparePublication && !hasPlatformPdf(comparePublication));
 
   const handleModeChange = (nextMode: AIMode) => {
-    if (nextMode !== mode && conversationId) {
-      setConversationId(undefined);
-      setMessages([]);
-      setLatestSources([]);
-      setHistoricalReferencesUnavailable(false);
-    }
     setMode(nextMode);
     setChatError(null);
-    if (nextMode !== 'DOCUMENT' && selectedPublicationId) {
-      setSelectedPublicationId(undefined);
-      setSelectedPublicationTitle(undefined);
-      setComparePublicationId(undefined);
-    }
   };
 
   const handlePublicationChange = (value: string) => {
@@ -209,7 +199,7 @@ const AIAssistantPage: React.FC = () => {
       setChatError('Sélectionnez une publication disponible sur la plateforme dans le panneau Contexte pour utiliser le mode Document.');
       return;
     }
-    if (mode === 'DOCUMENT' && selectedPublicationPdfMissing) {
+    if (selectedPublicationId && selectedPublicationPdfMissing) {
       setChatError('Le fichier PDF de cette publication est indisponible sur la plateforme. L’assistant ne peut pas répondre sans le document PDF.');
       return;
     }
@@ -221,7 +211,7 @@ const AIAssistantPage: React.FC = () => {
       const response = await aiService.sendMessage({
         conversationId,
         mode,
-        publicationId: mode === 'DOCUMENT' ? selectedPublicationId : undefined,
+        publicationId: selectedPublicationId,
         message: textToSend
       });
 
@@ -405,7 +395,11 @@ const AIAssistantPage: React.FC = () => {
                 ) : messages.map(message => (
                   <article key={message.id} className={`ai-message-row ${message.sender}`}>
                     <div className="ai-message-bubble">
-                      <p>{message.text}</p>
+                      {message.sender === 'assistant' ? (
+                        <FormattedAIMessage text={message.text} />
+                      ) : (
+                        <p>{message.text}</p>
+                      )}
                       {message.sources && message.sources.length > 0 && (
                         <div className="ai-message-sources">
                           <strong>Références du PDF de la plateforme</strong>
@@ -512,7 +506,7 @@ const AIAssistantPage: React.FC = () => {
                 </button>
               </div>
               {summaryError && <div className="ai-status ai-status-error" role="alert">{summaryError}</div>}
-              {summaryResult && <div className="ai-tool-result" aria-live="polite"><h4>Résumé du document PDF</h4><p>{summaryResult}</p></div>}
+              {summaryResult && <div className="ai-tool-result" aria-live="polite"><h4>Résumé du document PDF</h4><FormattedAIMessage text={summaryResult} /></div>}
             </form>
           )}
 
@@ -559,7 +553,7 @@ const AIAssistantPage: React.FC = () => {
                 </button>
               </div>
               {explainError && <div className="ai-status ai-status-error" role="alert">{explainError}</div>}
-              {explainResult && <div className="ai-tool-result" aria-live="polite"><h4>Explication</h4><p>{explainResult}</p></div>}
+              {explainResult && <div className="ai-tool-result" aria-live="polite"><h4>Explication</h4><FormattedAIMessage text={explainResult} /></div>}
             </form>
           )}
 
@@ -614,7 +608,7 @@ const AIAssistantPage: React.FC = () => {
                 </button>
               </div>
               {comparisonError && <div className="ai-status ai-status-error" role="alert">{comparisonError}</div>}
-              {comparisonResult && <div className="ai-tool-result" aria-live="polite"><h4>Résultat de la comparaison</h4><p>{comparisonResult}</p></div>}
+              {comparisonResult && <div className="ai-tool-result" aria-live="polite"><h4>Résultat de la comparaison</h4><FormattedAIMessage text={comparisonResult} /></div>}
             </form>
           )}
         </section>

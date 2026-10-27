@@ -3,6 +3,7 @@ import { NavLink } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { aiService, getAIErrorMessage, type SourceReference } from '../services/aiService';
+import FormattedAIMessage from './FormattedAIMessage';
 
 interface PublicationAIPanelProps {
   publicationId: number;
@@ -115,7 +116,11 @@ const PublicationAIPanel: React.FC<PublicationAIPanelProps> = ({ publicationId, 
           <div className="publication-ai-panel__messages">
             {messages.map(message => (
               <article className={`publication-ai-message publication-ai-message--${message.sender}`} key={message.id}>
-                <p className="publication-ai-message__text">{message.text}</p>
+                {message.sender === 'assistant' ? (
+                  <FormattedAIMessage text={message.text} className="publication-ai-message__text" />
+                ) : (
+                  <p className="publication-ai-message__text">{message.text}</p>
+                )}
                 {message.sender === 'assistant' && message.sources && message.sources.some(source =>
                   Number.isInteger(source.pageNumber) && source.pageNumber > 0 && (!pageCount || source.pageNumber <= pageCount)
                 ) ? (

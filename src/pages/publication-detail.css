@@ -1124,6 +1124,55 @@ html.dark .publication-reader__message {
   overflow-wrap: anywhere;
 }
 
+.publication-ai-panel .ai-formatted {
+  display: grid;
+  gap: 7px;
+  white-space: normal;
+}
+
+.publication-ai-panel .ai-formatted__heading {
+  margin: 6px 0 2px;
+  color: #1a2945;
+  font: 700 11px/1.35 Inter, sans-serif;
+}
+
+.publication-ai-panel .ai-formatted__paragraph {
+  margin: 0;
+}
+
+.publication-ai-panel .ai-formatted__list {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding-left: 16px;
+}
+
+.publication-ai-panel .ai-formatted__list-item--nested {
+  margin-left: 12px;
+  list-style-type: circle;
+}
+
+.publication-ai-panel .ai-formatted__bold {
+  color: #1a2945;
+  font-weight: 700;
+}
+
+.publication-ai-panel .ai-formatted__code {
+  border-radius: 3px;
+  background: rgba(49, 91, 196, 0.12);
+  padding: 1px 4px;
+  color: #204296;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 9.5px;
+}
+
+.publication-ai-panel .ai-formatted__divider {
+  width: 100%;
+  margin: 4px 0;
+  border: 0;
+  border-top: 1px solid #dfe6ec;
+}
+
 .publication-ai-panel__messages {
   display: grid;
   gap: 13px;
