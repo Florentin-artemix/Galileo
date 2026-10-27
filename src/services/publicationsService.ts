@@ -19,6 +19,8 @@ export interface PublicationDTO {
   nombreVues: number;
   tailleFichier?: number | null;
   nombrePages?: number | null;
+  documentId?: number | null;
+  documentStatus?: string | null;
 }
 
 export interface SoumissionDTO {

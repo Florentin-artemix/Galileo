@@ -1,0 +1,6 @@
+{
+  "summary":  "Plan de correction pour masquer le bloc d'accueil de l'assistant IA dès le démarrage d'une conversation (et corriger le défilement des messages) et résoudre l'écran blanc lors de l'ouverture d'une publication (/#/publication/1).",
+  "updatedAt":  "2026-10-27T11:47:04.662049662Z",
+  "requestFeedback":  true,
+  "userFacing":  true
+}

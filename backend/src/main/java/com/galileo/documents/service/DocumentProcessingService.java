@@ -144,26 +144,33 @@ public class DocumentProcessingService {
                 persistedChunks.add(chunk);
             }
 
-            List<float[]> vectors = embeddingProvider.generateEmbeddings(
-                    persistedChunks.stream().map(DocumentChunk::getContent).toList());
-            for (int i = 0; i < persistedChunks.size(); i++) {
-                float[] vector = vectors.get(i);
-                if (vector != null && vector.length == embeddingProvider.getDimension()) {
-                    DocumentEmbedding embedding = DocumentEmbedding.builder()
-                            .chunk(persistedChunks.get(i))
-                            .embedding(new PGvector(vector))
-                            .model(embeddingProvider.getModelName())
-                            .provider(embeddingProvider.getProviderName())
-                            .dimension(embeddingProvider.getDimension())
-                            .build();
-                    embeddingRepository.save(embedding);
+            try {
+                List<float[]> vectors = embeddingProvider.generateEmbeddings(
+                        persistedChunks.stream().map(DocumentChunk::getContent).toList());
+                if (vectors != null) {
+                    for (int i = 0; i < Math.min(persistedChunks.size(), vectors.size()); i++) {
+                        float[] vector = vectors.get(i);
+                        if (vector != null && vector.length == embeddingProvider.getDimension()) {
+                            DocumentEmbedding embedding = DocumentEmbedding.builder()
+                                    .chunk(persistedChunks.get(i))
+                                    .embedding(new PGvector(vector))
+                                    .model(embeddingProvider.getModelName())
+                                    .provider(embeddingProvider.getProviderName())
+                                    .dimension(embeddingProvider.getDimension())
+                                    .build();
+                            embeddingRepository.save(embedding);
+                        }
+                    }
                 }
+                long duration = System.currentTimeMillis() - startTime;
+                recordEmbeddingInteraction(submission != null ? submission.getSubmittedBy() : null,
+                        chunks.size(), totalTokensEstimated, (int) duration);
+            } catch (Exception embeddingError) {
+                log.warn("Indexation vectorielle indisponible pour le document #{}, texte et passages PDF conservés pour l'assistant IA : {}",
+                        documentId, embeddingError.getMessage());
             }
 
-            // Enregistrement métrique observabilité IA (OpenRouter Embeddings)
             long duration = System.currentTimeMillis() - startTime;
-            recordEmbeddingInteraction(submission != null ? submission.getSubmittedBy() : null,
-                    chunks.size(), totalTokensEstimated, (int) duration);
 
             // 6. Finalisation du Document
             document.setProcessingStatus(DocumentProcessingStatus.COMPLETED);

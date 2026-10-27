@@ -111,11 +111,11 @@ const SinglePublicationPage: React.FC = () => {
 
   const title = useMemo(() => {
     if (!publication) return '';
-    return publication.title[language] || publication.title.fr || publication.title.en || '';
+    return publication.title?.[language] || publication.title?.fr || publication.title?.en || '';
   }, [language, publication]);
-  const authors = useMemo(() => publication?.authors.filter(Boolean) ?? [], [publication]);
-  const domain = publication?.domain[language] || publication?.domain.fr || publication?.domain.en || '';
-  const abstract = publication?.summary[language] || publication?.summary.fr || publication?.summary.en || '';
+  const authors = useMemo(() => (publication?.authors ?? []).filter(Boolean), [publication]);
+  const domain = publication?.domain?.[language] || publication?.domain?.fr || publication?.domain?.en || '';
+  const abstract = publication?.summary?.[language] || publication?.summary?.fr || publication?.summary?.en || '';
   const publishedDate = publication?.date && Number.isFinite(Date.parse(publication.date))
     ? new Date(publication.date).toLocaleDateString(language === 'fr' ? 'fr-FR' : 'en-US', {
         year: 'numeric', month: 'long', day: 'numeric'
@@ -123,8 +123,8 @@ const SinglePublicationPage: React.FC = () => {
     : '';
   const isFrench = language === 'fr';
   const infoItems = [
-    publication.type || '',
-    publication.academicYear || (publication.date && Number.isFinite(Date.parse(publication.date)) ? new Date(publication.date).getFullYear().toString() : ''),
+    publication?.type || '',
+    publication?.academicYear || (publication?.date && Number.isFinite(Date.parse(publication.date)) ? new Date(publication.date).getFullYear().toString() : ''),
     domain,
     document?.pageCount ? `${document.pageCount} ${isFrench ? 'pages' : 'pages'}` : ''
   ].filter(Boolean);
@@ -253,9 +253,9 @@ const SinglePublicationPage: React.FC = () => {
               </section>
             )}
 
-            {publication.tags.length > 0 && (
+            {(publication.tags ?? []).length > 0 && (
               <ul className="publication-detail__tags" aria-label={isFrench ? 'Mots-clés' : 'Keywords'}>
-                {publication.tags.map(tag => <li key={tag}>{tag}</li>)}
+                {(publication.tags ?? []).map(tag => <li key={tag}>{tag}</li>)}
               </ul>
             )}
 

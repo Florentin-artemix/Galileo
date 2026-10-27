@@ -287,4 +287,95 @@ class AIServiceRAGTest {
         verify(interactionRepository, never()).save(any());
         verifyNoInteractions(embeddingProvider, entityManager);
     }
+
+    @Test
+    @DisplayName("Platform publication chat falls back to lexical PDF chunk search when embedding provider is unavailable")
+    void platformPublicationChatUsesPdfChunksWhenEmbeddingProviderFails() {
+        User user = User.builder().id(14L).email("student14@mapon.cd").role(Role.STUDENT).build();
+        CustomUserDetails userDetails = new CustomUserDetails(user);
+        Publication pub = Publication.builder()
+                .id(401L)
+                .title("Optimisation des micro-réseaux solaires à Kindu")
+                .status(PublicationStatus.PUBLISHED)
+                .accessLevel(AccessLevel.PUBLIC)
+                .build();
+        Document doc = Document.builder()
+                .id(801L)
+                .publication(pub)
+                .fileName("micro-reseaux-kindu.pdf")
+                .version(1)
+                .build();
+        com.galileo.documents.entity.DocumentChunk chunk1 = com.galileo.documents.entity.DocumentChunk.builder()
+                .id(901L).document(doc).chunkIndex(0).pageStart(1).pageEnd(1)
+                .content("Introduction générale sur l'électrification rurale.").build();
+        com.galileo.documents.entity.DocumentChunk chunk2 = com.galileo.documents.entity.DocumentChunk.builder()
+                .id(902L).document(doc).chunkIndex(1).pageStart(7).pageEnd(7)
+                .content("Le rendement mesuré des panneaux photovoltaïques atteint 21,4 % avec stockage lithium-fer-phosphate.").build();
+
+        when(userRepository.findById(14L)).thenReturn(Optional.of(user));
+        when(interactionRepository.countByUserIdAndCreatedAtAfter(eq(14L), any())).thenReturn(0L);
+        when(publicationRepository.findById(401L)).thenReturn(Optional.of(pub));
+        when(publicationService.isAuthorizedToReadFullDocument(pub, userDetails)).thenReturn(true);
+        when(documentRepository.findByPublicationId(401L)).thenReturn(List.of(doc));
+        when(chunkRepository.findByDocumentIdOrderByChunkIndexAsc(801L)).thenReturn(List.of(chunk1, chunk2));
+        when(embeddingProvider.generateEmbedding(anyString()))
+                .thenThrow(new com.galileo.embedding.provider.EmbeddingProviderUnavailableException("OPENROUTER_API_KEY absente"));
+        when(claudeAIService.generateText(any(), any(), anyDouble(), anyInt())).thenReturn(
+                ClaudeAIService.ClaudeResult.builder()
+                        .content("Le rendement atteint 21,4 % (page 7).")
+                        .success(true).provider("claude").model("claude-sonnet-5").inputTokens(40).outputTokens(25).build());
+
+        AIChatResponse response = aiService.chat(AIChatRequest.builder()
+                .publicationId(401L)
+                .mode(AIMode.DOCUMENT)
+                .message("Quel est le rendement des panneaux photovoltaïques et le stockage utilisé ?")
+                .build(), userDetails);
+
+        assertNotNull(response);
+        assertEquals(AIMode.DOCUMENT, response.getMode());
+        assertFalse(response.getSourceReferences().isEmpty());
+        assertEquals(7, response.getSourceReferences().get(0).getPageNumber());
+        assertEquals("micro-reseaux-kindu.pdf", response.getSourceReferences().get(0).getFileName());
+        assertTrue(response.getSourceReferences().get(0).getExcerpt().contains("21,4 %"));
+    }
+
+    @Test
+    @DisplayName("Platform publication without PDF document is rejected for chat, summarize, and compare without metadata fallback")
+    void platformPublicationWithoutPdfIsBlockedAcrossActions() {
+        User user = User.builder().id(15L).email("student15@mapon.cd").role(Role.STUDENT).build();
+        CustomUserDetails userDetails = new CustomUserDetails(user);
+        Publication pubWithoutPdf = Publication.builder()
+                .id(402L)
+                .title("Publication sans PDF")
+                .abstractText("Résumé de métadonnées uniquement")
+                .status(PublicationStatus.PUBLISHED)
+                .accessLevel(AccessLevel.PUBLIC)
+                .build();
+
+        when(userRepository.findById(15L)).thenReturn(Optional.of(user));
+        when(interactionRepository.countByUserIdAndCreatedAtAfter(eq(15L), any())).thenReturn(0L);
+        when(publicationRepository.findById(402L)).thenReturn(Optional.of(pubWithoutPdf));
+        when(publicationService.isAuthorizedToReadFullDocument(pubWithoutPdf, userDetails)).thenReturn(true);
+        when(documentRepository.findByPublicationId(402L)).thenReturn(List.of());
+
+        assertThrows(com.galileo.common.exception.BadRequestException.class, () ->
+                aiService.chat(AIChatRequest.builder()
+                        .publicationId(402L)
+                        .mode(AIMode.DOCUMENT)
+                        .message("Résume ce travail")
+                        .build(), userDetails));
+
+        assertThrows(com.galileo.common.exception.BadRequestException.class, () ->
+                aiService.summarize(AISummaryRequest.builder()
+                        .publicationId(402L)
+                        .summaryType("RAPIDE")
+                        .build(), userDetails));
+
+        assertThrows(com.galileo.common.exception.BadRequestException.class, () ->
+                aiService.comparePublications(com.galileo.ai.dto.AICompareRequest.builder()
+                        .publicationIds(List.of(402L, 402L))
+                        .build(), userDetails));
+
+        verify(claudeAIService, never()).generateText(any(), any(), anyDouble(), anyInt());
+    }
 }

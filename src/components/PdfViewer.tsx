@@ -57,8 +57,8 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ documentId, pageCount, pageNumber
     setZoom(value => Math.max(60, Math.min(300, value + amount)));
   };
   const labels = language === 'fr'
-    ? { previous: 'Page précédente', next: 'Page suivante', zoomOut: 'Réduire le zoom', zoomIn: 'Augmenter le zoom', loading: 'Chargement du document…', error: 'Le document PDF est indisponible ou vous n’êtes pas autorisé à le consulter.', page: 'Page' }
-    : { previous: 'Previous page', next: 'Next page', zoomOut: 'Zoom out', zoomIn: 'Zoom in', loading: 'Loading document…', error: 'The PDF is unavailable or you are not authorized to view it.', page: 'Page' };
+    ? { previous: 'Page précédente', next: 'Page suivante', zoomOut: 'Réduire le zoom', zoomIn: 'Augmenter le zoom', loading: 'Chargement du document…', error: 'Le document PDF est indisponible ou vous n’êtes pas autorisé à le consulter.', page: 'Page', openDirect: 'Ouvrir le PDF' }
+    : { previous: 'Previous page', next: 'Next page', zoomOut: 'Zoom out', zoomIn: 'Zoom in', loading: 'Loading document…', error: 'The PDF is unavailable or you are not authorized to view it.', page: 'Page', openDirect: 'Open PDF' };
 
   return (
     <section className="publication-pdf" aria-label={translations.pdf_viewer.title}>
@@ -78,6 +78,15 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ documentId, pageCount, pageNumber
           <button type="button" onClick={() => changeZoom(-10)} disabled={zoom <= 60} aria-label={labels.zoomOut} title={labels.zoomOut}>−</button>
           <span aria-live="polite">{zoom}%</span>
           <button type="button" onClick={() => changeZoom(10)} disabled={zoom >= 300} aria-label={labels.zoomIn} title={labels.zoomIn}>+</button>
+          {fileUrl && (
+            <a
+              href={fileUrl}
+              download={`document-${documentId}.pdf`}
+              className="publication-action publication-action--secondary"
+            >
+              {labels.openDirect}
+            </a>
+          )}
         </div>
       </div>
 

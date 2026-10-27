@@ -1,7 +1,7 @@
 import apiClient from './apiService';
 
 export type AIMode = 'GENERAL' | 'DOCUMENT' | 'RESEARCH' | 'LEARNING';
-export type AISummaryType = 'QUICK' | 'STRUCTURED' | 'EDUCATIONAL';
+export type AISummaryType = 'RAPIDE' | 'STRUCTURE' | 'PEDAGOGIQUE' | 'QUICK' | 'STRUCTURED' | 'EDUCATIONAL';
 export type AIExplanationLevel = 'SIMPLIFIE' | 'INTERMEDIAIRE' | 'AVANCE';
 
 export interface SourceReference {
@@ -50,9 +50,11 @@ export interface AISummaryResponse {
   publicationId: number;
   summaryType: AISummaryType;
   content: string;
-  language: string;
-  fromCache: boolean;
-  generatedAt: string;
+  language?: string;
+  cached?: boolean;
+  fromCache?: boolean;
+  model?: string;
+  generatedAt?: string;
 }
 
 export interface AIExplainRequest {

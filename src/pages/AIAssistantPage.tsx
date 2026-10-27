@@ -2,15 +2,15 @@ import React, { useEffect, useRef, useState } from 'react';
 import {
   aiService,
   getAIErrorMessage,
-  type AIConversationAttachment,
   type AIMode,
   type AIExplanationLevel,
+  type AISummaryType,
   type SourceReference
 } from '../services/aiService';
 import { publicationsService, type PublicationDTO } from '../services/publicationsService';
 import './ai-assistant.css';
 
-type AssistantAction = 'CHAT' | 'EXPLAIN' | 'COMPARE';
+type AssistantAction = 'CHAT' | 'SUMMARIZE' | 'EXPLAIN' | 'COMPARE';
 
 interface AssistantMessage {
   id: string;
@@ -23,9 +23,15 @@ interface AssistantMessage {
 
 const modeOptions: { key: AIMode; label: string; description: string }[] = [
   { key: 'GENERAL', label: 'Général', description: 'Questions académiques ouvertes' },
-  { key: 'DOCUMENT', label: 'Document', description: 'Questions sur une publication liée' },
+  { key: 'DOCUMENT', label: 'Document', description: 'Questions sur le PDF d’une publication liée' },
   { key: 'RESEARCH', label: 'Recherche', description: 'Explorer les travaux académiques' },
   { key: 'LEARNING', label: 'Apprentissage', description: 'Soutien à l’apprentissage' }
+];
+
+const summaryTypes: { value: AISummaryType; label: string }[] = [
+  { value: 'RAPIDE', label: 'Synthèse rapide' },
+  { value: 'STRUCTURE', label: 'Résumé structuré' },
+  { value: 'PEDAGOGIQUE', label: 'Synthèse pédagogique' }
 ];
 
 const explanationLevels: { value: AIExplanationLevel; label: string }[] = [
@@ -40,6 +46,14 @@ const formatTime = (value?: string) => {
   return new Intl.DateTimeFormat('fr-FR', { hour: '2-digit', minute: '2-digit' }).format(date);
 };
 
+const hasPlatformPdf = (publication?: PublicationDTO): boolean => {
+  if (!publication) return true;
+  if (publication.documentId === null && !publication.urlPdf) {
+    return false;
+  }
+  return true;
+};
+
 const AIAssistantPage: React.FC = () => {
   const [mode, setMode] = useState<AIMode>('GENERAL');
   const [action, setAction] = useState<AssistantAction>('CHAT');
@@ -48,9 +62,6 @@ const AIAssistantPage: React.FC = () => {
   const [pendingMessage, setPendingMessage] = useState<string | null>(null);
   const [chatError, setChatError] = useState<string | null>(null);
   const [conversationId, setConversationId] = useState<number | undefined>();
-  const [attachments, setAttachments] = useState<AIConversationAttachment[]>([]);
-  const [attachmentBusy, setAttachmentBusy] = useState(false);
-  const [attachmentError, setAttachmentError] = useState<string | null>(null);
   const [publications, setPublications] = useState<PublicationDTO[]>([]);
   const [publicationsLoading, setPublicationsLoading] = useState(true);
   const [publicationsError, setPublicationsError] = useState<string | null>(null);
@@ -61,6 +72,10 @@ const AIAssistantPage: React.FC = () => {
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [latestSources, setLatestSources] = useState<SourceReference[]>([]);
   const [historicalReferencesUnavailable, setHistoricalReferencesUnavailable] = useState(false);
+  const [summaryType, setSummaryType] = useState<AISummaryType>('RAPIDE');
+  const [summaryResult, setSummaryResult] = useState<string | null>(null);
+  const [summaryError, setSummaryError] = useState<string | null>(null);
+  const [isSummarizing, setIsSummarizing] = useState(false);
   const [explainText, setExplainText] = useState('');
   const [explainLevel, setExplainLevel] = useState<AIExplanationLevel>('INTERMEDIAIRE');
   const [explainResult, setExplainResult] = useState<string | null>(null);
@@ -70,7 +85,6 @@ const AIAssistantPage: React.FC = () => {
   const [comparisonError, setComparisonError] = useState<string | null>(null);
   const [isComparing, setIsComparing] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const attachmentInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     let disposed = false;
@@ -119,9 +133,6 @@ const AIAssistantPage: React.FC = () => {
             text: message.content,
             timestamp: formatTime(message.createdAt)
           })));
-        void aiService.getConversationAttachments(latestConversation.id)
-          .then(items => { if (!disposed) setAttachments(items); })
-          .catch(() => { if (!disposed) setAttachmentError('Les PDF joints à cette conversation ne sont pas disponibles.'); });
         const lastAssistantMessage = [...history].reverse().find(message => message.role === 'ASSISTANT');
         let historicalSourceCount = 0;
         try {
@@ -148,15 +159,20 @@ const AIAssistantPage: React.FC = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
   }, [messages, pendingMessage]);
 
+  const selectedPublication = publications.find(publication => publication.id === selectedPublicationId);
+  const comparePublication = publications.find(publication => publication.id === comparePublicationId);
+  const selectedPublicationPdfMissing = Boolean(selectedPublication && !hasPlatformPdf(selectedPublication));
+  const comparePublicationPdfMissing = Boolean(comparePublication && !hasPlatformPdf(comparePublication));
+
   const handleModeChange = (nextMode: AIMode) => {
     if (nextMode !== mode && conversationId) {
       setConversationId(undefined);
       setMessages([]);
-      setAttachments([]);
       setLatestSources([]);
       setHistoricalReferencesUnavailable(false);
     }
     setMode(nextMode);
+    setChatError(null);
     if (nextMode !== 'DOCUMENT' && selectedPublicationId) {
       setSelectedPublicationId(undefined);
       setSelectedPublicationTitle(undefined);
@@ -170,10 +186,14 @@ const AIAssistantPage: React.FC = () => {
     setSelectedPublicationId(nextId);
     setSelectedPublicationTitle(selected?.titre);
     setComparePublicationId(undefined);
+    setChatError(null);
+    setSummaryError(null);
+    setSummaryResult(null);
+    setComparisonError(null);
+    setComparisonResult(null);
     if (nextId !== selectedPublicationId) {
       setConversationId(undefined);
       setMessages([]);
-      setAttachments([]);
       setLatestSources([]);
       setHistoricalReferencesUnavailable(false);
     }
@@ -185,8 +205,12 @@ const AIAssistantPage: React.FC = () => {
     event.preventDefault();
     const textToSend = input.trim();
     if (!textToSend || pendingMessage) return;
-    if (mode === 'DOCUMENT' && !selectedPublicationId && attachments.length === 0) {
-      setChatError('Sélectionnez une publication ou joignez un PDF pour utiliser le mode Document.');
+    if (mode === 'DOCUMENT' && !selectedPublicationId) {
+      setChatError('Sélectionnez une publication disponible sur la plateforme dans le panneau Contexte pour utiliser le mode Document.');
+      return;
+    }
+    if (mode === 'DOCUMENT' && selectedPublicationPdfMissing) {
+      setChatError('Le fichier PDF de cette publication est indisponible sur la plateforme. L’assistant ne peut pas répondre sans le document PDF.');
       return;
     }
 
@@ -229,55 +253,27 @@ const AIAssistantPage: React.FC = () => {
     }
   };
 
-  const handleAttachmentSelection = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.currentTarget.files?.[0];
-    event.currentTarget.value = '';
-    if (!file) return;
-    if (!file.name.toLowerCase().endsWith('.pdf')) {
-      setAttachmentError('Seuls les fichiers PDF sont acceptés.');
-      return;
-    }
-    if (file.size > 20 * 1024 * 1024) {
-      setAttachmentError('Le PDF joint ne peut pas dépasser 20 Mo.');
+  const handleSummarize = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!selectedPublicationId || isSummarizing) return;
+    if (selectedPublicationPdfMissing) {
+      setSummaryError('Le fichier PDF de cette publication est indisponible sur la plateforme.');
       return;
     }
 
-    setAttachmentError(null);
-    setAttachmentBusy(true);
+    setSummaryError(null);
+    setSummaryResult(null);
+    setIsSummarizing(true);
     try {
-      let activeConversationId = conversationId;
-      if (!activeConversationId) {
-        const created = await aiService.createConversation({
-          mode: 'DOCUMENT',
-          publicationId: selectedPublicationId
-        });
-        activeConversationId = created.id;
-        setConversationId(created.id);
-        setMessages([]);
-      }
-      const uploaded = await aiService.uploadConversationAttachment(activeConversationId, file);
-      setAttachments(previous => [...previous, uploaded]);
-      setMode('DOCUMENT');
+      const response = await aiService.summarizePublication({
+        publicationId: selectedPublicationId,
+        summaryType
+      });
+      setSummaryResult(response.content);
     } catch (error) {
-      setAttachmentError(getAIErrorMessage(error));
+      setSummaryError(getAIErrorMessage(error));
     } finally {
-      setAttachmentBusy(false);
-    }
-  };
-
-  const handleRemoveAttachment = async (attachmentId: number) => {
-    if (!conversationId || attachmentBusy) return;
-    setAttachmentBusy(true);
-    setAttachmentError(null);
-    try {
-      await aiService.deleteConversationAttachment(conversationId, attachmentId);
-      const remaining = attachments.filter(attachment => attachment.id !== attachmentId);
-      setAttachments(remaining);
-      if (remaining.length === 0 && !selectedPublicationId) setMode('GENERAL');
-    } catch (error) {
-      setAttachmentError(getAIErrorMessage(error));
-    } finally {
-      setAttachmentBusy(false);
+      setIsSummarizing(false);
     }
   };
 
@@ -285,6 +281,10 @@ const AIAssistantPage: React.FC = () => {
     event.preventDefault();
     const passage = explainText.trim();
     if (!passage || isExplaining) return;
+    if (selectedPublicationId && selectedPublicationPdfMissing) {
+      setExplainError('Le fichier PDF de la publication liée est indisponible sur la plateforme.');
+      return;
+    }
 
     setExplainError(null);
     setExplainResult(null);
@@ -306,6 +306,10 @@ const AIAssistantPage: React.FC = () => {
   const handleCompare = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!selectedPublicationId || !comparePublicationId || isComparing) return;
+    if (selectedPublicationPdfMissing || comparePublicationPdfMissing) {
+      setComparisonError('Les deux publications doivent disposer d’un fichier PDF lisible sur la plateforme pour être comparées.');
+      return;
+    }
 
     setComparisonError(null);
     setComparisonResult(null);
@@ -323,7 +327,7 @@ const AIAssistantPage: React.FC = () => {
   };
 
   const activePublicationTitle = selectedPublicationTitle
-    || publications.find(publication => publication.id === selectedPublicationId)?.titre;
+    || selectedPublication?.titre;
 
   return (
     <main className="ai-assistant-page">
@@ -331,7 +335,7 @@ const AIAssistantPage: React.FC = () => {
         <div>
           <p className="ai-assistant-eyebrow">ASSISTANT DOCUMENTAIRE</p>
           <h1>Assistant IA Galileo</h1>
-          <p>Interrogez les travaux académiques, obtenez un résumé ou comparez des publications.</p>
+          <p>Interrogez directement les documents PDF des publications hébergées sur la plateforme Galileo, obtenez un résumé ou comparez des travaux.</p>
         </div>
       </header>
 
@@ -358,6 +362,7 @@ const AIAssistantPage: React.FC = () => {
             <div className="ai-action-selector" role="tablist" aria-label="Action IA">
               {([
                 ['CHAT', 'Discuter'],
+                ['SUMMARIZE', 'Résumer'],
                 ['EXPLAIN', 'Expliquer'],
                 ['COMPARE', 'Comparer']
               ] as const).map(([key, label]) => (
@@ -377,13 +382,15 @@ const AIAssistantPage: React.FC = () => {
 
           {action === 'CHAT' && (
             <>
-              <div className="ai-welcome-state">
-                <div className="ai-welcome-head">
-                  <img src="/assets/figma-ai-sparkles.svg" alt="" aria-hidden="true" />
-                  <h3>Bonjour, comment puis-je vous aider ?</h3>
+              {!historyLoading && messages.length === 0 && !pendingMessage && (
+                <div className="ai-welcome-state">
+                  <div className="ai-welcome-head">
+                    <img src="/assets/figma-ai-sparkles.svg" alt="" aria-hidden="true" />
+                    <h3>Bonjour, comment puis-je vous aider ?</h3>
+                  </div>
+                  <p>Liez une publication disponible sur la plateforme dans le panneau Contexte pour interroger directement le contenu intégral de son document PDF.</p>
                 </div>
-                <p>Choisissez un mode, posez une question ou liez la conversation à une publication. Les réponses sont générées par le service IA de Galileo.</p>
-              </div>
+              )}
               <div className="ai-message-list" aria-live="polite" aria-busy={Boolean(pendingMessage) || historyLoading}>
                 {historyLoading ? (
                   <div className="ai-empty-state" role="status">Chargement de la conversation…</div>
@@ -393,7 +400,7 @@ const AIAssistantPage: React.FC = () => {
                       <img src="/assets/figma-ai-book.svg" alt="" />
                     </span>
                     <h3>Votre échange apparaîtra ici</h3>
-                    <p>Les réponses et références sont ajoutées après l’envoi d’une question.</p>
+                    <p>Les réponses et références paginées extraites du PDF de la plateforme sont ajoutées après l’envoi d’une question.</p>
                   </div>
                 ) : messages.map(message => (
                   <article key={message.id} className={`ai-message-row ${message.sender}`}>
@@ -401,7 +408,7 @@ const AIAssistantPage: React.FC = () => {
                       <p>{message.text}</p>
                       {message.sources && message.sources.length > 0 && (
                         <div className="ai-message-sources">
-                          <strong>Références renvoyées</strong>
+                          <strong>Références du PDF de la plateforme</strong>
                           {message.sources.map((source, index) => (
                             <p key={`${source.attachmentChunkId || source.chunkId}-${index}`}>
                               <span>{source.fileName ? `${source.fileName} · page ${source.pageNumber}` : `Page ${source.pageNumber}`}</span> {source.excerpt}
@@ -426,36 +433,11 @@ const AIAssistantPage: React.FC = () => {
 
               <form className="ai-composer" onSubmit={handleSendMessage}>
                 {chatError && <div className="ai-status ai-status-error" role="alert">{chatError}</div>}
-                {attachmentError && <div className="ai-status ai-status-error" role="alert">{attachmentError}</div>}
-                {attachments.length > 0 && (
-                  <ul className="ai-attachment-list" aria-label="PDF joints à la conversation">
-                    {attachments.map(attachment => (
-                      <li key={attachment.id}>
-                        <span title={`${attachment.pageCount} pages, ${attachment.extractedCharacters} caractères extraits`}>
-                          {attachment.fileName} · {attachment.pageCount} p.
-                        </span>
-                        <button type="button" onClick={() => void handleRemoveAttachment(attachment.id)} disabled={attachmentBusy || Boolean(pendingMessage)} aria-label={`Retirer ${attachment.fileName}`}>
-                          Retirer
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
+                {mode === 'DOCUMENT' && selectedPublicationPdfMissing && !chatError && (
+                  <div className="ai-status ai-status-error" role="alert">
+                    Le fichier PDF de cette publication est indisponible sur la plateforme. L’assistant ne peut pas interroger ce document.
+                  </div>
                 )}
-                <div className="ai-attachment-toolbar">
-                  <input
-                    ref={attachmentInputRef}
-                    className="ai-sr-only"
-                    type="file"
-                    accept="application/pdf,.pdf"
-                    onChange={event => void handleAttachmentSelection(event)}
-                    disabled={attachmentBusy || Boolean(pendingMessage) || historyLoading}
-                    aria-label="Joindre un PDF à la conversation"
-                  />
-                  <button type="button" onClick={() => attachmentInputRef.current?.click()} disabled={attachmentBusy || Boolean(pendingMessage) || historyLoading || attachments.length >= 5}>
-                    {attachmentBusy ? 'Traitement du PDF…' : 'Joindre un PDF'}
-                  </button>
-                  <span>PDF · 20 Mo max · 5 fichiers</span>
-                </div>
                 <label className="ai-sr-only" htmlFor="ai-chat-input">Votre message</label>
                 <textarea
                   id="ai-chat-input"
@@ -467,16 +449,26 @@ const AIAssistantPage: React.FC = () => {
                       event.currentTarget.form?.requestSubmit();
                     }
                   }}
-                  placeholder={mode === 'DOCUMENT' ? 'Posez une question sur le document lié ou le PDF joint…' : 'Écrivez votre message…'}
+                  placeholder={mode === 'DOCUMENT' ? 'Posez une question sur le document PDF de la publication liée…' : 'Écrivez votre message…'}
                   maxLength={4000}
-                  disabled={Boolean(pendingMessage) || historyLoading}
+                  disabled={Boolean(pendingMessage) || historyLoading || (mode === 'DOCUMENT' && selectedPublicationPdfMissing)}
                   rows={2}
                 />
                 <div className="ai-composer-footer">
                   <span>{mode === 'DOCUMENT'
-                    ? activePublicationTitle || (attachments.length > 0 ? `${attachments.length} PDF joint(s)` : 'Sélectionnez une publication ou joignez un PDF')
-                    : 'Contexte documentaire facultatif'}</span>
-                  <button type="submit" disabled={!input.trim() || Boolean(pendingMessage) || historyLoading || (mode === 'DOCUMENT' && !selectedPublicationId && attachments.length === 0)}>
+                    ? activePublicationTitle
+                      ? `Document PDF plateforme : ${activePublicationTitle}`
+                      : 'Sélectionnez une publication liée dans le panneau Contexte'
+                    : 'Contexte documentaire : sélectionnez une publication liée à droite'}</span>
+                  <button
+                    type="submit"
+                    disabled={
+                      !input.trim()
+                      || Boolean(pendingMessage)
+                      || historyLoading
+                      || (mode === 'DOCUMENT' && (!selectedPublicationId || selectedPublicationPdfMissing))
+                    }
+                  >
                     Envoyer
                   </button>
                 </div>
@@ -484,12 +476,57 @@ const AIAssistantPage: React.FC = () => {
             </>
           )}
 
+          {action === 'SUMMARIZE' && (
+            <form className="ai-tool-panel" onSubmit={handleSummarize}>
+              <div className="ai-tool-intro">
+                <h3>Résumer le PDF d’une publication</h3>
+                <p>La synthèse est générée exclusivement à partir du texte intégral extrait du fichier PDF hébergé sur la plateforme.</p>
+              </div>
+              {!selectedPublicationId && (
+                <div className="ai-context-hint">Sélectionnez une publication de la plateforme dans le panneau Contexte à droite.</div>
+              )}
+              {selectedPublicationPdfMissing && (
+                <div className="ai-status ai-status-error" role="alert">
+                  Le fichier PDF de cette publication est indisponible sur la plateforme.
+                </div>
+              )}
+              <fieldset className="ai-level-selector">
+                <legend>Type de synthèse</legend>
+                {summaryTypes.map(item => (
+                  <label key={item.value} className={summaryType === item.value ? 'is-active' : ''}>
+                    <input
+                      type="radio"
+                      name="summary-type"
+                      value={item.value}
+                      checked={summaryType === item.value}
+                      onChange={() => setSummaryType(item.value)}
+                    />
+                    {item.label}
+                  </label>
+                ))}
+              </fieldset>
+              <div className="ai-composer-footer">
+                <span>{activePublicationTitle ? `Publication : ${activePublicationTitle}` : 'Aucune publication sélectionnée'}</span>
+                <button type="submit" disabled={!selectedPublicationId || selectedPublicationPdfMissing || isSummarizing}>
+                  {isSummarizing ? 'Synthèse en cours…' : 'Générer le résumé'}
+                </button>
+              </div>
+              {summaryError && <div className="ai-status ai-status-error" role="alert">{summaryError}</div>}
+              {summaryResult && <div className="ai-tool-result" aria-live="polite"><h4>Résumé du document PDF</h4><p>{summaryResult}</p></div>}
+            </form>
+          )}
+
           {action === 'EXPLAIN' && (
             <form className="ai-tool-panel" onSubmit={handleExplain}>
               <div className="ai-tool-intro">
                 <h3>Expliquer un passage</h3>
-                <p>Le service analyse le texte fourni au niveau choisi.</p>
+                <p>Le service analyse le passage fourni au niveau choisi{activePublicationTitle ? ` en s’appuyant sur le PDF de « ${activePublicationTitle} »` : ''}.</p>
               </div>
+              {selectedPublicationId && selectedPublicationPdfMissing && (
+                <div className="ai-status ai-status-error" role="alert">
+                  Le fichier PDF de la publication liée est indisponible sur la plateforme.
+                </div>
+              )}
               <fieldset className="ai-level-selector">
                 <legend>Niveau</legend>
                 {explanationLevels.map(level => (
@@ -517,7 +554,7 @@ const AIAssistantPage: React.FC = () => {
               />
               <div className="ai-composer-footer">
                 <span>{explainText.length}/10000</span>
-                <button type="submit" disabled={!explainText.trim() || isExplaining}>
+                <button type="submit" disabled={!explainText.trim() || isExplaining || (Boolean(selectedPublicationId) && selectedPublicationPdfMissing)}>
                   {isExplaining ? 'Analyse en cours…' : 'Expliquer'}
                 </button>
               </div>
@@ -530,27 +567,49 @@ const AIAssistantPage: React.FC = () => {
             <form className="ai-tool-panel" onSubmit={handleCompare}>
               <div className="ai-tool-intro">
                 <h3>Comparer deux publications</h3>
-                <p>La comparaison utilise les deux publications sélectionnées.</p>
+                <p>La comparaison analyse directement le texte extrait des fichiers PDF des deux publications sur la plateforme.</p>
               </div>
               {!selectedPublicationId && (
                 <div className="ai-context-hint">Choisissez la première publication dans le panneau Contexte.</div>
               )}
+              {(selectedPublicationPdfMissing || comparePublicationPdfMissing) && (
+                <div className="ai-status ai-status-error" role="alert">
+                  L’une des publications sélectionnées ne dispose pas d’un fichier PDF disponible sur la plateforme.
+                </div>
+              )}
               {publicationsError && <div className="ai-status ai-status-error" role="alert">{publicationsError}</div>}
-              <label className="ai-field-label" htmlFor="ai-compare-publication">Deuxième publication</label>
+              <label className="ai-field-label" htmlFor="ai-compare-publication">Deuxième publication (plateforme)</label>
               <select
                 id="ai-compare-publication"
                 value={comparePublicationId ?? ''}
-                onChange={event => setComparePublicationId(event.target.value ? Number(event.target.value) : undefined)}
+                onChange={event => {
+                  setComparePublicationId(event.target.value ? Number(event.target.value) : undefined);
+                  setComparisonError(null);
+                  setComparisonResult(null);
+                }}
                 disabled={!selectedPublicationId || publicationsLoading || Boolean(publicationsError) || isComparing}
               >
                 <option value="">Sélectionner une publication</option>
                 {publications
                   .filter(publication => publication.id !== selectedPublicationId)
-                  .map(publication => <option key={publication.id} value={publication.id}>{publication.titre}</option>)}
+                  .map(publication => (
+                    <option key={publication.id} value={publication.id}>
+                      {publication.titre}{!hasPlatformPdf(publication) ? ' (PDF indisponible)' : ''}
+                    </option>
+                  ))}
               </select>
               <div className="ai-composer-footer">
-                <span>{selectedPublicationId && comparePublicationId ? '2 publications sélectionnées' : '2 publications requises'}</span>
-                <button type="submit" disabled={!selectedPublicationId || !comparePublicationId || isComparing}>
+                <span>{selectedPublicationId && comparePublicationId ? '2 documents PDF sélectionnés' : '2 publications avec PDF requises'}</span>
+                <button
+                  type="submit"
+                  disabled={
+                    !selectedPublicationId
+                    || !comparePublicationId
+                    || selectedPublicationPdfMissing
+                    || comparePublicationPdfMissing
+                    || isComparing
+                  }
+                >
                   {isComparing ? 'Comparaison en cours…' : 'Comparer'}
                 </button>
               </div>
@@ -563,8 +622,8 @@ const AIAssistantPage: React.FC = () => {
         <aside className="ai-context-panel" aria-label="Contexte et références">
           <section className="ai-side-section ai-publication-context">
             <h3>Contexte de la demande</h3>
-            <p className="ai-context-description">Associez une publication pour ancrer les questions, résumés et comparaisons sur un document précis.</p>
-            <label htmlFor="ai-publication-select">Publication liée</label>
+            <p className="ai-context-description">Sélectionnez une publication de la plateforme Galileo pour que l’IA interroge directement son fichier PDF (sans téléversement externe).</p>
+            <label htmlFor="ai-publication-select">Publication liée (plateforme)</label>
             <select
               id="ai-publication-select"
               value={selectedPublicationId ?? ''}
@@ -576,7 +635,9 @@ const AIAssistantPage: React.FC = () => {
                 <option value={selectedPublicationId}>{activePublicationTitle || 'Publication de la conversation précédente'}</option>
               )}
               {publications.map(publication => (
-                <option key={publication.id} value={publication.id}>{publication.titre}</option>
+                <option key={publication.id} value={publication.id}>
+                  {publication.titre}{!hasPlatformPdf(publication) ? ' (PDF indisponible)' : ''}
+                </option>
               ))}
             </select>
             {publicationsLoading && <p className="ai-side-note">Chargement des publications…</p>}
@@ -584,8 +645,14 @@ const AIAssistantPage: React.FC = () => {
             {activePublicationTitle && selectedPublicationId && (
               <p className="ai-linked-publication">Liée : {activePublicationTitle}</p>
             )}
-            {selectedPublicationId && mode === 'DOCUMENT' && (
-              <p className="ai-side-note">L’accès au document est vérifié par le service à chaque requête.</p>
+            {selectedPublication && selectedPublication.nombrePages && (
+              <p className="ai-side-note">Document PDF disponible · {selectedPublication.nombrePages} page(s)</p>
+            )}
+            {selectedPublicationPdfMissing && (
+              <p className="ai-side-note">Aucun fichier PDF lisible n’est rattaché à cette publication sur la plateforme.</p>
+            )}
+            {selectedPublicationId && mode === 'DOCUMENT' && !selectedPublicationPdfMissing && (
+              <p className="ai-side-note">L’IA analyse directement le texte extrait du PDF hébergé sur la plateforme.</p>
             )}
           </section>
 
@@ -617,7 +684,7 @@ const AIAssistantPage: React.FC = () => {
                 ? 'La conversation conservée indique des références, mais leurs extraits ne sont pas disponibles dans l’historique.'
                 : messages.some(message => message.sender === 'assistant')
                   ? 'Aucune référence n’a été renvoyée pour la dernière réponse.'
-                  : 'Les références sont affichées lorsque le service IA renvoie des sources pour la réponse.'}</p>
+                  : 'Les références paginées du PDF de la plateforme sont affichées lorsque le service IA renvoie des sources pour la réponse.'}</p>
             )}
           </section>
         </aside>
