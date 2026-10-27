@@ -74,6 +74,15 @@ public class AIChatResponse {
         private Integer pageEnd;
         private String excerpt;
         private Double similarity;
+
+        public SourceReference(Long chunkId, Integer pageNumber, Integer pageStart, Integer pageEnd, String excerpt, Double similarity) {
+            this.chunkId = chunkId;
+            this.pageNumber = pageNumber;
+            this.pageStart = pageStart;
+            this.pageEnd = pageEnd;
+            this.excerpt = excerpt;
+            this.similarity = similarity;
+        }
     }
 
     // Classe statique conservée pour compatibilité binaire/source
