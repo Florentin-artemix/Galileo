@@ -20,11 +20,18 @@ import com.galileo.learning.repository.*;
 import com.galileo.publications.entity.Publication;
 import com.galileo.publications.repository.PublicationRepository;
 import com.galileo.publications.service.PublicationService;
+import com.galileo.storage.service.StorageService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.pdfbox.Loader;
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.text.PDFTextStripper;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
 import java.time.LocalDateTime;
 import java.util.*;
 
@@ -48,6 +55,9 @@ public class LearningServiceImpl implements LearningService {
     private final PublicationService publicationService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
+    @Autowired(required = false)
+    private StorageService storageService;
+
     @Override
     @Transactional
     public QuizDTO generateQuiz(QuizGenerateRequest request, Long userId) {
@@ -63,10 +73,18 @@ public class LearningServiceImpl implements LearningService {
             ensurePublicationFullDocumentAccess(pub, user);
 
             List<Document> docs = documentRepository.findByPublicationId(pub.getId());
-            if (!docs.isEmpty() && docs.get(0).getExtractedText() != null && !docs.get(0).getExtractedText().isEmpty()) {
-                String full = docs.get(0).getExtractedText();
-                contentForQuiz = full.length() > 6000 ? full.substring(0, 6000) : full;
-            } else {
+            if (!docs.isEmpty()) {
+                Document doc = docs.get(0);
+                if ((doc.getExtractedText() == null || doc.getExtractedText().isBlank())
+                        && storageService != null && doc.getFileKey() != null && !doc.getFileKey().isBlank()) {
+                    extractAndSaveDocumentText(doc);
+                }
+                if (doc.getExtractedText() != null && !doc.getExtractedText().isBlank()) {
+                    String full = doc.getExtractedText();
+                    contentForQuiz = full.length() > 6000 ? full.substring(0, 6000) : full;
+                }
+            }
+            if (contentForQuiz == null || contentForQuiz.isBlank()) {
                 contentForQuiz = pub.getTitle() + "\n" + (pub.getAbstractText() != null ? pub.getAbstractText() : "");
             }
         } else if (request.getTopic() != null && !request.getTopic().trim().isEmpty()) {
@@ -415,9 +433,46 @@ public class LearningServiceImpl implements LearningService {
 
     private boolean isAnswerMatching(String selected, String expected) {
         if (selected == null || expected == null) return false;
-        String s = selected.trim().toUpperCase();
-        String e = expected.trim().toUpperCase();
-        return s.equals(e);
+        String s = selected.trim();
+        String e = expected.trim();
+        if (s.equalsIgnoreCase(e)) return true;
+
+        String sStripped = s.replaceFirst("^[A-Da-d][\\.\\)\\s]+", "").trim();
+        String eStripped = e.replaceFirst("^[A-Da-d][\\.\\)\\s]+", "").trim();
+        if (!sStripped.isEmpty() && sStripped.equalsIgnoreCase(eStripped)) return true;
+
+        String sLetter = s.replaceAll("[^A-Za-z]", "").toUpperCase();
+        String eLetter = e.replaceAll("[^A-Za-z]", "").toUpperCase();
+        return sLetter.length() == 1 && sLetter.equals(eLetter);
+    }
+
+    private void extractAndSaveDocumentText(Document doc) {
+        if (storageService == null || doc.getFileKey() == null || doc.getFileKey().isBlank()) {
+            return;
+        }
+        try (InputStream is = storageService.downloadFile(doc.getFileKey());
+             ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+            byte[] buffer = new byte[8192];
+            int n;
+            while ((n = is.read(buffer)) != -1) {
+                baos.write(buffer, 0, n);
+            }
+            byte[] pdfBytes = baos.toByteArray();
+            if (pdfBytes.length == 0) return;
+
+            try (PDDocument pdDoc = Loader.loadPDF(pdfBytes)) {
+                PDFTextStripper stripper = new PDFTextStripper();
+                String text = stripper.getText(pdDoc).trim();
+                if (!text.isEmpty()) {
+                    doc.setExtractedText(text.length() > 500_000 ? text.substring(0, 500_000) : text);
+                    doc.setPageCount(pdDoc.getNumberOfPages());
+                    documentRepository.save(doc);
+                    log.info("Texte PDF extrait avec succès pour le document #{} ({} caractères)", doc.getId(), text.length());
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Impossible d'extraire à la volée le texte PDF pour le document #{}: {}", doc.getId(), e.getMessage());
+        }
     }
 
     private void ensureQuizAccess(Quiz quiz, Long userId) {
@@ -467,16 +522,27 @@ public class LearningServiceImpl implements LearningService {
         try {
             root = objectMapper.readTree(cleanJsonString(rawJson));
         } catch (Exception e) {
+            log.error("Échec du parsing JSON du quiz généré : {}", e.getMessage());
+            log.debug("Contenu brut du quiz : {}", rawJson);
             throw invalidGeneratedQuiz();
         }
 
-        if (root == null || !root.isArray() || root.size() != expectedCount) {
+        if (root != null && root.isObject()) {
+            if (root.has("questions") && root.path("questions").isArray()) {
+                root = root.path("questions");
+            } else if (root.has("quiz") && root.path("quiz").isArray()) {
+                root = root.path("quiz");
+            }
+        }
+
+        if (root == null || !root.isArray() || root.isEmpty()) {
+            log.error("Format JSON inattendu pour le quiz (non-tableau ou vide) : {}", rawJson);
             throw invalidGeneratedQuiz();
         }
 
         for (JsonNode qNode : root) {
             if (!qNode.isObject()) {
-                throw invalidGeneratedQuiz();
+                continue;
             }
 
             String qText = qNode.path("question").asText("").trim();
@@ -484,26 +550,89 @@ public class LearningServiceImpl implements LearningService {
             String explanation = qNode.path("explanation").asText("").trim();
             JsonNode rawOptions = qNode.path("options");
             if (!rawOptions.isArray()) {
-                throw invalidGeneratedQuiz();
+                continue;
             }
 
             List<String> options = new ArrayList<>();
             for (JsonNode option : rawOptions) {
                 String value = option.asText("").trim();
-                if (value.isEmpty()) {
-                    throw invalidGeneratedQuiz();
+                if (!value.isEmpty()) {
+                    options.add(value);
                 }
-                options.add(value);
             }
 
-            boolean answerIsAvailable = options.stream().anyMatch(option -> option.equalsIgnoreCase(answer));
-            if (qText.isEmpty() || options.size() < 2 || answer.isEmpty() || !answerIsAvailable || explanation.isEmpty()) {
-                throw invalidGeneratedQuiz();
+            if (qText.isEmpty() || options.size() < 2 || answer.isEmpty()) {
+                continue;
             }
-            questions.add(new GeneratedQuestion(qText, options, answer, explanation));
+
+            String matchedAnswer = resolveMatchingAnswer(answer, options);
+            if (matchedAnswer == null) {
+                log.warn("Réponse '{}' non réconciliée avec les options {} pour la question '{}'", answer, options, qText);
+                continue;
+            }
+
+            if (explanation.isEmpty()) {
+                explanation = "La bonne réponse est : " + matchedAnswer;
+            }
+
+            questions.add(new GeneratedQuestion(qText, options, matchedAnswer, explanation));
+            if (questions.size() >= expectedCount) {
+                break;
+            }
+        }
+
+        if (questions.size() < expectedCount) {
+            log.error("Nombre insuffisant de questions validées : {}/{} attendues. Contenu brut : {}",
+                    questions.size(), expectedCount, rawJson);
+            throw invalidGeneratedQuiz();
         }
 
         return questions;
+    }
+
+    private String resolveMatchingAnswer(String answer, List<String> options) {
+        if (answer == null || options == null) return null;
+        String trimmed = answer.trim();
+
+        // 1. Égalité exacte insensible à la casse
+        for (String opt : options) {
+            if (opt.equalsIgnoreCase(trimmed)) {
+                return opt;
+            }
+        }
+
+        // 2. Si answer est une lettre simple (ex: "A", "A.", "A)", "B")
+        String letterOnly = trimmed.replaceAll("[^A-Za-z]", "").toUpperCase();
+        if (letterOnly.length() == 1) {
+            char targetChar = letterOnly.charAt(0);
+            for (String opt : options) {
+                String optTrim = opt.trim();
+                if (optTrim.toUpperCase().startsWith(targetChar + ".")
+                        || optTrim.toUpperCase().startsWith(targetChar + ")")
+                        || optTrim.toUpperCase().startsWith(targetChar + " ")) {
+                    return opt;
+                }
+            }
+        }
+
+        // 3. Si l'option commence par une lettre "A. Text" et que answer est "Text"
+        for (String opt : options) {
+            String stripped = opt.replaceFirst("^[A-Da-d][\\.\\)\\s]+", "").trim();
+            if (!stripped.isEmpty() && stripped.equalsIgnoreCase(trimmed)) {
+                return opt;
+            }
+        }
+
+        // 4. Correspondance par sous-chaîne
+        for (String opt : options) {
+            String stripped = opt.replaceFirst("^[A-Da-d][\\.\\)\\s]+", "").trim();
+            if (!stripped.isEmpty() && (stripped.toLowerCase().contains(trimmed.toLowerCase())
+                    || trimmed.toLowerCase().contains(stripped.toLowerCase()))) {
+                return opt;
+            }
+        }
+
+        return null;
     }
 
     private AIServiceUnavailableException invalidGeneratedQuiz() {
@@ -513,6 +642,16 @@ public class LearningServiceImpl implements LearningService {
     private String cleanJsonString(String raw) {
         if (raw == null) return "[]";
         String s = raw.trim();
+        int firstBracket = s.indexOf('[');
+        int lastBracket = s.lastIndexOf(']');
+        if (firstBracket != -1 && lastBracket > firstBracket) {
+            return s.substring(firstBracket, lastBracket + 1).trim();
+        }
+        int firstBrace = s.indexOf('{');
+        int lastBrace = s.lastIndexOf('}');
+        if (firstBrace != -1 && lastBrace > firstBrace) {
+            return s.substring(firstBrace, lastBrace + 1).trim();
+        }
         if (s.startsWith("```json")) s = s.substring(7);
         else if (s.startsWith("```")) s = s.substring(3);
         if (s.endsWith("```")) s = s.substring(0, s.length() - 3);
