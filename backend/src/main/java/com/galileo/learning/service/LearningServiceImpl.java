@@ -55,8 +55,12 @@ public class LearningServiceImpl implements LearningService {
     private final PublicationService publicationService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    @Autowired(required = false)
     private StorageService storageService;
+
+    @Autowired(required = false)
+    public void setStorageService(StorageService storageService) {
+        this.storageService = storageService;
+    }
 
     @Override
     @Transactional

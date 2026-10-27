@@ -70,8 +70,12 @@ public class AIServiceImpl implements AIService {
     @PersistenceContext
     private EntityManager entityManager;
 
-    @Autowired(required = false)
     private StorageService storageService;
+
+    @Autowired(required = false)
+    public void setStorageService(StorageService storageService) {
+        this.storageService = storageService;
+    }
 
     private static final int DAILY_QUOTA_PER_USER = 100;
     private static final int MAX_HISTORY_CHARACTERS = 12_000;
