@@ -841,3 +841,30 @@
     margin-top: 28px;
   }
 }
+
+@media (max-width: 480px) {
+  .submission-content {
+    padding: 18px 12px 28px;
+  }
+
+  .submission-heading h1 {
+    font-size: 21px;
+  }
+
+  .submission-steps {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  .submission-steps li {
+    grid-template-columns: 26px 12px minmax(0, 1fr);
+    gap: 6px;
+    font-size: 11px;
+  }
+
+  .submission-step-number {
+    width: 26px;
+    height: 26px;
+    flex-basis: 26px;
+  }
+}

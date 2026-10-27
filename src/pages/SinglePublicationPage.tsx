@@ -28,10 +28,15 @@ const SinglePublicationPage: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadError, setDownloadError] = useState(false);
+  const [mobileActiveTab, setMobileActiveTab] = useState<'document' | 'ai' | 'info'>('document');
 
   const publicationId = Number(id);
   const canReadFullText = !authLoading && isAuthenticated && role !== 'VIEWER';
   const onPageChange = useCallback((page: number) => setCurrentPage(page), []);
+  const handleOpenPageFromAI = useCallback((page: number) => {
+    setCurrentPage(page);
+    setMobileActiveTab('document');
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -46,6 +51,7 @@ const SinglePublicationPage: React.FC = () => {
     setDetailState('loading');
     setDocumentState('loading');
     setCurrentPage(1);
+    setMobileActiveTab('document');
 
     publicationsService.getPublicationById(publicationId)
       .then(dto => {
@@ -193,13 +199,59 @@ const SinglePublicationPage: React.FC = () => {
 
       <div className="publication-detail__content">
         {downloadError && <p className="publication-reader__error publication-reader__error--top" role="alert">{isFrench ? 'Le téléchargement a échoué. Vérifiez votre accès au document.' : 'Download failed. Check your access to this document.'}</p>}
+
+        <nav className="publication-mobile-tabs" aria-label={isFrench ? 'Vue de lecture mobile' : 'Mobile reading view'}>
+          <button
+            type="button"
+            className={`publication-mobile-tabs__btn${mobileActiveTab === 'document' ? ' is-active' : ''}`}
+            aria-pressed={mobileActiveTab === 'document'}
+            onClick={() => setMobileActiveTab('document')}
+          >
+            {isFrench ? 'Document PDF' : 'PDF Document'}
+          </button>
+          {canReadFullText && (
+            <button
+              type="button"
+              className={`publication-mobile-tabs__btn${mobileActiveTab === 'ai' ? ' is-active' : ''}`}
+              aria-pressed={mobileActiveTab === 'ai'}
+              onClick={() => setMobileActiveTab('ai')}
+            >
+              {isFrench ? 'Assistant IA' : 'AI Assistant'}
+            </button>
+          )}
+          <button
+            type="button"
+            className={`publication-mobile-tabs__btn${mobileActiveTab === 'info' ? ' is-active' : ''}`}
+            aria-pressed={mobileActiveTab === 'info'}
+            onClick={() => setMobileActiveTab('info')}
+          >
+            {isFrench ? 'Infos & Sommaire' : 'Info & Outline'}
+          </button>
+        </nav>
+
         <div className={`publication-reader-layout${canReadFullText ? '' : ' publication-reader-layout--restricted'}`}>
-          <aside className="publication-reader-outline" aria-label={isFrench ? 'Navigation et informations du document' : 'Document navigation and information'}>
+          <aside className={`publication-reader-outline${mobileActiveTab === 'info' ? ' is-mobile-active' : ' is-mobile-hidden'}`} aria-label={isFrench ? 'Navigation et informations du document' : 'Document navigation and information'}>
             <section className="publication-reader-outline__section">
               <p className="publication-reader-outline__eyebrow">{isFrench ? 'DANS CE DOCUMENT' : 'IN THIS DOCUMENT'}</p>
               <nav aria-label={isFrench ? 'Sections du document' : 'Document sections'}>
-                {abstract.trim() && <a className="publication-reader-outline__link publication-reader-outline__link--active" href="#publication-summary">{isFrench ? 'Résumé' : 'Abstract'}<span>1</span></a>}
-                {canReadFullText && <a className="publication-reader-outline__link" href="#publication-document">{isFrench ? 'Document PDF' : 'PDF document'}<span>{currentPage}</span></a>}
+                {abstract.trim() && (
+                  <a
+                    className="publication-reader-outline__link publication-reader-outline__link--active"
+                    href="#publication-summary"
+                    onClick={() => setMobileActiveTab('document')}
+                  >
+                    {isFrench ? 'Résumé' : 'Abstract'}<span>1</span>
+                  </a>
+                )}
+                {canReadFullText && (
+                  <a
+                    className="publication-reader-outline__link"
+                    href="#publication-document"
+                    onClick={() => setMobileActiveTab('document')}
+                  >
+                    {isFrench ? 'Document PDF' : 'PDF document'}<span>{currentPage}</span>
+                  </a>
+                )}
               </nav>
             </section>
 
@@ -233,7 +285,7 @@ const SinglePublicationPage: React.FC = () => {
               />}
           </aside>
 
-          <main className="publication-reader-document">
+          <main className={`publication-reader-document${mobileActiveTab === 'document' ? ' is-mobile-active' : ' is-mobile-hidden'}`}>
             <div className="publication-reader-document__heading">
               <p className="publication-reader-document__eyebrow">
                 {[isFrench ? 'PUBLICATION' : 'PUBLICATION', domain, publication.type].filter(Boolean).join(' / ')}
@@ -295,7 +347,11 @@ const SinglePublicationPage: React.FC = () => {
             </section>
           </main>
 
-          {canReadFullText && <PublicationAIPanel publicationId={publication.id} pageCount={document?.pageCount} onOpenPage={onPageChange} />}
+          {canReadFullText && (
+            <div className={`publication-ai-panel-wrapper${mobileActiveTab === 'ai' ? ' is-mobile-active' : ' is-mobile-hidden'}`}>
+              <PublicationAIPanel publicationId={publication.id} pageCount={document?.pageCount} onOpenPage={handleOpenPageFromAI} />
+            </div>
+          )}
         </div>
         <section className="publication-detail__related" aria-label={isFrench ? 'Publications similaires' : 'Related publications'}>
           <SimilarPublications publicationId={publication.id} limit={5} className="publication-similar--horizontal" />

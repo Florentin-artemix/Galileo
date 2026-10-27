@@ -488,3 +488,35 @@ html.dark .my-library__import {
     border: 1px solid var(--library-line);
   }
 }
+
+@media (max-width: 420px) {
+  .my-library__content {
+    width: calc(100% - 20px);
+    padding-top: 18px;
+  }
+
+  .my-library__stats {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .my-library-card__main {
+    grid-template-columns: 74px minmax(0, 1fr);
+    gap: 10px;
+  }
+
+  .my-library-card__cover,
+  .my-library-card__cover-mark {
+    width: 74px;
+    height: 104px;
+  }
+
+  .my-library-card__details {
+    min-height: 104px;
+  }
+
+  .my-library__empty {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+}

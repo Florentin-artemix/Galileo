@@ -635,3 +635,54 @@ html.dark .discovery-status {
     min-height: 220px;
   }
 }
+
+@media (max-width: 420px) {
+  .discovery-page__content {
+    width: calc(100% - 20px);
+    padding-top: 16px;
+  }
+
+  .discovery-hero h1 {
+    margin-top: 12px;
+    font-size: 24px;
+  }
+
+  .discovery-hero__actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .discovery-hero__actions .discovery-button {
+    width: 100%;
+    min-height: 44px;
+  }
+
+  .discovery-feature {
+    grid-template-columns: minmax(0, 1fr);
+    min-height: auto;
+    padding: 16px 14px 16px 18px;
+  }
+
+  .discovery-feature__cover {
+    display: none;
+  }
+
+  .discovery-domain-filters button {
+    min-height: 36px;
+    padding: 0 12px;
+  }
+
+  .discovery-publication-card__main {
+    grid-template-columns: 74px minmax(0, 1fr);
+    gap: 10px;
+  }
+
+  .discovery-publication-card__cover {
+    width: 74px;
+    height: 104px;
+  }
+
+  .discovery-publication-card__content {
+    min-height: 104px;
+  }
+}

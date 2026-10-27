@@ -71,17 +71,17 @@ const Header: React.FC = () => {
 
   return (
     <header className="sticky top-0 z-50 border-b border-[#e9ecef] bg-white dark:border-gray-700 dark:bg-[#0a192f]">
-      <div className="relative mx-auto flex h-[74px] max-w-[1440px] items-center justify-between gap-4 px-4 sm:px-6 lg:px-9">
-        <NavLink to="/" className="flex shrink-0 items-center gap-[10px]" aria-label="Galileo, accueil">
-          <span className="flex h-[38px] w-[38px] items-center justify-center rounded-[10px] bg-[#0b1e38] font-poppins text-[20px] font-bold text-white">G</span>
-          <span className="font-poppins text-[19px] font-bold text-[#0b1e38] dark:text-white">Galileo</span>
+      <div className="relative mx-auto flex h-[60px] max-w-[1440px] items-center justify-between gap-2 px-3 sm:h-[74px] sm:gap-4 sm:px-6 lg:px-9">
+        <NavLink to="/" className="flex min-w-0 shrink-0 items-center gap-2 sm:gap-[10px]" aria-label="Galileo, accueil">
+          <span className="flex h-[36px] w-[36px] shrink-0 items-center justify-center rounded-[10px] bg-[#0b1e38] font-poppins text-[18px] font-bold text-white sm:h-[38px] sm:w-[38px] sm:text-[20px]">G</span>
+          <span className=" truncate font-poppins text-[17px] font-bold text-[#0b1e38] dark:text-white sm:text-[19px]">Galileo</span>
         </NavLink>
 
         <nav className={`hidden min-w-0 flex-1 items-center justify-center xl:flex ${isAssistantRoute ? 'gap-4' : 'gap-3 2xl:gap-5'}`} aria-label="Navigation principale">
           {desktopNavLinks.map(link => <NavLink key={link.to} to={link.to} end={link.to === '/'} className={linkClass}>{link.text}</NavLink>)}
         </nav>
 
-        <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+        <div className="flex shrink-0 items-center gap-1.5 sm:gap-3">
           {!isAssistantRoute && <SearchBarWithAutocomplete
               placeholder={language === 'fr' ? 'Rechercher un sujet, auteur, DOI…' : 'Search topic, author, DOI…'}
               onSearch={openCatalogSearch}
@@ -93,7 +93,7 @@ const Header: React.FC = () => {
             aria-label="Rechercher une publication"
             aria-expanded={isSearchOpen}
             aria-controls="header-catalog-search"
-            className="flex h-[34px] w-[34px] items-center justify-center rounded-[9px] border border-[#e9ecef] text-[#575e69] hover:bg-[#f5f8fa] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#00838f] xl:hidden"
+            className="flex h-[40px] w-[40px] items-center justify-center rounded-[9px] border border-[#e9ecef] text-[#575e69] hover:bg-[#f5f8fa] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#00838f] xl:hidden"
           >
             <svg className="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
               <circle cx="10.8" cy="10.8" r="6.8" strokeWidth="1.8" />
@@ -104,7 +104,7 @@ const Header: React.FC = () => {
             type="button"
             onClick={toggleLanguage}
             aria-label={language === 'fr' ? 'Switch language to English' : 'Passer la langue en français'}
-            className="hidden h-[32px] min-w-[42px] items-center justify-center rounded-[8px] border border-[#e9ecef] bg-[#f5f8fa] px-2 text-[11px] font-semibold text-[#575e69] sm:flex"
+            className="hidden h-[36px] min-w-[42px] items-center justify-center rounded-[8px] border border-[#e9ecef] bg-[#f5f8fa] px-2 text-[11px] font-semibold text-[#575e69] sm:flex"
           >
             {language === 'fr' ? 'FR' : 'EN'}
           </button>
@@ -112,7 +112,7 @@ const Header: React.FC = () => {
             type="button"
             onClick={toggleTheme}
             aria-label={theme === 'dark' ? 'Activer le thème clair' : 'Activer le thème sombre'}
-            className="flex h-[34px] w-[34px] items-center justify-center rounded-[9px] border border-[#e9ecef] text-[#575e69] hover:bg-[#f5f8fa]"
+            className="flex h-[40px] w-[40px] items-center justify-center rounded-[9px] border border-[#e9ecef] text-[#575e69] hover:bg-[#f5f8fa]"
           >
             {isAssistantRoute ? (
               <img src="/assets/figma-ai-theme.svg" alt="" aria-hidden="true" className="h-[18px] w-[18px]" />
@@ -142,7 +142,7 @@ const Header: React.FC = () => {
             onClick={() => setIsMenuOpen(open => !open)}
             aria-label={isMenuOpen ? 'Fermer le menu' : 'Ouvrir le menu'}
             aria-expanded={isMenuOpen}
-            className="flex h-[38px] w-[38px] items-center justify-center rounded-[8px] border border-[#e9ecef] text-[#575e69] xl:hidden"
+            className="flex h-[40px] w-[40px] items-center justify-center rounded-[8px] border border-[#e9ecef] text-[#575e69] xl:hidden"
           >
             {isMenuOpen ? (
               <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" strokeWidth="2" strokeLinecap="round" /></svg>
@@ -153,29 +153,29 @@ const Header: React.FC = () => {
         </div>
 
         {isSearchOpen && (
-          <div id="header-catalog-search" className="absolute right-4 top-[66px] z-50 w-[min(440px,calc(100vw-2rem))] rounded-[8px] border border-[#e3e8ed] bg-white p-3 shadow-lg dark:bg-gray-800">
+          <div id="header-catalog-search" className="absolute left-3 right-3 top-[58px] z-50 rounded-[8px] border border-[#e3e8ed] bg-white p-3 shadow-lg dark:bg-gray-800 sm:left-auto sm:right-4 sm:top-[66px] sm:w-[min(440px,calc(100vw-2rem))]">
             <SearchBarWithAutocomplete placeholder="Rechercher une publication ou un auteur…" onSearch={openCatalogSearch} className="header-search" />
           </div>
         )}
       </div>
 
       {isMenuOpen && (
-        <div className="border-t border-[#e9ecef] bg-white px-4 pb-5 pt-3 dark:border-gray-700 dark:bg-[#0a192f] xl:hidden">
-          <div className="mb-3 flex gap-2 sm:hidden">
-            <button type="button" onClick={toggleLanguage} className="rounded-[8px] border border-[#e9ecef] px-3 py-2 text-sm">{language === 'fr' ? 'FR' : 'EN'}</button>
-            {isAuthenticated && <span className="self-center truncate text-sm text-gray-500">{user?.email}</span>}
+        <div className="max-h-[calc(100vh-60px)] overflow-y-auto border-t border-[#e9ecef] bg-white px-3 pb-5 pt-3 dark:border-gray-700 dark:bg-[#0a192f] sm:px-4 xl:hidden">
+          <div className="mb-3 flex items-center justify-between gap-2 sm:hidden">
+            <button type="button" onClick={toggleLanguage} className="min-h-[40px] min-w-[48px] rounded-[8px] border border-[#e9ecef] px-3 py-2 text-xs font-semibold">{language === 'fr' ? 'Langue : FR' : 'Language: EN'}</button>
+            {isAuthenticated && <span className="min-w-0 truncate text-xs text-gray-500">{user?.email}</span>}
           </div>
-          <nav className="grid grid-cols-2 gap-1 sm:grid-cols-3" aria-label="Navigation mobile">
-            {navLinks.map(link => <NavLink key={link.to} to={link.to} onClick={() => setIsMenuOpen(false)} className={({ isActive }) => `rounded-[6px] px-3 py-2.5 text-sm ${isActive ? 'bg-[#e3f5f5] font-semibold text-[#00838f]' : 'text-[#575e69] hover:bg-[#f5f8fa]'}`}>{link.text}</NavLink>)}
-            {roleLink && <NavLink to={roleLink.to} onClick={() => setIsMenuOpen(false)} className="rounded-[6px] px-3 py-2.5 text-sm text-[#575e69] hover:bg-[#f5f8fa]">{roleLink.text}</NavLink>}
+          <nav className="grid grid-cols-1 gap-1 min-[360px]:grid-cols-2 sm:grid-cols-3" aria-label="Navigation mobile">
+            {navLinks.map(link => <NavLink key={link.to} to={link.to} onClick={() => setIsMenuOpen(false)} className={({ isActive }) => `flex min-h-[44px] items-center rounded-[6px] px-3 py-2 text-sm ${isActive ? 'bg-[#e3f5f5] font-semibold text-[#00838f]' : 'text-[#575e69] hover:bg-[#f5f8fa] dark:text-gray-200'}`}>{link.text}</NavLink>)}
+            {roleLink && <NavLink to={roleLink.to} onClick={() => setIsMenuOpen(false)} className="flex min-h-[44px] items-center rounded-[6px] px-3 py-2 text-sm text-[#575e69] hover:bg-[#f5f8fa] dark:text-gray-200">{roleLink.text}</NavLink>}
           </nav>
           <div className="mt-3 border-t border-[#e9ecef] pt-3 xl:hidden">
             {isAuthenticated ? (
-              <div className="flex flex-wrap gap-2">
-                {(role === 'STUDENT' || role === 'STAFF' || role === 'ADMIN') && <NavLink to="/submit" onClick={() => setIsMenuOpen(false)} className="rounded-[8px] bg-[#00838f] px-4 py-2.5 text-sm font-semibold text-white">{translations.nav.submit}</NavLink>}
-                <button type="button" onClick={handleLogout} className="rounded-[8px] border border-red-200 px-4 py-2.5 text-sm text-red-600">{translations.auth_page?.logout_button || 'Déconnexion'}</button>
+              <div className="grid grid-cols-1 gap-2 min-[380px]:flex min-[380px]:flex-wrap">
+                {canSubmit && <NavLink to="/submit" onClick={() => setIsMenuOpen(false)} className="flex min-h-[44px] items-center justify-center rounded-[8px] bg-[#00838f] px-4 py-2.5 text-center text-sm font-semibold text-white">{translations.nav.submit}</NavLink>}
+                <button type="button" onClick={handleLogout} className="flex min-h-[44px] items-center justify-center rounded-[8px] border border-red-200 px-4 py-2.5 text-sm text-red-600">{translations.auth_page?.logout_button || 'Déconnexion'}</button>
               </div>
-            ) : <NavLink to="/auth" onClick={() => setIsMenuOpen(false)} className="inline-flex rounded-[8px] bg-[#00838f] px-4 py-2.5 text-sm font-semibold text-white">{translations.auth_page?.login_button || 'Connexion'}</NavLink>}
+            ) : <NavLink to="/auth" onClick={() => setIsMenuOpen(false)} className="flex min-h-[44px] w-full items-center justify-center rounded-[8px] bg-[#00838f] px-4 py-2.5 text-sm font-semibold text-white sm:w-auto sm:inline-flex">{translations.auth_page?.login_button || 'Connexion'}</NavLink>}
           </div>
         </div>
       )}

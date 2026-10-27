@@ -528,13 +528,14 @@
   }
 
   .catalog-publication-card {
-    height: 300px;
+    height: auto;
+    min-height: 280px;
   }
 
   .catalog-publication-card--list {
     display: flex;
     height: auto;
-    min-height: 300px;
+    min-height: 280px;
   }
 
   .catalog-publication-card--list .catalog-cover {
@@ -543,7 +544,31 @@
   }
 
   .catalog-pagination {
+    flex-wrap: wrap;
     gap: 10px;
+  }
+
+  .catalog-pagination button {
+    min-height: 42px;
+  }
+}
+
+@media (max-width: 420px) {
+  .catalog-content {
+    padding: 18px 12px 28px;
+  }
+
+  .catalog-heading h1 {
+    font-size: 22px;
+  }
+
+  .catalog-controls {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .catalog-publication-card__actions {
+    flex-wrap: wrap;
+    gap: 6px;
   }
 }
 

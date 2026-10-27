@@ -1619,6 +1619,15 @@ html.dark .publication-reader__error {
   padding-right: 4px;
 }
 
+.publication-mobile-tabs {
+  display: none;
+}
+
+.publication-ai-panel-wrapper {
+  grid-area: assistant;
+  min-width: 0;
+}
+
 @media (max-height: 600px) and (min-width: 1121px) {
   .publication-ai-panel {
     height: calc(100vh - 96px);
@@ -1627,9 +1636,60 @@ html.dark .publication-reader__error {
 }
 
 @media (max-width: 1120px) {
+  .publication-mobile-tabs {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(92px, 1fr));
+    gap: 6px;
+    margin-bottom: 16px;
+    padding: 5px;
+    border: 1px solid #dfe6ec;
+    border-radius: 10px;
+    background: #fff;
+  }
+
+  .publication-mobile-tabs__btn {
+    min-height: 44px;
+    padding: 6px 8px;
+    border: 1px solid transparent;
+    border-radius: 7px;
+    background: transparent;
+    color: #4f5e73;
+    font: 600 11px/1.25 Inter, sans-serif;
+    text-align: center;
+    cursor: pointer;
+    transition: background-color 140ms ease, color 140ms ease, border-color 140ms ease;
+  }
+
+  .publication-mobile-tabs__btn.is-active {
+    border-color: #1a2945;
+    background: #1a2945;
+    color: #fff;
+  }
+
+  .publication-reader-layout,
+  .publication-reader-layout--restricted {
+    grid-template-areas: 'active';
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+  }
+
+  .publication-reader-outline,
+  .publication-reader-document,
+  .publication-ai-panel-wrapper {
+    grid-area: active;
+  }
+
+  .publication-reader-outline.is-mobile-hidden,
+  .publication-reader-document.is-mobile-hidden,
+  .publication-ai-panel-wrapper.is-mobile-hidden {
+    display: none !important;
+  }
+
   .publication-ai-panel {
+    position: static;
     height: auto;
     min-height: 0;
+    max-height: none;
     overflow: visible;
   }
 
@@ -1648,6 +1708,89 @@ html.dark .publication-reader__error {
   #publication-document {
     scroll-margin-top: 112px;
   }
+}
+
+@media (max-width: 520px) {
+  .publication-pdf__toolbar {
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 6px;
+    padding: 6px 8px;
+  }
+
+  .publication-pdf__toolbar button {
+    width: 38px;
+    height: 38px;
+    flex: 0 0 38px;
+    border-color: #e3e7eb;
+    background: #f8fafb;
+  }
+
+  .publication-pdf__page-controls,
+  .publication-pdf__zoom-controls {
+    gap: 6px;
+  }
+
+  .publication-reader-document .publication-pdf__stage {
+    height: 58vh;
+    min-height: 340px;
+  }
+
+  .publication-ai-panel__suggestions button {
+    min-height: 44px;
+    font-size: 11px;
+  }
+
+  .publication-ai-panel__composer input {
+    min-height: 40px;
+    font-size: 13px;
+  }
+
+  .publication-ai-panel__composer-footer button {
+    width: 40px;
+    height: 40px;
+    flex: 0 0 40px;
+  }
+}
+
+@media (max-width: 380px) {
+  .publication-mobile-tabs {
+    grid-template-columns: repeat(auto-fit, minmax(84px, 1fr));
+    gap: 4px;
+    padding: 4px;
+  }
+
+  .publication-mobile-tabs__btn {
+    padding: 6px 4px;
+    font-size: 10px;
+  }
+
+  .publication-reader-document {
+    padding: 14px 10px;
+  }
+
+  .publication-reader-document__heading h1 {
+    font-size: 19px;
+  }
+
+  .publication-ai-panel {
+    padding: 14px 10px;
+  }
+}
+
+html.dark .publication-mobile-tabs {
+  border-color: rgb(255 255 255 / 14%);
+  background: #102744;
+}
+
+html.dark .publication-mobile-tabs__btn {
+  color: #c4cbd5;
+}
+
+html.dark .publication-mobile-tabs__btn.is-active {
+  border-color: #00838f;
+  background: #00838f;
+  color: #fff;
 }
 
 html.dark .publication-pdf__stage,

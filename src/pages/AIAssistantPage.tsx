@@ -370,6 +370,26 @@ const AIAssistantPage: React.FC = () => {
             </div>
           </header>
 
+          <div className="ai-mobile-context-bar">
+            <label htmlFor="ai-mobile-publication-select">Document PDF lié :</label>
+            <select
+              id="ai-mobile-publication-select"
+              value={selectedPublicationId ?? ''}
+              onChange={event => handlePublicationChange(event.target.value)}
+              disabled={publicationsLoading || Boolean(publicationsError)}
+            >
+              <option value="">Aucune publication (mode général)</option>
+              {selectedPublicationId && !publications.some(publication => publication.id === selectedPublicationId) && (
+                <option value={selectedPublicationId}>{activePublicationTitle || 'Publication liée'}</option>
+              )}
+              {publications.map(publication => (
+                <option key={publication.id} value={publication.id}>
+                  {publication.titre}{!hasPlatformPdf(publication) ? ' (PDF indisponible)' : ''}
+                </option>
+              ))}
+            </select>
+          </div>
+
           {action === 'CHAT' && (
             <>
               {!historyLoading && messages.length === 0 && !pendingMessage && (
