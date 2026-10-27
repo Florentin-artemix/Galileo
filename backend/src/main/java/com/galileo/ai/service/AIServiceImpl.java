@@ -99,7 +99,7 @@ public class AIServiceImpl implements AIService {
             "comprendre", "analyse", "analyser", "donne", "donner", "redige", "rediger", "complet", "complete",
             "the", "and", "for", "from", "that", "this", "with", "what", "when", "where", "which", "who",
             "why", "how", "does", "can", "about", "into", "are", "was", "were", "have", "has", "not",
-            "summarize", "explain", "create", "revision", "cards", "limitations", "simply", "idea"
+            "summarize", "explain", "create", "cards", "limitations", "simply", "idea"
     );
     private static final String MISSING_PLATFORM_KNOWLEDGE = "\n\nAucune fiche de référence vérifiée sur Galileo n'est disponible. "
             + "Si l'utilisateur pose une question factuelle sur la plateforme, indique que les sources disponibles ne permettent pas de répondre; n'invente aucun détail.";
