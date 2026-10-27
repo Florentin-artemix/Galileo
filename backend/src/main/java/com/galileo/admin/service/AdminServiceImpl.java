@@ -53,7 +53,11 @@ public class AdminServiceImpl implements AdminService {
                 .totalUsers(userRepository.count())
                 .totalPublications(publicationRepository.count())
                 .totalSubmissions(submissionRepository.count())
-                .pendingSubmissions(submissionRepository.countByStatus(SubmissionStatus.PENDING))
+                .pendingSubmissions(submissionRepository.countByStatusIn(List.of(
+                        SubmissionStatus.PENDING,
+                        SubmissionStatus.ANALYZING,
+                        SubmissionStatus.UNDER_REVIEW
+                )))
                 .totalDocuments(documentRepository.count())
                 .totalAIInteractions(aiInteractionRepository.count())
                 .build();

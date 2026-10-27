@@ -109,8 +109,11 @@ export const authService = {
         email,
         password,
         role: requestedRole === 'VIEWER' ? 'VIEWER' : 'STUDENT',
+        displayName: extra?.displayName || '',
         firstName: extra?.firstName || extra?.displayName?.split(' ')[0] || '',
-        lastName: extra?.lastName || extra?.displayName?.split(' ').slice(1).join(' ') || ''
+        lastName: extra?.lastName || extra?.displayName?.split(' ').slice(1).join(' ') || '',
+        program: extra?.program || '',
+        motivation: extra?.motivation || ''
       })
     });
 

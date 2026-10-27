@@ -46,7 +46,14 @@ export const StudentSubmissionsView: React.FC<StudentSubmissionsViewProps> = ({
         (item.titre && item.titre.toLowerCase().includes(searchTerm.toLowerCase())) ||
         (item.domaineRecherche && item.domaineRecherche.toLowerCase().includes(searchTerm.toLowerCase()));
 
-      const matchStatus = statusFilter === 'ALL' || item.statut === statusFilter;
+      const upper = String(item.statut || '').toUpperCase();
+      const matchStatus =
+        statusFilter === 'ALL' ||
+        upper === statusFilter ||
+        (statusFilter === 'EN_ATTENTE' && (upper === 'PENDING' || upper === 'ANALYZING')) ||
+        (statusFilter === 'EN_REVISION' && upper === 'UNDER_REVIEW') ||
+        (statusFilter === 'ACCEPTEE' && upper === 'ACCEPTED') ||
+        (statusFilter === 'REJETEE' && upper === 'REJECTED');
 
       return matchSearch && matchStatus;
     });
@@ -127,7 +134,9 @@ export const StudentSubmissionsView: React.FC<StudentSubmissionsViewProps> = ({
             const isDocFailed = docStatus === 'FAILED';
             const isRetrying = retryingId === (item.documentId || item.publicationId || item.id);
             const isDeleting = deletingId === item.id;
-            const canDelete = item.statut === 'EN_ATTENTE' || item.statut === 'PENDING';
+            const canDelete = ['EN_ATTENTE', 'PENDING', 'UNDER_REVIEW'].includes(
+              String(item.statut || '').toUpperCase()
+            );
 
             return (
               <div

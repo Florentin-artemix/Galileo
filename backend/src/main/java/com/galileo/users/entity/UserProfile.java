@@ -3,6 +3,8 @@ package com.galileo.users.entity;
 import com.galileo.auth.entity.User;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDateTime;
 
@@ -54,7 +56,8 @@ public class UserProfile {
     @Column(name = "level", length = 50)
     private String level;
 
-    @Column(name = "interests", columnDefinition = "text[]")
+    @JdbcTypeCode(SqlTypes.ARRAY)
+    @Column(name = "interests")
     private String[] interests;
 
     @Column(name = "website_url", length = 500)

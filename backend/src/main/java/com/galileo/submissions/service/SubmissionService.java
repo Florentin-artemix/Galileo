@@ -213,8 +213,9 @@ public class SubmissionService {
             throw new ForbiddenException("Vous ne pouvez supprimer que vos propres soumissions");
         }
 
-        if (submission.getStatus() != SubmissionStatus.PENDING) {
-            throw new BadRequestException("Seules les soumissions en attente peuvent être retirées");
+        if (submission.getStatus() != SubmissionStatus.PENDING
+                && submission.getStatus() != SubmissionStatus.UNDER_REVIEW) {
+            throw new BadRequestException("Seules les soumissions en attente de décision peuvent être retirées");
         }
 
         submissionRepository.delete(submission);
@@ -222,7 +223,12 @@ public class SubmissionService {
 
     @Transactional(readOnly = true)
     public List<Map<String, Object>> getPendingSubmissions() {
-        return submissionRepository.findByStatus(SubmissionStatus.PENDING).stream()
+        List<SubmissionStatus> awaitingDecision = List.of(
+                SubmissionStatus.PENDING,
+                SubmissionStatus.ANALYZING,
+                SubmissionStatus.UNDER_REVIEW
+        );
+        return submissionRepository.findByStatusInOrderBySubmittedAtDesc(awaitingDecision).stream()
                 .map(this::toSubmissionMap)
                 .toList();
     }
@@ -237,7 +243,11 @@ public class SubmissionService {
 
     @Transactional(readOnly = true)
     public Map<String, Number> getStatistics() {
-        long pending = submissionRepository.countByStatus(SubmissionStatus.PENDING);
+        long pending = submissionRepository.countByStatusIn(List.of(
+                SubmissionStatus.PENDING,
+                SubmissionStatus.ANALYZING,
+                SubmissionStatus.UNDER_REVIEW
+        ));
         long analyzing = submissionRepository.countByStatus(SubmissionStatus.ANALYZING);
         long underReview = submissionRepository.countByStatus(SubmissionStatus.UNDER_REVIEW);
         long accepted = submissionRepository.countByStatus(SubmissionStatus.ACCEPTED);
@@ -425,14 +435,42 @@ public class SubmissionService {
         }
     }
 
+    private static final Map<String, String> STANDARD_DOMAINS = Map.of(
+            "genie-informatique", "Génie Informatique & Intelligence Artificielle",
+            "genie-electrique", "Génie Électrique & Énergie",
+            "genie-mecanique", "Génie Mécanique & Matériaux",
+            "genie-des-mines", "Génie des Mines & Géologie",
+            "genie-metallurgie", "Génie des Procédés & Métallurgie",
+            "genie-civil", "Génie Civil & Environnement"
+    );
+
     private Domain resolveDomain(String nameOrSlug) {
         if (nameOrSlug == null || nameOrSlug.trim().isEmpty()) {
             throw new BadRequestException("Le domaine de recherche est obligatoire");
         }
         String clean = nameOrSlug.trim();
+        String slugKey = clean.toLowerCase(Locale.ROOT);
         return domainRepository.findBySlug(clean)
+                .or(() -> domainRepository.findBySlug(slugKey))
                 .or(() -> domainRepository.findByNameIgnoreCase(clean))
-                .orElseThrow(() -> new BadRequestException("Le domaine de recherche sélectionné est inconnu"));
+                .orElseGet(() -> {
+                    String canonicalName = STANDARD_DOMAINS.get(slugKey);
+                    if (canonicalName != null) {
+                        return domainRepository.save(Domain.builder()
+                                .slug(slugKey)
+                                .name(canonicalName)
+                                .build());
+                    }
+                    for (Map.Entry<String, String> entry : STANDARD_DOMAINS.entrySet()) {
+                        if (entry.getValue().equalsIgnoreCase(clean)) {
+                            return domainRepository.save(Domain.builder()
+                                    .slug(entry.getKey())
+                                    .name(entry.getValue())
+                                    .build());
+                        }
+                    }
+                    throw new BadRequestException("Le domaine de recherche sélectionné est inconnu");
+                });
     }
 
     private String generateSlug(String input) {
@@ -479,6 +517,7 @@ public class SubmissionService {
             if (!docs.isEmpty()) {
                 Document doc = docs.get(0);
                 map.put("documentId", doc.getId());
+                map.put("urlPdf", "/api/documents/" + doc.getId() + "/download");
                 map.put("documentStatus", doc.getProcessingStatus().name());
                 map.put("processingStatus", doc.getProcessingStatus().name());
                 map.put("processingError", doc.getProcessingError());

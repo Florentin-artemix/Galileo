@@ -127,7 +127,11 @@ const StudentDashboard: React.FC = () => {
             rejetees: rejeteesCount,
             totalPublications: publications.length,
           }}
-          pending={soumissions.filter((s) => s.statut === 'EN_ATTENTE')}
+          pending={soumissions.filter((s) =>
+            ['EN_ATTENTE', 'PENDING', 'ANALYZING', 'UNDER_REVIEW', 'EN_REVISION'].includes(
+              String(s.statut || '').toUpperCase()
+            )
+          )}
           publications={publications}
           onNavigateTab={setTab}
           role={role}

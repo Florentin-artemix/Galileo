@@ -171,6 +171,8 @@ const AuthPage: React.FC = () => {
         setError(t.error_invalid_credentials);
       } else if (err.code === 'auth/weak-password') {
         setError(t.error_weak_password);
+      } else if (err?.message && typeof err.message === 'string') {
+        setError(err.message);
       } else {
         setError(t.error_generic);
       }

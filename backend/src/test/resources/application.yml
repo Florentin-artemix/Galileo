@@ -2,7 +2,7 @@ spring:
   application:
     name: galileo-test
   datasource:
-    url: jdbc:h2:mem:galileotest;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE;MODE=PostgreSQL
+    url: jdbc:h2:mem:galileotest;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE;MODE=PostgreSQL;INIT=CREATE DOMAIN IF NOT EXISTS vector AS VARCHAR\;CREATE DOMAIN IF NOT EXISTS jsonb AS JSON
     driver-class-name: org.h2.Driver
     username: sa
     password: 

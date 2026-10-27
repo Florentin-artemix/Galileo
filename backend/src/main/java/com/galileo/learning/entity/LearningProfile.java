@@ -3,6 +3,8 @@ package com.galileo.learning.entity;
 import com.galileo.auth.entity.User;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDateTime;
 
@@ -23,13 +25,15 @@ public class LearningProfile {
     @JoinColumn(name = "user_id", unique = true, nullable = false)
     private User user;
 
-    @Column(name = "studied_topics", columnDefinition = "text[]")
+    @JdbcTypeCode(SqlTypes.ARRAY)
+    @Column(name = "studied_topics")
     private String[] studiedTopics;
 
     @Column(name = "estimated_level", length = 50)
     private String estimatedLevel;
 
-    @Column(name = "interests", columnDefinition = "text[]")
+    @JdbcTypeCode(SqlTypes.ARRAY)
+    @Column(name = "interests")
     private String[] interests;
 
     @Column(name = "created_at", updatable = false)

@@ -80,20 +80,23 @@ const AdminDashboard: React.FC = () => {
   ) => {
     try {
       if (statut === 'ACCEPTEE') {
-        await soumissionsService.validerSoumission(id);
+        await soumissionsService.validerSoumission(id, commentaire || 'Validé par l\'administration');
         setSuccess('Soumission validée et intégrée aux publications');
       } else if (statut === 'REJETEE') {
-        await soumissionsService.rejeterSoumission(id);
+        await soumissionsService.rejeterSoumission(
+          id,
+          commentaire && commentaire.trim() ? commentaire.trim() : 'Soumission non conforme aux critères éditoriaux'
+        );
         setSuccess('Soumission rejetée');
       } else if (statut === 'EN_REVISION') {
-        if (!commentaire) return;
-        await soumissionsService.demanderRevisions(id, commentaire);
+        if (!commentaire || !commentaire.trim()) return;
+        await soumissionsService.demanderRevisions(id, commentaire.trim());
         setSuccess('Demande de révisions transmise à l\'auteur');
       }
       setPending((prev) => prev.filter((s) => s.id !== id));
       setTimeout(() => setSuccess(null), 3500);
     } catch (e: any) {
-      setError(e.response?.data?.message || 'Erreur lors de la mise à jour du statut');
+      setError(e.response?.data?.message || e.message || 'Erreur lors de la mise à jour du statut');
     }
   };
 

@@ -66,9 +66,10 @@ public class AuthService {
         user = userRepository.save(user);
 
         // Création automatique du profil utilisateur associé
-        String displayName = (request.getFirstName() != null ? request.getFirstName() : "") +
-                (request.getLastName() != null ? " " + request.getLastName() : "");
-        displayName = displayName.trim();
+        String displayName = request.getDisplayName() != null && !request.getDisplayName().trim().isEmpty()
+                ? request.getDisplayName().trim()
+                : ((request.getFirstName() != null ? request.getFirstName() : "") +
+                   (request.getLastName() != null ? " " + request.getLastName() : "")).trim();
         if (displayName.isEmpty()) {
             displayName = normalizedEmail.split("@")[0];
         }
@@ -78,6 +79,9 @@ public class AuthService {
                 .firstName(request.getFirstName())
                 .lastName(request.getLastName())
                 .displayName(displayName)
+                .program(request.getProgram())
+                .department(request.getProgram())
+                .bio(request.getMotivation())
                 .build();
         userProfileRepository.save(profile);
 

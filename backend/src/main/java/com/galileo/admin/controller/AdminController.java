@@ -58,6 +58,8 @@ public class AdminController {
             } catch (IllegalArgumentException e) {
                 // Si nom français
                 if ("EN_ATTENTE".equalsIgnoreCase(statut)) status = SubmissionStatus.PENDING;
+                else if ("EN_ANALYSE".equalsIgnoreCase(statut)) status = SubmissionStatus.ANALYZING;
+                else if ("EN_REVISION".equalsIgnoreCase(statut)) status = SubmissionStatus.UNDER_REVIEW;
                 else if ("ACCEPTEE".equalsIgnoreCase(statut)) status = SubmissionStatus.ACCEPTED;
                 else if ("REJETEE".equalsIgnoreCase(statut)) status = SubmissionStatus.REJECTED;
             }

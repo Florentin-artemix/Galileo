@@ -17,6 +17,7 @@ interface UsersManagementViewProps {
 }
 
 const AVAILABLE_ROLES: { value: UserRole; label: string }[] = [
+  { value: 'VIEWER', label: ROLE_LABELS.VIEWER },
   { value: 'STUDENT', label: ROLE_LABELS.STUDENT },
   { value: 'TEACHER', label: ROLE_LABELS.TEACHER },
   { value: 'RESEARCHER', label: ROLE_LABELS.RESEARCHER },
