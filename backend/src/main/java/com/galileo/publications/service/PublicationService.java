@@ -207,7 +207,10 @@ public class PublicationService {
 
         if (dto.getKeywords() != null) {
             List<PublicationKeyword> existing = keywordRepository.findByPublicationId(publication.getId());
-            keywordRepository.deleteAll(existing);
+            if (!existing.isEmpty()) {
+                keywordRepository.deleteAllInBatch(existing);
+                keywordRepository.flush();
+            }
             attachKeywords(publication, dto.getKeywords());
         }
 
@@ -396,6 +399,7 @@ public class PublicationService {
 
     private void attachKeywords(Publication publication, List<String> keywords) {
         if (keywords == null) return;
+        Set<Long> attachedKeywordIds = new HashSet<>();
         for (String kwStr : keywords) {
             if (kwStr != null && !kwStr.trim().isEmpty()) {
                 String clean = kwStr.trim();
@@ -404,6 +408,10 @@ public class PublicationService {
                                 .label(clean)
                                 .slug(generateSlug(clean))
                                 .build()));
+
+                if (keyword.getId() != null && !attachedKeywordIds.add(keyword.getId())) {
+                    continue;
+                }
 
                 PublicationKeyword pk = PublicationKeyword.builder()
                         .id(new PublicationKeywordId(publication.getId(), keyword.getId()))

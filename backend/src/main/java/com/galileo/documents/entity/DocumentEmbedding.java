@@ -25,7 +25,7 @@ public class DocumentEmbedding {
     @JoinColumn(name = "chunk_id", nullable = false)
     private DocumentChunk chunk;
 
-    @Column(name = "embedding", columnDefinition = "vector(1024)")
+    @Transient
     private PGvector embedding;
 
     @Column(name = "model", nullable = false, length = 100)

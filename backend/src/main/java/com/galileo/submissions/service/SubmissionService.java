@@ -118,8 +118,9 @@ public class SubmissionService {
             }
         }
 
-        // 5. Mots-clés
+        // 5. Mots-clés (dédoublonnés de manière insensible à la casse pour éviter la violation PK 23505)
         if (motsCles != null) {
+            Set<Long> attachedKeywordIds = new HashSet<>();
             for (String kwStr : motsCles) {
                 if (kwStr != null && !kwStr.trim().isEmpty()) {
                     String cleanKw = kwStr.trim();
@@ -128,6 +129,10 @@ public class SubmissionService {
                                     .label(cleanKw)
                                     .slug(generateSlug(cleanKw))
                                     .build()));
+
+                    if (keyword.getId() != null && !attachedKeywordIds.add(keyword.getId())) {
+                        continue;
+                    }
 
                     PublicationKeyword pk = PublicationKeyword.builder()
                             .id(new PublicationKeywordId(publication.getId(), keyword.getId()))
@@ -214,6 +219,7 @@ public class SubmissionService {
         }
 
         if (submission.getStatus() != SubmissionStatus.PENDING
+                && submission.getStatus() != SubmissionStatus.ANALYZING
                 && submission.getStatus() != SubmissionStatus.UNDER_REVIEW) {
             throw new BadRequestException("Seules les soumissions en attente de décision peuvent être retirées");
         }

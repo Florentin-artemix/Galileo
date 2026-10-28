@@ -176,13 +176,13 @@ public class SearchServiceImpl implements SearchService {
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional
     public SearchResult semanticSearch(String query, int limit) {
         return semanticSearch(query, limit, null);
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional
     public SearchResult semanticSearch(String query, int limit, CustomUserDetails currentUser) {
         if (query == null || query.trim().isEmpty()) {
             return SearchResult.builder()
@@ -240,6 +240,7 @@ public class SearchServiceImpl implements SearchService {
                 JOIN documents d ON dc.document_id = d.id
                 JOIN publications p ON d.publication_id = p.id
                 WHERE p.status = 'PUBLISHED'
+                  AND de.embedding IS NOT NULL
             """ + " " + accessClause + """
                 GROUP BY p.id
                 ORDER BY dist ASC

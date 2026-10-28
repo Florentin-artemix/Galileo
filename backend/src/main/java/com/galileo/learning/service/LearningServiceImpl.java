@@ -388,7 +388,7 @@ public class LearningServiceImpl implements LearningService {
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional
     public LearningProfileDTO getUserLearningProfile(Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Utilisateur", "id", userId));

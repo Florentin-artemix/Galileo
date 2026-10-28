@@ -830,14 +830,16 @@ public class AIServiceImpl implements AIService {
                 int end = Math.min(start + targetChunkSize, text.length());
                 String content = text.substring(start, end).trim();
                 if (!content.isEmpty()) {
-                    DocumentChunk chunk = DocumentChunk.builder()
-                            .document(doc)
-                            .chunkIndex(chunkIndex++)
-                            .content(content)
-                            .pageStart(pt.page())
-                            .pageEnd(pt.page())
-                            .tokenCount(Math.max(1, content.length() / 4))
-                            .build();
+                    final int currentIndex = chunkIndex++;
+                    DocumentChunk chunk = chunkRepository.findByDocumentIdAndChunkIndex(doc.getId(), currentIndex)
+                            .orElseGet(() -> DocumentChunk.builder()
+                                    .document(doc)
+                                    .chunkIndex(currentIndex)
+                                    .build());
+                    chunk.setContent(content);
+                    chunk.setPageStart(pt.page());
+                    chunk.setPageEnd(pt.page());
+                    chunk.setTokenCount(Math.max(1, content.length() / 4));
                     DocumentChunk saved = chunkRepository.save(chunk);
                     persisted.add(saved != null ? saved : chunk);
                 }
@@ -915,6 +917,7 @@ public class AIServiceImpl implements AIService {
                     JOIN document_chunks dc ON de.chunk_id = dc.id
                     JOIN documents d ON dc.document_id = d.id
                     WHERE d.publication_id = :pubId
+                      AND de.embedding IS NOT NULL
                     ORDER BY dist ASC
                     LIMIT 12
                 """;

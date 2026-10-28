@@ -13,6 +13,11 @@ import java.util.Optional;
 public interface ReadingHistoryRepository extends JpaRepository<ReadingHistory, Long> {
     List<ReadingHistory> findByUserIdOrderByReadAtDesc(Long userId);
     Page<ReadingHistory> findByUserIdOrderByReadAtDesc(Long userId, Pageable pageable);
-    Optional<ReadingHistory> findByUserIdAndPublicationId(Long userId, Long publicationId);
+    Optional<ReadingHistory> findFirstByUserIdAndPublicationIdOrderByReadAtDesc(Long userId, Long publicationId);
+
+    default Optional<ReadingHistory> findByUserIdAndPublicationId(Long userId, Long publicationId) {
+        return findFirstByUserIdAndPublicationIdOrderByReadAtDesc(userId, publicationId);
+    }
+
     long countByUserId(Long userId);
 }

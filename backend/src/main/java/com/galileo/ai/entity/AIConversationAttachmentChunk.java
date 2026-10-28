@@ -32,7 +32,7 @@ public class AIConversationAttachmentChunk {
     @Column(name = "content", nullable = false, columnDefinition = "TEXT")
     private String content;
 
-    @Column(name = "embedding", columnDefinition = "vector(1024)")
+    @Transient
     private PGvector embedding;
 
     @Column(name = "embedding_model", length = 100)

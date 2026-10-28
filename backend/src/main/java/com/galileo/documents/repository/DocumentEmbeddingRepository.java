@@ -7,6 +7,8 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import org.springframework.transaction.annotation.Transactional;
+
 import java.util.List;
 import java.util.Optional;
 
@@ -14,9 +16,18 @@ import java.util.Optional;
 public interface DocumentEmbeddingRepository extends JpaRepository<DocumentEmbedding, Long> {
     Optional<DocumentEmbedding> findByChunkIdAndModel(Long chunkId, String model);
     List<DocumentEmbedding> findByChunkId(Long chunkId);
+
+    @Modifying
+    @Transactional
     void deleteByChunkId(Long chunkId);
 
     @Modifying
+    @Transactional
     @Query("DELETE FROM DocumentEmbedding de WHERE de.chunk.id IN (SELECT dc.id FROM DocumentChunk dc WHERE dc.document.id = :documentId)")
     void deleteByDocumentId(@Param("documentId") Long documentId);
+
+    @Modifying
+    @Transactional
+    @Query(value = "UPDATE document_embeddings SET embedding = cast(:embedding as vector) WHERE id = :id", nativeQuery = true)
+    void updateEmbeddingVector(@Param("id") Long id, @Param("embedding") String embedding);
 }

@@ -158,7 +158,14 @@ public class DocumentProcessingService {
                                     .provider(embeddingProvider.getProviderName())
                                     .dimension(embeddingProvider.getDimension())
                                     .build();
-                            embeddingRepository.save(embedding);
+                            DocumentEmbedding savedEmbedding = embeddingRepository.save(embedding);
+                            if (savedEmbedding != null && savedEmbedding.getId() != null) {
+                                try {
+                                    embeddingRepository.updateEmbeddingVector(savedEmbedding.getId(), Arrays.toString(vector));
+                                } catch (Exception vecEx) {
+                                    log.debug("Mise à jour pgvector ignorée pour l'embedding #{}: {}", savedEmbedding.getId(), vecEx.getMessage());
+                                }
+                            }
                         }
                     }
                 }

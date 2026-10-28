@@ -146,6 +146,19 @@ public class NotificationController {
             @RequestBody Map<String, Object> body,
             @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
+        Long targetId = resolveUserId(userId, userDetails);
+        preferenceRepository.findByUserId(targetId).ifPresent(pref -> {
+            if (body != null) {
+                if (body.get("submission") instanceof Boolean b) pref.setSubmission(b);
+                if (body.get("validation") instanceof Boolean b) pref.setValidation(b);
+                if (body.get("publication") instanceof Boolean b) pref.setPublication(b);
+                if (body.get("comment") instanceof Boolean b) pref.setComment(b);
+                if (body.get("recommendation") instanceof Boolean b) pref.setRecommendation(b);
+                if (body.get("aiProcessing") instanceof Boolean b) pref.setAiProcessing(b);
+                if (body.get("followUpdate") instanceof Boolean b) pref.setFollowUpdate(b);
+                preferenceRepository.save(pref);
+            }
+        });
         return getPreferences(userId, userDetails);
     }
 

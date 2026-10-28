@@ -97,7 +97,22 @@ public class AIConversationAttachmentService {
             throw new BadRequestException("Aucun texte exploitable n'a été extrait du PDF joint.");
         }
         indexEmbeddings(chunks);
-        chunkRepository.saveAll(chunks);
+        List<AIConversationAttachmentChunk> savedChunks = chunkRepository.saveAll(chunks);
+        if (savedChunks != null) {
+            for (AIConversationAttachmentChunk chunk : savedChunks) {
+                if (chunk.getId() != null && chunk.getEmbedding() != null && chunk.getEmbeddingModel() != null) {
+                    try {
+                        chunkRepository.updateChunkEmbeddingVector(
+                                chunk.getId(),
+                                chunk.getEmbedding().toString(),
+                                chunk.getEmbeddingModel()
+                        );
+                    } catch (Exception vecEx) {
+                        log.debug("Mise à jour pgvector ignorée pour le chunk joint #{}: {}", chunk.getId(), vecEx.getMessage());
+                    }
+                }
+            }
+        }
         return toDTO(attachment);
     }
 
